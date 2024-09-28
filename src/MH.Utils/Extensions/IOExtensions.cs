@@ -49,9 +49,9 @@ public static class IOExtensions {
     return $"{doubleSize:0.##} {sizes[order]}";
   }
 
-  public static string CleanFileName(string fileName) {
+  public static string CleanFileName(string fileName, string replaceWith = "") {
     var invalidChars = new string(Path.GetInvalidFileNameChars());
     var invalidRegex = $"[{Regex.Escape(invalidChars)}]";
-    return Regex.Replace(fileName, invalidRegex, string.Empty);
+    return Regex.Replace(fileName, invalidRegex, replaceWith);
   }
 }

@@ -39,6 +39,14 @@ public class StringRange {
     }
   }
 
+  public IEnumerable<T> AsEnumerable<T>(string text, int startIdx, int endIdx, Func<string, StringRange, T> convertor) {
+    while (true) {
+      if (From(text, startIdx, endIdx) is not { } range) yield break;
+      startIdx = End;
+      yield return convertor(text, range);
+    }
+  }
+
   public int AsInt32(string text, int ifNull = 0) =>
     int.TryParse(AsString(text), out var i) ? i : ifNull;
 

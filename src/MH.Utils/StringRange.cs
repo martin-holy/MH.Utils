@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net;
 
 namespace MH.Utils;
 
@@ -43,6 +44,9 @@ public class StringRange {
 
   public string AsString(string text) =>
     text[Start..End];
+
+  public string AsHtmlDecodedString(string text) =>
+    WebUtility.HtmlDecode(AsString(text));
 
   public StringRange? From(string text, ref int searchStart, int searchEnd = -1) {
     if (!Found(text, searchStart, searchEnd)) return null;

@@ -8,10 +8,13 @@ using System.Threading.Tasks;
 namespace MH.Utils;
 
 public static class Net {
-  public static async Task DownloadAndSaveFile(string url, string filePath) {
+  public static Task DownloadAndSaveFile(string url, string filePath) =>
+    DownloadAndSaveFile(url, filePath, CancellationToken.None);
+
+  public static async Task DownloadAndSaveFile(string url, string filePath, CancellationToken token) {
     using var client = new HttpClient();
-    var bytes = await client.GetByteArrayAsync(url).ConfigureAwait(false);
-    await File.WriteAllBytesAsync(filePath, bytes).ConfigureAwait(false);
+    var bytes = await client.GetByteArrayAsync(url, token).ConfigureAwait(false);
+    await File.WriteAllBytesAsync(filePath, bytes, token).ConfigureAwait(false);
   }
 
   public static Task<string?> GetWebPageContent(string url, string language = "en") =>

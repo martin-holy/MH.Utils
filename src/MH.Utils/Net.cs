@@ -14,6 +14,9 @@ public static class Net {
     await File.WriteAllBytesAsync(filePath, bytes).ConfigureAwait(false);
   }
 
+  public static Task<string?> GetWebPageContent(string url, string language = "en") =>
+    GetWebPageContent(url, CancellationToken.None, language);
+
   public static async Task<string?> GetWebPageContent(string url, CancellationToken token, string language = "en") {
     using var client = new HttpClient();
     client.DefaultRequestHeaders.Add("Accept-Encoding", "gzip");

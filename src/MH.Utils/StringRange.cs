@@ -32,7 +32,7 @@ public class StringRange {
     return AsEnumerable(() => innerRange.From(text, ref idx, End));
   }
 
-  public IEnumerable<T> AsEnumerable<T>(Func<T> func) {
+  public IEnumerable<T> AsEnumerable<T>(Func<T?> func) {
     while (true) {
       if (func() is not { } value) yield break;
       yield return value;

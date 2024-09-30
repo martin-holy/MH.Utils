@@ -4,30 +4,22 @@ using System.Net;
 
 namespace MH.Utils;
 
-public class StringRange {
+public class StringRange(string startString) {
   public delegate T ClosedConvertorFunc<out T>(string text, StringRange range);
   public delegate T OpenConvertorFunc<out T>(string text, StringRange range, out int rangeEnd);
 
+  public string StartString { get; init; } = startString;
   public string? StartEndString { get; init; }
   public string? EndString { get; init; }
   public int Start { get; private set; }
   public int End { get; set; }
   public StringComparison ComparisonType { get; init; } = StringComparison.OrdinalIgnoreCase;
 
-  public StringRange(string startString) {
-    StartString = startString;
-  }
+  public StringRange(string startString, string endString) :
+    this(startString) => EndString = endString;
 
-  public StringRange(string startString, string endString) {
-    StartString = startString;
-    EndString = endString;
-  }
-
-  public StringRange(string startString, string startEndString, string endString) {
-    StartString = startString;
-    StartEndString = startEndString;
-    EndString = endString;
-  }
+  public StringRange(string startString, string startEndString, string endString) :
+    this(startString, endString) => StartEndString = startEndString;
 
   public IEnumerable<StringRange?> AsEnumerable(string text, StringRange innerRange) {
     var idx = Start;
@@ -49,7 +41,7 @@ public class StringRange {
       if (From(text, startIdx, endIdx) is not { } range
           || convertor(text, range) is not { } item)
         yield break;
-      
+
       startIdx = End;
       yield return item;
     }
@@ -91,7 +83,7 @@ public class StringRange {
     Found(text, range.Start, range.End + 1) ? this : null;
 
   public bool Found(string text, int searchStart, int searchEnd = -1) {
-    var count = GetCountForIndexOf(text, searchStart, searchEnd);
+    var count = _getCountForIndexOf(text, searchStart, searchEnd);
 
     // search start
     Start = text.IndexOf(StartString, searchStart, count, ComparisonType);
@@ -100,7 +92,7 @@ public class StringRange {
 
     // optionally search for start end
     if (!string.IsNullOrEmpty(StartEndString)) {
-      count = GetCountForIndexOf(text, Start, searchEnd);
+      count = _getCountForIndexOf(text, Start, searchEnd);
       Start = text.IndexOf(StartEndString, Start, count, ComparisonType);
       if (Start == -1) return false;
       Start += StartEndString.Length;
@@ -111,7 +103,7 @@ public class StringRange {
       End = searchEnd == -1 ? text.Length - 1 : searchEnd;
     }
     else {
-      count = GetCountForIndexOf(text, Start, searchEnd);
+      count = _getCountForIndexOf(text, Start, searchEnd);
       End = text.IndexOf(EndString, Start, count, ComparisonType);
       if (End == -1) return false;
     }
@@ -119,6 +111,6 @@ public class StringRange {
     return true;
   }
 
-  private static int GetCountForIndexOf(string text, int searchStart, int searchEnd = -1) =>
+  private static int _getCountForIndexOf(string text, int searchStart, int searchEnd = -1) =>
     searchEnd == -1 ? text.Length - searchStart : searchEnd - searchStart;
 }

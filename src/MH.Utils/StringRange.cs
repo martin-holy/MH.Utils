@@ -9,7 +9,7 @@ public class StringRange {
   public string? StartEndString { get; init; }
   public string? EndString { get; init; }
   public int Start { get; private set; }
-  public int End { get; private set; }
+  public int End { get; set; }
   public StringComparison ComparisonType { get; init; } = StringComparison.OrdinalIgnoreCase;
 
   public StringRange(string startString) {
@@ -39,11 +39,23 @@ public class StringRange {
     }
   }
 
-  public IEnumerable<T> AsEnumerable<T>(string text, int startIdx, int endIdx, Func<string, StringRange, T> convertor) {
+  /// <summary>
+  /// Don't forget to set StringRange.End in convertor to be able to move to next section if StringRange doesn't have EndString!
+  /// </summary>
+  public IEnumerable<T> AsEnumerable<T>(string text, int startIdx, Func<string, StringRange, T?> convertor) =>
+    AsEnumerable(text, startIdx, -1, convertor);
+
+  /// <summary>
+  /// Don't forget to set StringRange.End in convertor to be able to move to next section if StringRange doesn't have EndString!
+  /// </summary>
+  public IEnumerable<T> AsEnumerable<T>(string text, int startIdx, int endIdx, Func<string, StringRange, T?> convertor) {
     while (true) {
-      if (From(text, startIdx, endIdx) is not { } range) yield break;
+      if (From(text, startIdx, endIdx) is not { } range
+          || convertor(text, range) is not { } item)
+        yield break;
+      
       startIdx = End;
-      yield return convertor(text, range);
+      yield return item;
     }
   }
 

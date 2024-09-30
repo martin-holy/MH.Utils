@@ -5,7 +5,9 @@ using System.Net;
 namespace MH.Utils;
 
 public class StringRange {
-  public string StartString { get; init; }
+  public delegate T ClosedConvertorFunc<out T>(string text, StringRange range);
+  public delegate T OpenConvertorFunc<out T>(string text, StringRange range, out int rangeEnd);
+
   public string? StartEndString { get; init; }
   public string? EndString { get; init; }
   public int Start { get; private set; }
@@ -39,22 +41,30 @@ public class StringRange {
     }
   }
 
-  /// <summary>
-  /// Don't forget to set StringRange.End in convertor to be able to move to next section if StringRange doesn't have EndString!
-  /// </summary>
-  public IEnumerable<T> AsEnumerable<T>(string text, int startIdx, Func<string, StringRange, T?> convertor) =>
+  public IEnumerable<T> AsEnumerable<T>(string text, int startIdx, ClosedConvertorFunc<T?> convertor) =>
     AsEnumerable(text, startIdx, -1, convertor);
 
-  /// <summary>
-  /// Don't forget to set StringRange.End in convertor to be able to move to next section if StringRange doesn't have EndString!
-  /// </summary>
-  public IEnumerable<T> AsEnumerable<T>(string text, int startIdx, int endIdx, Func<string, StringRange, T?> convertor) {
+  public IEnumerable<T> AsEnumerable<T>(string text, int startIdx, int endIdx, ClosedConvertorFunc<T?> convertor) {
     while (true) {
       if (From(text, startIdx, endIdx) is not { } range
           || convertor(text, range) is not { } item)
         yield break;
       
       startIdx = End;
+      yield return item;
+    }
+  }
+
+  public IEnumerable<T> AsEnumerable<T>(string text, int startIdx, OpenConvertorFunc<T?> convertor) =>
+    AsEnumerable(text, startIdx, -1, convertor);
+
+  public IEnumerable<T> AsEnumerable<T>(string text, int startIdx, int endIdx, OpenConvertorFunc<T?> convertor) {
+    while (true) {
+      if (From(text, startIdx, endIdx) is not { } range
+          || convertor(text, range, out var rangeEnd) is not { } item)
+        yield break;
+      
+      startIdx = rangeEnd;
       yield return item;
     }
   }

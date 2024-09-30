@@ -78,7 +78,7 @@ public class StringRange {
     Found(text, searchStart, searchEnd) ? this : null;
 
   public StringRange? From(string text, StringRange range) =>
-    Found(text, range.Start, range.End) ? this : null;
+    Found(text, range.Start, range.End + 1) ? this : null;
 
   public bool Found(string text, int searchStart, int searchEnd = -1) {
     var count = GetCountForIndexOf(text, searchStart, searchEnd);

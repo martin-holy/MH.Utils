@@ -13,8 +13,11 @@ public static class Net {
 
   public static async Task DownloadAndSaveFile(string url, string filePath, CancellationToken token) {
     using var client = new HttpClient();
-    var bytes = await client.GetByteArrayAsync(url, token).ConfigureAwait(false);
-    await File.WriteAllBytesAsync(filePath, bytes, token).ConfigureAwait(false);
+    using var response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
+    response.EnsureSuccessStatusCode();
+    await using var stream = await response.Content.ReadAsStreamAsync(token).ConfigureAwait(false);
+    await using var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 81920, useAsync: true);
+    await stream.CopyToAsync(fileStream, 81920, token).ConfigureAwait(false);
   }
 
   public static Task<string?> GetWebPageContent(string url, string language = "en") =>

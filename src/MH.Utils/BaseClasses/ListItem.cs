@@ -6,32 +6,27 @@ using System.Linq;
 
 namespace MH.Utils.BaseClasses;
 
-public class ListItem : ObservableObject, IListItem {
-  protected BitVector32 Bits = new(0);
+public class ListItem(string? icon, string name) : ObservableObject, IListItem {
+  protected BitVector32 _bits = new(0);
 
-  private string? _icon;
-  private string _name;
+  private string? _icon = icon;
+  private string _name = name;
 
-  public bool IsSelected { get => Bits[BitsMasks.IsSelected]; set { Bits[BitsMasks.IsSelected] = value; OnPropertyChanged(); } }
-  public bool IsHidden { get => Bits[BitsMasks.IsHidden]; set { Bits[BitsMasks.IsHidden] = value; OnPropertyChanged(); } }
-  public bool IsIconHidden { get => Bits[BitsMasks.IsIconHidden]; set { Bits[BitsMasks.IsIconHidden] = value; OnPropertyChanged(); } }
-  public bool IsNameHidden { get => Bits[BitsMasks.IsNameHidden]; set { Bits[BitsMasks.IsNameHidden] = value; OnPropertyChanged(); } }
+  public bool IsSelected { get => _bits[BitsMasks.IsSelected]; set { _bits[BitsMasks.IsSelected] = value; OnPropertyChanged(); } }
+  public bool IsHidden { get => _bits[BitsMasks.IsHidden]; set { _bits[BitsMasks.IsHidden] = value; OnPropertyChanged(); } }
+  public bool IsIconHidden { get => _bits[BitsMasks.IsIconHidden]; set { _bits[BitsMasks.IsIconHidden] = value; OnPropertyChanged(); } }
+  public bool IsNameHidden { get => _bits[BitsMasks.IsNameHidden]; set { _bits[BitsMasks.IsNameHidden] = value; OnPropertyChanged(); } }
   public string? Icon { get => _icon; set { _icon = value; OnPropertyChanged(); } }
   public string Name { get => _name; set { _name = value; OnPropertyChanged(); } }
   public object? Data { get; set; }
-
-  public ListItem(string? icon, string name) {
-    Icon = icon;
-    _name = name;
-  }
 
   public ListItem(string? icon, string name, object data) : this(icon, name) {
     Data = data;
   }
 }
 
-public class ListItem<T> : ListItem {
-  private T _content;
+public class ListItem<T>(T content) : ListItem(null, string.Empty) {
+  private T _content = content;
 
   public T Content {
     get => _content;
@@ -40,10 +35,6 @@ public class ListItem<T> : ListItem {
       _content = value;
       OnPropertyChanged();
     }
-  }
-
-  public ListItem(T content) : base(null, string.Empty) {
-    _content = content;
   }
 }
 

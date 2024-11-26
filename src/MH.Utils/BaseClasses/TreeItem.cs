@@ -10,10 +10,10 @@ public class TreeItem : ListItem, ITreeItem {
   public ITreeItem? Parent { get => _parent; set { _parent = value; OnPropertyChanged(); } }
   public ExtObservableCollection<ITreeItem> Items { get; } = [];
   public bool IsExpanded {
-    get => Bits[BitsMasks.IsExpanded];
+    get => _bits[BitsMasks.IsExpanded];
     set {
-      if (Bits[BitsMasks.IsExpanded] == value) return;
-      Bits[BitsMasks.IsExpanded] = value;
+      if (_bits[BitsMasks.IsExpanded] == value) return;
+      _bits[BitsMasks.IsExpanded] = value;
       OnIsExpandedChanged(value);
       OnPropertyChanged();
     }

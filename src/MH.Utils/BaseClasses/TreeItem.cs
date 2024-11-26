@@ -14,7 +14,7 @@ public class TreeItem : ListItem, ITreeItem {
     set {
       if (_bits[BitsMasks.IsExpanded] == value) return;
       _bits[BitsMasks.IsExpanded] = value;
-      OnIsExpandedChanged(value);
+      _onIsExpandedChanged(value);
       OnPropertyChanged();
     }
   }
@@ -25,7 +25,7 @@ public class TreeItem : ListItem, ITreeItem {
 
   public TreeItem(object data) : base(null, string.Empty, data) { }
 
-  protected virtual void OnIsExpandedChanged(bool value) { }
+  protected virtual void _onIsExpandedChanged(bool value) { }
 
   public void AddItems(IEnumerable<ITreeItem> items) =>
     Items.AddItems(items.ToList(), item => item.Parent = this);

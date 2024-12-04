@@ -21,11 +21,12 @@ public static class StringExtensions {
   public static bool TryParseDoubleUniversal(this string s, out double result) {
     result = 0.0;
     if (string.IsNullOrEmpty(s)) return false;
-
     var clean = new string(s.Where(x => char.IsDigit(x) || x == '.' || x == ',' || x == '-').ToArray());
-    var iOfSep = clean.LastIndexOfAny(new[] { ',', '.' });
-    var partA = clean.Substring(0, iOfSep).Replace(",", string.Empty).Replace(".", string.Empty);
-    var partB = clean.Substring(iOfSep + 1);
+    if (clean.Length < 3) return false;
+    var iOfSep = clean.LastIndexOfAny([',', '.']);
+    if (iOfSep < 1) return false;
+    var partA = clean[..iOfSep].Replace(",", string.Empty).Replace(".", string.Empty);
+    var partB = clean[(iOfSep + 1)..];
     if (!int.TryParse(partA, out var intA)) return false;
     if (!int.TryParse(partB, out var intB)) return false;
     if (intA < 0) intB *= -1;

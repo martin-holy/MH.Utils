@@ -6,9 +6,9 @@ public abstract class RelayCommandBase : ObservableObject {
   public string? Icon { get; set; }
   public string? Text { get; set; }
 
-  protected Func<bool>? CanExecuteFunc;
+  protected Func<bool>? _canExecuteFunc;
 
-  public static event EventHandler CanExecuteChangedEvent = delegate { };
+  public static event EventHandler? CanExecuteChangedEvent;
 
   public event EventHandler? CanExecuteChanged {
     add => CanExecuteChangedEvent += value;
@@ -22,12 +22,12 @@ public abstract class RelayCommandBase : ObservableObject {
     Text = text;
   }
 
-  public static void RaiseCanExecuteChanged() =>
-    RaiseCanExecuteChanged(null, EventArgs.Empty);
+  protected void _raiseCanExecuteChanged() =>
+    RaiseCanExecuteChanged(this, EventArgs.Empty);
 
   public static void RaiseCanExecuteChanged(object? o, EventArgs e) =>
-    CanExecuteChangedEvent(o, e);
+    CanExecuteChangedEvent?.Invoke(o, e);
 
   public virtual bool CanExecute(object? parameter) =>
-    CanExecuteFunc == null || CanExecuteFunc();
+    _canExecuteFunc == null || _canExecuteFunc();
 }

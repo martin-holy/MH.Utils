@@ -53,4 +53,7 @@ public static class StringExtensions {
 
   public static string ReplaceNewLineChars(this string text, string with) =>
     text.Replace("\r\n", with).Replace("\n", with).Replace("\r", with);
+
+  public static double? ToDouble(this string? value, IFormatProvider provider) =>
+    string.IsNullOrEmpty(value) ? null : double.Parse(value, provider);
 }

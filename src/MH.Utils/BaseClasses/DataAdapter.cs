@@ -36,13 +36,6 @@ public class DataAdapter : IDataAdapter {
 
   public virtual void Load() => throw new NotImplementedException();
   public virtual void Save() => throw new NotImplementedException();
-
-  public double? ToDouble(string s) =>
-    string.IsNullOrEmpty(s) ? null : double.Parse(s, CultureInfo.InvariantCulture);
-
-  public string ToString(double? d) =>
-    d == null ? string.Empty : ((double)d).ToString(CultureInfo.InvariantCulture);
-
   public virtual int GetNextId() => ++MaxId;
 }
 

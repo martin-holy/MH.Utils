@@ -10,4 +10,7 @@ public static class DoubleExtensions {
 
     return Math.Round(Math.Round(value / maxDigits, 0) * maxDigits, precision);
   }
+
+  public static string ToString(this double? value, IFormatProvider provider) =>
+    value == null ? string.Empty : ((double)value).ToString(provider);
 }

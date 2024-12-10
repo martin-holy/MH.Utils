@@ -34,7 +34,7 @@ public class OneToManyMultiDataAdapter<TA, TB> : DataAdapter<KeyValuePair<TA, Li
   public override KeyValuePair<TA, List<TB>> ItemCreate(KeyValuePair<TA, List<TB>> item) {
     All.Add(item.Key, item.Value);
     IsModified = true;
-    RaiseItemCreated(item);
+    _raiseItemCreated(item);
     OnItemCreated(this, item);
     return item;
   }
@@ -42,11 +42,11 @@ public class OneToManyMultiDataAdapter<TA, TB> : DataAdapter<KeyValuePair<TA, Li
   public override void ItemDelete(KeyValuePair<TA, List<TB>> item, bool singleDelete = true) {
     All.Remove(item.Key);
     IsModified = true;
-    RaiseItemDeleted(item);
+    _raiseItemDeleted(item);
 
     if (!singleDelete) return;
     var items = new[] { item };
-    RaiseItemsDeleted(items);
+    _raiseItemsDeleted(items);
     OnItemDeleted(this, item);
     OnItemsDeleted(this, items);
   }

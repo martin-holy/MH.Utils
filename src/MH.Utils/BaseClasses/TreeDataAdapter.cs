@@ -50,7 +50,7 @@ public class TreeDataAdapter<T> : TableDataAdapter<T>, ITreeDataAdapter<T> where
   public virtual void ItemDelete(ITreeItem item) {
     All.Remove((T)item);
     IsModified = true;
-    RaiseItemDeleted((T)item);
+    _raiseItemDeleted((T)item);
     OnItemDeleted(this, (T)item);
   }
 
@@ -60,7 +60,7 @@ public class TreeDataAdapter<T> : TableDataAdapter<T>, ITreeDataAdapter<T> where
     foreach (var treeItem in items)
       ItemDelete(treeItem);
 
-    RaiseItemsDeleted(items);
+    _raiseItemsDeleted(items);
     OnItemsDeleted(this, items);
   }
 

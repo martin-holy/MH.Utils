@@ -1,7 +1,6 @@
 ﻿using MH.Utils.Interfaces;
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
 using System.Linq;
 
@@ -9,7 +8,7 @@ namespace MH.Utils.BaseClasses;
 
 public class DataAdapter : IDataAdapter {
   private bool _isModified;
-  protected string? CurrentVolumeSerialNumber;
+  protected string? _currentVolumeSerialNumber;
 
   public SimpleDB DB { get; }
   public string Name { get; }
@@ -42,17 +41,17 @@ public class DataAdapter : IDataAdapter {
 public class DataAdapter<T> : DataAdapter {
   public HashSet<T> All { get; set; } = [];
 
-  public event EventHandler<T> ItemCreatedEvent = delegate { };
-  public event EventHandler<T> ItemUpdatedEvent = delegate { };
-  public event EventHandler<T> ItemDeletedEvent = delegate { };
-  public event EventHandler<IList<T>> ItemsDeletedEvent = delegate { };
+  public event EventHandler<T>? ItemCreatedEvent;
+  public event EventHandler<T>? ItemUpdatedEvent;
+  public event EventHandler<T>? ItemDeletedEvent;
+  public event EventHandler<IList<T>>? ItemsDeletedEvent;
 
   public DataAdapter(SimpleDB db, string name, int propsCount) : base(db, name, propsCount) { }
 
-  protected void RaiseItemCreated(T item) => ItemCreatedEvent(this, item);
-  protected void RaiseItemUpdated(T item) => ItemUpdatedEvent(this, item);
-  protected void RaiseItemDeleted(T item) => ItemDeletedEvent(this, item);
-  protected void RaiseItemsDeleted(IList<T> items) => ItemsDeletedEvent(this, items);
+  protected void _raiseItemCreated(T item) => ItemCreatedEvent?.Invoke(this, item);
+  protected void _raiseItemUpdated(T item) => ItemUpdatedEvent?.Invoke(this, item);
+  protected void _raiseItemDeleted(T item) => ItemDeletedEvent?.Invoke(this, item);
+  protected void _raiseItemsDeleted(IList<T> items) => ItemsDeletedEvent?.Invoke(this, items);
 
   protected virtual void OnItemCreated(object sender, T item) { }
   protected virtual void OnItemUpdated(object sender, T item) { }
@@ -76,7 +75,7 @@ public class DataAdapter<T> : DataAdapter {
 
   public void LoadDriveRelated() {
     foreach (var drive in Drives.SerialNumbers) {
-      CurrentVolumeSerialNumber = drive.Value;
+      _currentVolumeSerialNumber = drive.Value;
       SimpleDB.LoadFromFile(ParseLine, DB.GetDBFilePath(drive.Key, Name));
     }
   }
@@ -123,7 +122,7 @@ public class DataAdapter<T> : DataAdapter {
   public virtual T ItemCreate(T item) {
     All.Add(item);
     IsModified = true;
-    RaiseItemCreated(item);
+    _raiseItemCreated(item);
     OnItemCreated(this, item);
     return item;
   }
@@ -136,13 +135,13 @@ public class DataAdapter<T> : DataAdapter {
 
     All.Remove(item);
     IsModified = true;
-    RaiseItemDeleted(item);
+    _raiseItemDeleted(item);
   }
 
   public virtual void ItemsDelete(IList<T>? items) {
     if (items == null || items.Count == 0) return;
     foreach (var item in items) ItemDelete(item, false);
-    RaiseItemsDeleted(items);
+    _raiseItemsDeleted(items);
     OnItemsDeleted(this, items);
     foreach (var item in items) OnItemDeleted(this, item);
   }

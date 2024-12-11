@@ -6,7 +6,8 @@ using System.Linq;
 
 namespace MH.Utils.BaseClasses;
 
-public class TableDataAdapter<T> : DataAdapter<T>, ITableDataAdapter where T : class {
+public class TableDataAdapter<T>(SimpleDB db, string name, int propsCount)
+  : DataAdapter<T>(db, name, propsCount), ITableDataAdapter where T : class {
   private bool _areTablePropsModified;
   private Dictionary<int, int>? _notFoundIds;
 
@@ -14,34 +15,29 @@ public class TableDataAdapter<T> : DataAdapter<T>, ITableDataAdapter where T : c
     get => _areTablePropsModified;
     set {
       _areTablePropsModified = value;
-      if (value)
-        DB.AddChange();
+      if (value) DB.AddChange();
     }
   }
 
-  public string TablePropsFilePath { get; }
-  public Dictionary<string, string> TableProps { get; } = new();
+  protected string _tablePropsFilePath = Path.Combine("db", $"{name}_props.csv");
+  protected Dictionary<string, string> _tableProps = new();
   public Dictionary<int, T> AllDict { get; } = [];
-  public List<(T, string[])> AllCsv { get; } = [];
+  protected List<(T, string[])> _allCsv = [];
 
-  public TableDataAdapter(SimpleDB db, string name, int propsCount) : base(db, name, propsCount) {
-    TablePropsFilePath = Path.Combine("db", $"{name}_props.csv");
-  }
-
-  public virtual void PropsToCsv() { }
+  protected virtual void _propsToCsv() { }
   public virtual void LinkReferences() { }
 
   public void Clear() {
     All = AllDict.Values.ToHashSet();
     AllDict.Clear();
     AllDict.TrimExcess(0);
-    AllCsv.Clear();
-    AllCsv.TrimExcess();
+    _allCsv.Clear();
+    _allCsv.TrimExcess();
   }
 
   protected override void _addItem(T item, string[] props) {
     AllDict.Add(item.GetHashCode(), item);
-    AllCsv.Add(new(item, props));
+    _allCsv.Add(new(item, props));
   }
 
   public void LoadProps() =>
@@ -50,14 +46,14 @@ public class TableDataAdapter<T> : DataAdapter<T>, ITableDataAdapter where T : c
         var prop = line.Split('|');
         if (prop.Length != 2)
           throw new ArgumentException("Incorrect number of values.", line);
-        TableProps.Add(prop[0], prop[1]);
-      }, TablePropsFilePath);
+        _tableProps.Add(prop[0], prop[1]);
+      }, _tablePropsFilePath);
 
   public void SaveProps() {
-    PropsToCsv();
-    if (TableProps.Count == 0) return;
+    _propsToCsv();
+    if (_tableProps.Count == 0) return;
 
-    if (SimpleDB.SaveToFile(TableProps.Select(x => $"{x.Key}|{x.Value}"), x => x, TablePropsFilePath))
+    if (SimpleDB.SaveToFile(_tableProps.Select(x => $"{x.Key}|{x.Value}"), x => x, _tablePropsFilePath))
       AreTablePropsModified = false;
   }
 
@@ -93,9 +89,9 @@ public class TableDataAdapter<T> : DataAdapter<T>, ITableDataAdapter where T : c
   }
 
   public List<T>? LinkList(string csv, Func<int, T>? getNotFoundRecord, IDataAdapter seeker) =>
-    IdToRecord<T>(csv, AllDict, notFoundId => ResolveNotFoundRecord(notFoundId, getNotFoundRecord, seeker));
+    IdToRecord<T>(csv, AllDict, notFoundId => _resolveNotFoundRecord(notFoundId, getNotFoundRecord, seeker));
 
-  public T? ResolveNotFoundRecord(int notFoundId, Func<int, T>? getNotFoundRecord, IDataAdapter seeker) {
+  protected T? _resolveNotFoundRecord(int notFoundId, Func<int, T>? getNotFoundRecord, IDataAdapter seeker) {
     if (getNotFoundRecord == null) return null;
     _notFoundIds ??= new();
     seeker.IsModified = true;

@@ -22,20 +22,20 @@ public class OneToManyMultiDataAdapter<TA, TB> : DataAdapter<KeyValuePair<TA, Li
     };
   }
 
-  public override KeyValuePair<TA, List<TB>> FromCsv(string[] csv) =>
+  protected override KeyValuePair<TA, List<TB>> _fromCsv(string[] csv) =>
     new(KeyDataAdapter.GetById(csv[0])!, GetByIds(csv[1]));
 
-  public override string ToCsv(KeyValuePair<TA, List<TB>> item) =>
+  protected override string _toCsv(KeyValuePair<TA, List<TB>> item) =>
     string.Join("|", item.Key.GetHashCode().ToString(), item.Value.ToHashCodes().ToCsv());
 
-  public override void AddItem(KeyValuePair<TA, List<TB>> item, string[] props) =>
+  protected override void _addItem(KeyValuePair<TA, List<TB>> item, string[] props) =>
     All.Add(item.Key, item.Value);
 
   public override KeyValuePair<TA, List<TB>> ItemCreate(KeyValuePair<TA, List<TB>> item) {
     All.Add(item.Key, item.Value);
     IsModified = true;
     _raiseItemCreated(item);
-    OnItemCreated(this, item);
+    _onItemCreated(this, item);
     return item;
   }
 
@@ -47,8 +47,8 @@ public class OneToManyMultiDataAdapter<TA, TB> : DataAdapter<KeyValuePair<TA, Li
     if (!singleDelete) return;
     var items = new[] { item };
     _raiseItemsDeleted(items);
-    OnItemDeleted(this, item);
-    OnItemsDeleted(this, items);
+    _onItemDeleted(this, item);
+    _onItemsDeleted(this, items);
   }
 
   public virtual TB? GetValueById(string id) => throw new NotImplementedException();

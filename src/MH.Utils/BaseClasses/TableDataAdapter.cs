@@ -39,7 +39,7 @@ public class TableDataAdapter<T> : DataAdapter<T>, ITableDataAdapter where T : c
     AllCsv.TrimExcess();
   }
 
-  public override void AddItem(T item, string[] props) {
+  protected override void _addItem(T item, string[] props) {
     AllDict.Add(item.GetHashCode(), item);
     AllCsv.Add(new(item, props));
   }

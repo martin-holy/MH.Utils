@@ -20,14 +20,14 @@ public class NotifyTaskCompletion : ObservableObject {
 
   public NotifyTaskCompletion(Task task) {
     Task = task;
-    TaskCompletion = task.IsCompleted ? Task.CompletedTask : WatchTaskAsync(task);
+    TaskCompletion = task.IsCompleted ? Task.CompletedTask : _watchTaskAsync(task);
   }
 
   public NotifyTaskCompletion(Task task, bool logError) : this(task) {
     _logError = logError;
   }
 
-  private async Task WatchTaskAsync(Task task) {
+  private async Task _watchTaskAsync(Task task) {
     try {
       await task;
     }
@@ -36,11 +36,11 @@ public class NotifyTaskCompletion : ObservableObject {
       if (_logError) Log.Error(ex);
     }
     finally {
-      NotifyPropertyChanged(task);
+      _notifyPropertyChanged(task);
     }
   }
 
-  protected virtual void NotifyPropertyChanged(Task task) {
+  protected virtual void _notifyPropertyChanged(Task task) {
     OnPropertyChanged(nameof(Status));
     OnPropertyChanged(nameof(IsCompleted));
     OnPropertyChanged(nameof(IsNotCompleted));
@@ -62,8 +62,8 @@ public class NotifyTaskCompletion : ObservableObject {
 public sealed class NotifyTaskCompletion<TResult>(Task<TResult> task) : NotifyTaskCompletion(task) {
   public TResult? Result => Task.Status == TaskStatus.RanToCompletion ? ((Task<TResult>)Task).Result : default;
 
-  protected override void NotifyPropertyChanged(Task task) {
-    base.NotifyPropertyChanged(task);
+  protected override void _notifyPropertyChanged(Task task) {
+    base._notifyPropertyChanged(task);
     if (!task.IsCanceled && !task.IsFaulted)
       OnPropertyChanged(nameof(Result));
   }

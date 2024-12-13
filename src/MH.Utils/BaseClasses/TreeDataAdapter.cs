@@ -5,17 +5,18 @@ using System.Linq;
 
 namespace MH.Utils.BaseClasses;
 
-public class TreeDataAdapter<T> : TableDataAdapter<T>, ITreeDataAdapter<T> where T : class, ITreeItem {
-  public event EventHandler<T> ItemRenamedEvent = delegate { };
+public class TreeDataAdapter<T>(SimpleDB db, string name, int propsCount)
+  : TableDataAdapter<T>(db, name, propsCount), ITreeDataAdapter<T>
+  where T : class, ITreeItem {
 
-  public TreeDataAdapter(SimpleDB db, string name, int propsCount) : base(db, name, propsCount) { }
+  public event EventHandler<T>? ItemRenamedEvent;
 
   public virtual T ItemCreate(ITreeItem parent, string name) => throw new NotImplementedException();
   public virtual void ItemCopy(ITreeItem item, ITreeItem dest) => throw new NotImplementedException();
   
-  protected void RaiseItemRenamed(T item) => ItemRenamedEvent(this, item);
+  protected void _raiseItemRenamed(T item) => ItemRenamedEvent?.Invoke(this, item);
 
-  protected virtual void OnItemRenamed(T item) { }
+  protected virtual void _onItemRenamed(T item) { }
 
   public virtual T TreeItemCreate(T item) {
     if (item.Parent != null)
@@ -31,8 +32,8 @@ public class TreeDataAdapter<T> : TableDataAdapter<T>, ITreeDataAdapter<T> where
       Tree.SetInOrder(item.Parent.Items, item, x => x.Name);
     
     IsModified = true;
-    RaiseItemRenamed((T)item);
-    OnItemRenamed((T)item);
+    _raiseItemRenamed((T)item);
+    _onItemRenamed((T)item);
   }
 
   public virtual string? ValidateNewItemName(ITreeItem parent, string? name) =>
@@ -73,7 +74,7 @@ public class TreeDataAdapter<T> : TableDataAdapter<T>, ITreeDataAdapter<T> where
     }
   }
 
-  protected void LinkTree(ITreeItem root, int index) {
+  protected void _linkTree(ITreeItem root, int index) {
     foreach (var (item, csv) in _allCsv.Where(x => x.Item1.Parent == null)) {
       item.Parent = string.IsNullOrEmpty(csv[index])
         ? root

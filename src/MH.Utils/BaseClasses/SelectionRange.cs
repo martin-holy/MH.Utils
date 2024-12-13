@@ -12,17 +12,16 @@ public class SelectionRange : ObservableObject {
   public double Max { get => _max; set { _max = value; OnPropertyChanged(); OnPropertyChanged(nameof(IsOnMax)); } }
   public double Start { get => _start; set { _start = value; OnPropertyChanged(); OnPropertyChanged(nameof(IsOnMin)); } }
   public double End { get => _end; set { _end = value; OnPropertyChanged(); OnPropertyChanged(nameof(IsOnMax)); } }
-  public bool IsOnMin => Min == Start;
-  public bool IsOnMax => Max == End;
+  public bool IsOnMin => _min == _start;
+  public bool IsOnMax => _max == _end;
   public bool IsFullRange => IsOnMin && IsOnMax;
 
-  public event EventHandler ChangedEvent = delegate { };
+  public event EventHandler? ChangedEvent;
 
   public bool Fits(double value) =>
     value >= Start && value <= End;
 
-  public void RaiseChangedEvent() =>
-    ChangedEvent(this, EventArgs.Empty);
+  public void RaiseChanged() => ChangedEvent?.Invoke(this, EventArgs.Empty);
 
   public void Reset(double min, double max) {
     Min = min;
@@ -32,8 +31,8 @@ public class SelectionRange : ObservableObject {
   }
 
   public void SetFullRange() {
-    Start = Min;
-    End = Max;
+    Start = _min;
+    End = _max;
   }
 
   public void Zero() {

@@ -2,16 +2,9 @@
 
 namespace MH.Utils.BaseClasses; 
 
-public class SelectionEventArgs<T> {
-  public List<T> Items { get; }
-  public T Item { get; }
-  public bool IsCtrlOn { get; }
-  public bool IsShiftOn { get; }
-
-  public SelectionEventArgs(List<T> items, T item, bool isCtrlOn, bool isShiftOn) {
-    Items = items;
-    Item = item;
-    IsCtrlOn = isCtrlOn;
-    IsShiftOn = isShiftOn;
-  }
+public class SelectionEventArgs<T>(List<T> items, T item, bool isCtrlOn, bool isShiftOn) {
+  public List<T> Items { get; } = items;
+  public T Item { get; } = item;
+  public bool IsCtrlOn { get; } = isCtrlOn;
+  public bool IsShiftOn { get; } = isShiftOn;
 }

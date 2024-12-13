@@ -3,15 +3,12 @@ using System.Collections.Generic;
 
 namespace MH.Utils.BaseClasses;
 
-public class OneToOneDataAdapter<TA, TB> : DataAdapter<KeyValuePair<TA, TB>>, IRelationDataAdapter where TA : class where TB : class {
-  public TableDataAdapter<TA> DataAdapterA { get; }
-  public TableDataAdapter<TB> DataAdapterB { get; }
+public class OneToOneDataAdapter<TA, TB>(SimpleDB db, string name, TableDataAdapter<TA> daA, TableDataAdapter<TB> daB)
+  : DataAdapter<KeyValuePair<TA, TB>>(db, name, 2), IRelationDataAdapter
+  where TA : class where TB : class {
 
-  public OneToOneDataAdapter(SimpleDB db, string name, TableDataAdapter<TA> daA, TableDataAdapter<TB> daB) :
-    base(db, name, 2) {
-    DataAdapterA = daA;
-    DataAdapterB = daB;
-  }
+  public TableDataAdapter<TA> DataAdapterA { get; } = daA;
+  public TableDataAdapter<TB> DataAdapterB { get; } = daB;
 
   protected override KeyValuePair<TA, TB> _fromCsv(string[] csv) =>
     new(DataAdapterA.GetById(csv[0])!, DataAdapterB.GetById(csv[1])!);

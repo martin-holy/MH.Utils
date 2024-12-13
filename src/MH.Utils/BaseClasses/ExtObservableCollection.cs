@@ -12,7 +12,7 @@ public class ExtObservableCollection<T> : ObservableCollection<T> {
 
   public void Execute(Action<IList<T>> itemsAction) {
     itemsAction(Items);
-    NotifyChange(NotifyCollectionChangedAction.Reset, null);
+    _notifyChange(NotifyCollectionChangedAction.Reset, null);
   }
 
   public void AddItems(IList<T>? items, Action<T>? itemAction) {
@@ -22,7 +22,7 @@ public class ExtObservableCollection<T> : ObservableCollection<T> {
       Items.Add(item);
     }
 
-    NotifyChange(NotifyCollectionChangedAction.Add, items);
+    _notifyChange(NotifyCollectionChangedAction.Add, items);
   }
 
   public void RemoveItems(IList<T> items, Action<T> itemAction) {
@@ -31,10 +31,10 @@ public class ExtObservableCollection<T> : ObservableCollection<T> {
       Items.Remove(item);
     }
 
-    NotifyChange(NotifyCollectionChangedAction.Remove, items);
+    _notifyChange(NotifyCollectionChangedAction.Remove, items);
   }
 
-  private void NotifyChange(NotifyCollectionChangedAction action, IList<T>? items) {
+  private void _notifyChange(NotifyCollectionChangedAction action, IList<T>? items) {
     OnPropertyChanged(new("Count"));
     OnPropertyChanged(new("Item[]"));
 

@@ -1,18 +1,11 @@
 ﻿using MH.Utils.Interfaces;
 using System;
 
-namespace MH.Utils.EventsArgs {
-  public class TreeItemDroppedEventArgs : EventArgs {
-    public object Data { get; }
-    public ITreeItem Dest { get; }
-    public bool AboveDest { get; }
-    public bool Copy { get; }
+namespace MH.Utils.EventsArgs;
 
-    public TreeItemDroppedEventArgs(object data, ITreeItem dest, bool aboveDest, bool copy) {
-      Data = data;
-      Dest = dest;
-      AboveDest = aboveDest;
-      Copy = copy;
-    }
-  }
+public class TreeItemDroppedEventArgs(object data, ITreeItem dest, bool aboveDest, bool copy) : EventArgs {
+  public object Data { get; } = data;
+  public ITreeItem Dest { get; } = dest;
+  public bool AboveDest { get; } = aboveDest;
+  public bool Copy { get; } = copy;
 }

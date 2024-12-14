@@ -1,11 +1,6 @@
 ﻿namespace MH.Utils.EventsArgs;
 
-public class PropertyChangedEventArgs<T> : RoutedEventArgs {
-  public T NewValue { get; }
-  public T OldValue { get; }
-
-  public PropertyChangedEventArgs(T oldValue, T newValue) {
-    OldValue = oldValue;
-    NewValue = newValue;
-  }
+public class PropertyChangedEventArgs<T>(T oldValue, T newValue) : RoutedEventArgs {
+  public T NewValue { get; } = newValue;
+  public T OldValue { get; } = oldValue;
 }

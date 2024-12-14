@@ -8,10 +8,13 @@ using System.Linq;
 namespace MH.Utils;
 
 public class Selecting<T> : ObservableObject where T : class, ISelectable {
-  public ObservableCollection<T> Items { get; } = new();
+  public ObservableCollection<T> Items { get; } = [];
 
-  public event EventHandler<T[]> ItemsChangedEvent = delegate { };
-  public event EventHandler AllDeselectedEvent = delegate { };
+  public event EventHandler<T[]>? ItemsChangedEvent;
+  public event EventHandler? AllDeselectedEvent;
+
+  private void _raiseItemsChanged() => ItemsChangedEvent?.Invoke(this, Items.ToArray());
+  private void _raiseAllDeselected() => AllDeselectedEvent?.Invoke(this, EventArgs.Empty);
 
   public bool Set(T item, bool value) {
     if (item.IsSelected == value) return false;
@@ -43,12 +46,12 @@ public class Selecting<T> : ObservableObject where T : class, ISelectable {
 
   public void Set(IList<T> items) {
     if (Set(Items.Except(items), false) || Set(items.Except(Items), true))
-      ItemsChangedEvent(this, Items.ToArray());
+      _raiseItemsChanged();
   }
 
   public void Add(IEnumerable<T> items) {
     if (Set(items.Except(Items), true))
-      ItemsChangedEvent(this, Items.ToArray());
+      _raiseItemsChanged();
   }
 
   public void DeselectAll() {
@@ -58,7 +61,7 @@ public class Selecting<T> : ObservableObject where T : class, ISelectable {
       item.IsSelected = false;
 
     Items.Clear();
-    AllDeselectedEvent(this, EventArgs.Empty);
+    _raiseAllDeselected();
   }
 
   public void Select(T item) =>
@@ -70,7 +73,7 @@ public class Selecting<T> : ObservableObject where T : class, ISelectable {
       DeselectAll();
 
       if (Set(item, true))
-        ItemsChangedEvent(this, Items.ToArray());
+        _raiseItemsChanged();
 
       return;
     }
@@ -78,7 +81,7 @@ public class Selecting<T> : ObservableObject where T : class, ISelectable {
     // single invert select
     if (isCtrlOn) {
       if (Set(item, !item.IsSelected))
-        ItemsChangedEvent(this, Items.ToArray());
+        _raiseItemsChanged();
 
       return;
     }
@@ -102,7 +105,7 @@ public class Selecting<T> : ObservableObject where T : class, ISelectable {
         change = true;
 
     if (change)
-      ItemsChangedEvent(this, Items.ToArray());
+      _raiseItemsChanged();
   }
 
   public static TI? GetNotSelectedItem<TI>(IList<TI>? items, TI? item) where TI : ISelectable {
@@ -111,11 +114,11 @@ public class Selecting<T> : ObservableObject where T : class, ISelectable {
     var index = items.IndexOf(item);
     if (index < 0) return default;
 
-    for (int i = index + 1; i < items.Count; i++)
+    for (var i = index + 1; i < items.Count; i++)
       if (!items[i].IsSelected)
         return items[i];
 
-    for (int i = index - 1; i > -1; i--)
+    for (var i = index - 1; i > -1; i--)
       if (!items[i].IsSelected)
         return items[i];
 

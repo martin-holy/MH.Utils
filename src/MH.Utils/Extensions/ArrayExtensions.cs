@@ -7,7 +7,6 @@ public static class ArrayExtensions {
     self?.Length > 0 ? self : null;
 
   public static void ForEach<T>(this T[] self, Action<T> action) {
-    for (int i = 0; i < self.Length; i++)
-      action(self[i]);
+    foreach (var item in self) action(item);
   }
 }

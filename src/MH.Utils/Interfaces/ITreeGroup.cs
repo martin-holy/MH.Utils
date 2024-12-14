@@ -1,3 +1,3 @@
-﻿namespace MH.Utils.Interfaces {
-  public interface ITreeGroup : ITreeItem;
-}
+﻿namespace MH.Utils.Interfaces;
+
+public interface ITreeGroup : ITreeItem;

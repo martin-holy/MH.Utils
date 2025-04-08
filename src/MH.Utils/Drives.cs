@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
+using System.Linq;
 
 namespace MH.Utils;
 
@@ -9,8 +11,21 @@ public static class Drives {
 
   public static void UpdateSerialNumbers() {
     SerialNumbers.Clear();
-    foreach (var info in GetLogicalDrivesInfo())
-      SerialNumbers.Add(info.Item1, info.Item3);
+
+    if (OperatingSystem.IsWindows()) {
+      foreach (var info in GetLogicalDrivesInfo())
+        SerialNumbers.Add(info.Item1, info.Item3);
+    }
+    else {
+      if (OperatingSystem.IsAndroid())
+        SerialNumbers.Add("/storage/emulated/0", "Internal");
+
+      foreach (var path in Environment.GetLogicalDrives().Where(x => x.StartsWith("/storage/"))) {
+        var serial = Path.GetFileName(path);
+        if (serial is "emulated" or "self") continue;
+        SerialNumbers.Add(path, serial);
+      }
+    }
   }
 
   public static List<Tuple<string, string, string>> GetLogicalDrivesInfo() {

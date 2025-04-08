@@ -174,16 +174,14 @@ public class SimpleDB : ObservableObject {
 
   public void Migrate(int newVersion, Action<int, int> migrationResolver) {
     try {
-      var oldVersion = 0;
       var vFilePath = Path.Combine(_rootDir, "SchemaVersion");
+      var oldVersion = File.Exists(vFilePath)
+        ? int.Parse(File.ReadAllLines(vFilePath, Encoding.UTF8)[0])
+        : newVersion;
 
-      if (File.Exists(vFilePath))
-        oldVersion = int.Parse(File.ReadAllLines(vFilePath, Encoding.UTF8)[0]);
-
-      if (oldVersion != newVersion) {
-        migrationResolver(oldVersion, newVersion);
-        File.WriteAllText(vFilePath, newVersion.ToString(), Encoding.UTF8);
-      }
+      if (oldVersion == newVersion) return;
+      migrationResolver(oldVersion, newVersion);
+      File.WriteAllText(vFilePath, newVersion.ToString(), Encoding.UTF8);
     }
     catch (Exception ex) {
       Log.Error(ex);

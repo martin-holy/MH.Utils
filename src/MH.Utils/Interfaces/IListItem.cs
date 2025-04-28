@@ -1,6 +1,8 @@
-﻿namespace MH.Utils.Interfaces;
+﻿using System.ComponentModel;
 
-public interface IListItem : ISelectable {
+namespace MH.Utils.Interfaces;
+
+public interface IListItem : INotifyPropertyChanged, ISelectable {
   public bool IsHidden { get; set; }
   public bool IsIconHidden { get; set; }
   public bool IsNameHidden { get; set; }

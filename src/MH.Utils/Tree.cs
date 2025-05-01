@@ -1,4 +1,5 @@
-﻿using MH.Utils.Extensions;
+﻿using MH.Utils.BaseClasses;
+using MH.Utils.Extensions;
 using MH.Utils.Interfaces;
 using System;
 using System.Collections.Generic;
@@ -143,6 +144,24 @@ public static class Tree {
 
   public static IEnumerable<T> Flatten<T>(this T item) where T : ITreeItem =>
     new[] { item }.Concat(item.Items.Cast<T>().Flatten());
+
+  public static List<FlatTreeItem> ToFlatTreeItems(IEnumerable<ITreeItem> roots) {
+    var flatItems = new List<FlatTreeItem>();
+    var stack = new Stack<(ITreeItem Node, int Level)>();
+
+    foreach (var root in roots)
+      stack.Push((root, 0));
+
+    while (stack.Count > 0) {
+      var (node, level) = stack.Pop();
+      flatItems.Add(new(node, level));
+      if (!node.IsExpanded || node.IsHidden) continue;
+      for (var i = node.Items.Count - 1; i >= 0; i--)
+        stack.Push((node.Items[i], level + 1));
+    }
+
+    return flatItems;
+  }
 
   public static IEnumerable<T> GetThisAndParents<T>(this T? item) where T : class, ITreeItem {
     while (item != null) {

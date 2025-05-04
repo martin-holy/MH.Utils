@@ -149,7 +149,7 @@ public static class Tree {
     var flatItems = new List<FlatTreeItem>();
     var stack = new Stack<(ITreeItem Node, int Level)>();
 
-    foreach (var root in roots)
+    foreach (var root in roots.Reverse())
       stack.Push((root, 0));
 
     while (stack.Count > 0) {

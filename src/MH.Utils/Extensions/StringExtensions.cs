@@ -56,4 +56,11 @@ public static class StringExtensions {
 
   public static double? ToDouble(this string? value, IFormatProvider provider) =>
     string.IsNullOrEmpty(value) ? null : double.Parse(value, provider);
+
+  /// <summary>
+  /// Returns a copy of this string converted to snake_case.
+  /// </summary>
+  /// <returns>A string in snake_case</returns>
+  public static string ToSnakeCase(this string s) =>
+    string.Concat(s.Select((c, i) => char.IsUpper(c) ? i == 0 ? c.ToString().ToLower() : "_" + char.ToLower(c) : c.ToString()));
 }

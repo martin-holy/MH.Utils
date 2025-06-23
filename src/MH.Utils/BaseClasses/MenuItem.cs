@@ -7,6 +7,7 @@ namespace MH.Utils.BaseClasses;
 public class MenuItem : TreeItem {
   public ICommand? Command { get; set; }
   public string? InputGestureText { get; set; }
+  public new string Icon => !string.IsNullOrEmpty(base.Icon) ? base.Icon : (Command as RelayCommand)?.Icon ?? string.Empty;
   public string Text => !string.IsNullOrEmpty(Name) ? Name : (Command as RelayCommand)?.Text ?? string.Empty;
 
   public MenuItem(string? icon, string name) : base(icon, name) { }

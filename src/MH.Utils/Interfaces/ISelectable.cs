@@ -1,5 +1,7 @@
-﻿namespace MH.Utils.Interfaces;
+﻿using System.ComponentModel;
 
-public interface ISelectable {
+namespace MH.Utils.Interfaces;
+
+public interface ISelectable : INotifyPropertyChanged {
   public bool IsSelected { get; set; }
 }

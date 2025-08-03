@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Runtime.CompilerServices;
 
 namespace MH.Utils.BaseClasses;
 
@@ -8,11 +9,23 @@ public abstract class RelayCommandBase : ObservableObject {
 
   protected Func<bool>? _canExecuteFunc;
 
-  public static event EventHandler? CanExecuteChangedEvent;
+  private event EventHandler? _canExecuteChanged;
+  private static readonly ConditionalWeakTable<EventHandler, object> _wpfSubscribers = new();
 
   public event EventHandler? CanExecuteChanged {
-    add => CanExecuteChangedEvent += value;
-    remove => CanExecuteChangedEvent -= value;
+    add {
+      _canExecuteChanged += value;
+
+      if (System.OperatingSystem.IsWindows() && value != null)
+        _wpfSubscribers.Add(value, this);
+    }
+
+    remove {
+      _canExecuteChanged -= value;
+
+      if (System.OperatingSystem.IsWindows() && value != null)
+        _wpfSubscribers.Remove(value);
+    }
   }
 
   protected RelayCommandBase() { }
@@ -22,11 +35,13 @@ public abstract class RelayCommandBase : ObservableObject {
     Text = text;
   }
 
-  protected void _raiseCanExecuteChanged() =>
-    RaiseCanExecuteChanged(this, EventArgs.Empty);
+  public void RaiseCanExecuteChanged() =>
+    _canExecuteChanged?.Invoke(this, EventArgs.Empty);
 
-  public static void RaiseCanExecuteChanged(object? o, EventArgs e) =>
-    CanExecuteChangedEvent?.Invoke(o, e);
+  public static void RaiseAllCanExecuteChanged(object? o, EventArgs e) {
+    foreach (var handler in _wpfSubscribers)
+      handler.Key?.Invoke(handler.Value, EventArgs.Empty);
+  }
 
   public virtual bool CanExecute(object? parameter) =>
     _canExecuteFunc == null || _canExecuteFunc();

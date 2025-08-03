@@ -36,10 +36,10 @@ public class AsyncRelayCommand : RelayCommandBase, IAsyncCommand {
 
   public virtual async Task ExecuteAsync(object? parameter, Task task) {
     Execution = new(task, true);
-    _raiseCanExecuteChanged();
+    RaiseCanExecuteChanged();
     await Execution.TaskCompletion;
     CancelCommand.NotifyCommandFinished();
-    _raiseCanExecuteChanged();
+    RaiseCanExecuteChanged();
   }
 }
 
@@ -62,12 +62,12 @@ public sealed class CancelAsyncCommand : RelayCommandBase, ICommand {
     if (!_cts.IsCancellationRequested) return;
     _cts.Dispose();
     _cts = new();
-    _raiseCanExecuteChanged();
+    RaiseCanExecuteChanged();
   }
 
   public void NotifyCommandFinished() {
     _executing = false;
-    _raiseCanExecuteChanged();
+    RaiseCanExecuteChanged();
   }
 
   bool ICommand.CanExecute(object? parameter) =>
@@ -75,7 +75,7 @@ public sealed class CancelAsyncCommand : RelayCommandBase, ICommand {
 
   public void Execute(object? parameter) {
     _cts.Cancel();
-    _raiseCanExecuteChanged();
+    RaiseCanExecuteChanged();
   }
 }
 

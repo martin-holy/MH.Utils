@@ -13,8 +13,9 @@ public class MenuItem : TreeItem {
 
   public MenuItem(string? icon, string name) : base(icon, name) { }
 
-  public MenuItem(ICommand command) {
+  public MenuItem(ICommand command, object? commandParameter = null) {
     Command = command;
+    CommandParameter = commandParameter;
   }
 
   public void Add(MenuItem menuItem) {

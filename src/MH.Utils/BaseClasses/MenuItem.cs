@@ -1,4 +1,5 @@
 ﻿using MH.Utils.Interfaces;
+using System.Collections.Generic;
 using System.Linq;
 using System.Windows.Input;
 
@@ -12,6 +13,10 @@ public class MenuItem : TreeItem {
   public string Text => !string.IsNullOrEmpty(Name) ? Name : (Command as RelayCommandBase)?.Text ?? string.Empty;
 
   public MenuItem(string? icon, string name) : base(icon, name) { }
+
+  public MenuItem(string? icon, string name, IEnumerable<MenuItem> items) : this(icon, name) {
+    foreach (var item in items) Add(item);
+  }
 
   public MenuItem(ICommand command, object? commandParameter = null) {
     Command = command;

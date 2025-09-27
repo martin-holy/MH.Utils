@@ -1,4 +1,6 @@
-﻿namespace MH.Utils.Extensions;
+﻿using Orientation = MH.Utils.Imaging.Orientation;
+
+namespace MH.Utils.Extensions;
 
 public static class OrientationExtensions {
   public static int ToAngle(this Orientation orientation) =>

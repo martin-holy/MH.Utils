@@ -4,9 +4,9 @@ using System.Linq;
 
 namespace MH.Utils;
 
-public enum Orientation { Normal = 1, FlipHorizontal = 2, Rotate180 = 3, FlipVertical = 4, Transpose = 5, Rotate270 = 6, Transverse = 7, Rotate90 = 8 }
-
 public static class Imaging {
+  public enum Orientation { Normal = 1, FlipHorizontal = 2, Rotate180 = 3, FlipVertical = 4, Transpose = 5, Rotate270 = 6, Transverse = 7, Rotate90 = 8 }
+
   public delegate long ImageHashFunc(string srcPath);
   public delegate byte[] GetBitmapHashPixelsFunc(string filePath, int bytes);
   public delegate void ResizeJpgAction(string src, string dest, int px, bool withMetadata, bool withThumbnail, int quality);

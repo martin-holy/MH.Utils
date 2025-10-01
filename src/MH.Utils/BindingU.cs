@@ -17,7 +17,8 @@ public static class BindingU {
     this TTarget target,
     TSource source,
     Expression<Func<TSource, TProp>> propertyExpression,
-    Action<TTarget, TProp> onChange)
+    Action<TTarget, TProp> onChange,
+    bool invokeInitOnChange = true)
     where TTarget : class
     where TSource : class, INotifyPropertyChanged {
 
@@ -40,7 +41,8 @@ public static class BindingU {
         sub.RemoveHandler(handler);
     }
 
-    onChange(target, (TProp)getter(source)!);
+    if (invokeInitOnChange)
+      onChange(target, (TProp)getter(source)!);
 
     return sub.AddHandler(handler);
   }

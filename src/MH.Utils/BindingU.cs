@@ -79,39 +79,147 @@ public static class BindingU {
     return sub.AddHandler(handler);
   }
 
-  private class PropertySubscription<TSource, TProp> where TSource : class, INotifyPropertyChanged {
+  private interface IPropertySubscription {
+    string PropertyName { get; }
+  }
+
+  private class PropertySubscription<TSource, TProp> : IPropertySubscription
+    where TSource : class, INotifyPropertyChanged {
+
     private readonly TSource _source;
-    private readonly string _propertyName;
     private readonly Func<TSource, TProp> _getter;
     private readonly PropertySubscriptionTable _table;
-    private readonly List<Action<TProp>> _handlers = [];
+    private object? _handlers; // null | Action<TProp> | Action<TProp>[]
+
+    public string PropertyName { get; }
 
     public PropertySubscription(TSource source, string propertyName, Func<TSource, TProp> getter, PropertySubscriptionTable table) {
       _source = source;
-      _propertyName = propertyName;
+      PropertyName = propertyName;
       _getter = getter;
       _table = table;
       _source.PropertyChanged += _onChanged;
     }
 
     private void _onChanged(object? sender, PropertyChangedEventArgs e) {
-      if (!string.IsNullOrEmpty(e.PropertyName) && e.PropertyName != _propertyName) return;
+      if (!string.IsNullOrEmpty(e.PropertyName) && e.PropertyName != PropertyName) return;
 
       var value = _getter(_source);
-      foreach (var handler in _handlers.ToArray())
-        handler(value);
+      switch (_handlers) {
+        case Action<TProp> single:
+          single(value);
+          break;
+        case Action<TProp>[] arr:
+          for (int i = 0; i < arr.Length; i++)
+            arr[i](value);
+          break;
+      }
     }
 
     public IDisposable AddHandler(Action<TProp> handler) {
-      _handlers.Add(handler);
+      if (_handlers is null) {
+        _handlers = handler;
+      }
+      else if (_handlers is Action<TProp> single) {
+        _handlers = new Action<TProp>[] { single, handler };
+      }
+      else if (_handlers is Action<TProp>[] arr) {
+        var newArr = new Action<TProp>[arr.Length + 1];
+        Array.Copy(arr, newArr, arr.Length);
+        newArr[arr.Length] = handler;
+        _handlers = newArr;
+      }
       return new Subscription(() => RemoveHandler(handler));
     }
 
     public void RemoveHandler(Action<TProp> handler) {
-      _handlers.Remove(handler);
-      if (_handlers.Count == 0) {
-        _source.PropertyChanged -= _onChanged;
-        _table.Remove(_propertyName);
+      if (_handlers is Action<TProp> single) {
+        if (single == handler) {
+          _handlers = null;
+          _cleanupIfEmpty();
+        }
+      }
+      else if (_handlers is Action<TProp>[] arr) {
+        int idx = Array.IndexOf(arr, handler);
+        if (idx >= 0) {
+          if (arr.Length == 2) {
+            // collapse back to single
+            _handlers = arr[1 - idx];
+          }
+          else {
+            var newArr = new Action<TProp>[arr.Length - 1];
+            if (idx > 0) Array.Copy(arr, 0, newArr, 0, idx);
+            if (idx < arr.Length - 1) Array.Copy(arr, idx + 1, newArr, idx, arr.Length - idx - 1);
+            _handlers = newArr.Length == 0 ? null : newArr;
+          }
+          if (_handlers == null)
+            _cleanupIfEmpty();
+        }
+      }
+    }
+
+    private void _cleanupIfEmpty() {
+      _source.PropertyChanged -= _onChanged;
+      _table.Remove(PropertyName);
+    }
+  }
+
+  private class PropertySubscriptionTable {
+    private object? _subs; // null | IPropertySubscription | IPropertySubscription[]
+
+    public PropertySubscription<TSource, TProp> GetOrAdd<TSource, TProp>(
+      TSource source, string propertyName, Func<TSource, TProp> getter)
+      where TSource : class, INotifyPropertyChanged {
+
+      if (_subs is null) {
+        var sub = new PropertySubscription<TSource, TProp>(source, propertyName, getter, this);
+        _subs = sub;
+        return sub;
+      }
+      else if (_subs is IPropertySubscription single) {
+        if (single.PropertyName == propertyName && single is PropertySubscription<TSource, TProp> typed)
+          return typed;
+
+        // promote to array
+        var newSub = new PropertySubscription<TSource, TProp>(source, propertyName, getter, this);
+        _subs = new IPropertySubscription[] { single, newSub };
+        return newSub;
+      }
+      else if (_subs is IPropertySubscription[] arr) {
+        foreach (var entry in arr) {
+          if (entry.PropertyName == propertyName && entry is PropertySubscription<TSource, TProp> ps)
+            return ps;
+        }
+        var newArr = new IPropertySubscription[arr.Length + 1];
+        Array.Copy(arr, newArr, arr.Length);
+        var sub = new PropertySubscription<TSource, TProp>(source, propertyName, getter, this);
+        newArr[arr.Length] = sub;
+        _subs = newArr;
+        return sub;
+      }
+
+      throw new InvalidOperationException("Unexpected state in PropertySubscriptionTable");
+    }
+
+    public void Remove(string propertyName) {
+      if (_subs is IPropertySubscription single) {
+        if (single.PropertyName == propertyName)
+          _subs = null;
+      }
+      else if (_subs is IPropertySubscription[] arr) {
+        int idx = Array.FindIndex(arr, s => s.PropertyName == propertyName);
+        if (idx >= 0) {
+          if (arr.Length == 2) {
+            // collapse back to single
+            _subs = arr[1 - idx];
+          }
+          else {
+            var newArr = new IPropertySubscription[arr.Length - 1];
+            if (idx > 0) Array.Copy(arr, 0, newArr, 0, idx);
+            if (idx < arr.Length - 1) Array.Copy(arr, idx + 1, newArr, idx, arr.Length - idx - 1);
+            _subs = newArr;
+          }
+        }
       }
     }
   }
@@ -119,7 +227,7 @@ public static class BindingU {
   private class CollectionSubscription {
     private readonly INotifyCollectionChanged _source;
     private readonly CollectionSubscriptionTable _table;
-    private readonly List<NotifyCollectionChangedEventHandler> _handlers = [];
+    private object? _handlers; // null | NotifyCollectionChangedEventHandler | NotifyCollectionChangedEventHandler[]
 
     public CollectionSubscription(INotifyCollectionChanged source, CollectionSubscriptionTable table) {
       _source = source;
@@ -128,49 +236,100 @@ public static class BindingU {
     }
 
     private void _onChanged(object? sender, NotifyCollectionChangedEventArgs e) {
-      foreach (var handler in _handlers.ToArray())
-        handler(sender, e);
+      switch (_handlers) {
+        case NotifyCollectionChangedEventHandler single:
+          single(sender, e);
+          break;
+        case NotifyCollectionChangedEventHandler[] arr:
+          for (int i = 0; i < arr.Length; i++)
+            arr[i](sender, e);
+          break;
+      }
     }
 
     public IDisposable AddHandler(NotifyCollectionChangedEventHandler handler) {
-      _handlers.Add(handler);
+      if (_handlers is null) {
+        _handlers = handler;
+      }
+      else if (_handlers is NotifyCollectionChangedEventHandler single) {
+        _handlers = new NotifyCollectionChangedEventHandler[] { single, handler };
+      }
+      else if (_handlers is NotifyCollectionChangedEventHandler[] arr) {
+        var newArr = new NotifyCollectionChangedEventHandler[arr.Length + 1];
+        Array.Copy(arr, newArr, arr.Length);
+        newArr[arr.Length] = handler;
+        _handlers = newArr;
+      }
       return new Subscription(() => RemoveHandler(handler));
     }
 
     public void RemoveHandler(NotifyCollectionChangedEventHandler handler) {
-      _handlers.Remove(handler);
-      if (_handlers.Count == 0) {
-        _source.CollectionChanged -= _onChanged;
-        _table.Clear();
+      if (_handlers is NotifyCollectionChangedEventHandler single) {
+        if (single == handler) {
+          _handlers = null;
+          _cleanupIfEmpty();
+        }
+      }
+      else if (_handlers is NotifyCollectionChangedEventHandler[] arr) {
+        int idx = Array.IndexOf(arr, handler);
+        if (idx >= 0) {
+          if (arr.Length == 2) {
+            // collapse to single
+            _handlers = arr[1 - idx];
+          }
+          else {
+            var newArr = new NotifyCollectionChangedEventHandler[arr.Length - 1];
+            if (idx > 0) Array.Copy(arr, 0, newArr, 0, idx);
+            if (idx < arr.Length - 1) Array.Copy(arr, idx + 1, newArr, idx, arr.Length - idx - 1);
+            _handlers = newArr.Length == 0 ? null : newArr;
+          }
+          if (_handlers == null)
+            _cleanupIfEmpty();
+        }
       }
     }
-  }
 
-  private class PropertySubscriptionTable {
-    private readonly Dictionary<string, object> _subs = new();
-
-    public PropertySubscription<TSource, TProp> GetOrAdd<TSource, TProp>(
-      TSource source, string propertyName, Func<TSource, TProp> getter)
-      where TSource : class, INotifyPropertyChanged {
-
-      if (_subs.TryGetValue(propertyName, out var existing))
-        return (PropertySubscription<TSource, TProp>)existing;
-
-      var sub = new PropertySubscription<TSource, TProp>(source, propertyName, getter, this);
-      _subs[propertyName] = sub;
-      return sub;
+    private void _cleanupIfEmpty() {
+      _source.CollectionChanged -= _onChanged;
+      _table.Clear();
     }
-
-    public void Remove(string propertyName) => _subs.Remove(propertyName);
   }
 
   private class CollectionSubscriptionTable {
-    private CollectionSubscription? _sub;
+    private object? _subs; // null | CollectionSubscription | CollectionSubscription[]
 
-    public CollectionSubscription GetOrAdd(INotifyCollectionChanged source) =>
-      _sub ??= new CollectionSubscription(source, this);
+    public CollectionSubscription GetOrAdd(INotifyCollectionChanged source) {
+      if (_subs is null) {
+        var sub = new CollectionSubscription(source, this);
+        _subs = sub;
+        return sub;
+      }
+      else if (_subs is CollectionSubscription single) {
+        // promote to array
+        var newSub = new CollectionSubscription(source, this);
+        _subs = new CollectionSubscription[] { single, newSub };
+        return newSub;
+      }
+      else if (_subs is CollectionSubscription[] arr) {
+        var newArr = new CollectionSubscription[arr.Length + 1];
+        Array.Copy(arr, newArr, arr.Length);
+        var sub = new CollectionSubscription(source, this);
+        newArr[arr.Length] = sub;
+        _subs = newArr;
+        return sub;
+      }
 
-    public void Clear() => _sub = null;
+      throw new InvalidOperationException("Unexpected state in CollectionSubscriptionTable");
+    }
+
+    public void Clear() {
+      if (_subs is CollectionSubscription single)
+        _subs = null;
+      else if (_subs is CollectionSubscription[] arr && arr.Length == 1)
+        _subs = null;
+      else if (_subs is CollectionSubscription[] arr2 && arr2.Length > 1)
+        _subs = arr2[..^1]; // remove last
+    }
   }
 
   private static class GetterCache {

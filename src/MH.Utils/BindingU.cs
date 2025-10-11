@@ -9,6 +9,8 @@ using System.Runtime.CompilerServices;
 namespace MH.Utils;
 
 public static class BindingU {
+  public enum Mode { OneWay, TwoWay }
+
   private static readonly ConditionalWeakTable<INotifyPropertyChanged, PropertySubscriptionTable> _propertySubs = new();
   private static readonly ConditionalWeakTable<INotifyCollectionChanged, CollectionSubscriptionTable> _collectionSubs = new();
 
@@ -332,7 +334,7 @@ public static class BindingU {
     }
   }
 
-  private static class GetterCache {
+  public static class GetterCache {
     private static readonly Dictionary<(Type, string), Delegate> _cache = [];
 
     public static Func<TSource, TProp> GetGetter<TSource, TProp>(string propertyName) {
@@ -343,6 +345,26 @@ public static class BindingU {
       var srcParam = Expression.Parameter(typeof(TSource), "src");
       var prop = Expression.Property(srcParam, propertyName);
       var lambda = Expression.Lambda<Func<TSource, TProp>>(prop, srcParam);
+      var compiled = lambda.Compile();
+
+      _cache[key] = compiled;
+      return compiled;
+    }
+  }
+
+  public static class SetterCache {
+    private static readonly Dictionary<(Type, string), Delegate> _cache = [];
+
+    public static Action<TSource, TProp> GetSetter<TSource, TProp>(string propertyName) {
+      var key = (typeof(TSource), propertyName);
+      if (_cache.TryGetValue(key, out var existing))
+        return (Action<TSource, TProp>)existing;
+
+      var srcParam = Expression.Parameter(typeof(TSource), "src");
+      var valueParam = Expression.Parameter(typeof(TProp), "value");
+      var prop = Expression.Property(srcParam, propertyName);
+      var assign = Expression.Assign(prop, valueParam);
+      var lambda = Expression.Lambda<Action<TSource, TProp>>(assign, srcParam, valueParam);
       var compiled = lambda.Compile();
 
       _cache[key] = compiled;

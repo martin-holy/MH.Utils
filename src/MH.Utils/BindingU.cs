@@ -14,6 +14,13 @@ public static class BindingU {
   private static readonly ConditionalWeakTable<INotifyPropertyChanged, PropertySubscriptionTable> _propertySubs = new();
   private static readonly ConditionalWeakTable<INotifyCollectionChanged, CollectionSubscriptionTable> _collectionSubs = new();
 
+  public static string GetPropertyName<TSource, TProp>(Expression<Func<TSource, TProp>> propertyExpression) {
+    if (propertyExpression.Body is not MemberExpression m)
+      throw new ArgumentException("Expression must be a property access", nameof(propertyExpression));
+
+    return m.Member.Name;
+  }
+
   public static IDisposable Bind<TTarget, TSource, TProp>(
     this TTarget target,
     TSource source,
@@ -23,10 +30,7 @@ public static class BindingU {
     where TTarget : class
     where TSource : class, INotifyPropertyChanged {
 
-    if (propertyExpression.Body is not MemberExpression m)
-      throw new ArgumentException("Expression must be a property access", nameof(propertyExpression));
-
-    var propertyName = m.Member.Name;
+    var propertyName = GetPropertyName(propertyExpression);
     var getter = GetterCache.GetGetter<TSource, TProp>(propertyName);
     var weakTarget = new WeakReference<TTarget>(target);
 

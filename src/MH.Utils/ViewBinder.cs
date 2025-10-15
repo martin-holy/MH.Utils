@@ -3,42 +3,47 @@ using System.ComponentModel;
 using System.Linq.Expressions;
 using System.Runtime.CompilerServices;
 
-namespace MH.Utils.Binding;
+namespace MH.Utils;
 
 public sealed class ViewBinder<TView, TValue> where TView : class {
   private readonly WeakReference<TView> _viewRef;
-  private readonly Action<EventHandler<TValue>> _subscribe;
-  private readonly Action<EventHandler<TValue>> _unsubscribe;
-  private readonly Func<TView, TValue> _getViewValue;
+  private readonly Action<EventHandler<TValue>>? _subscribe;
+  private readonly Action<EventHandler<TValue>>? _unsubscribe;
   private readonly Action<TView, TValue> _setViewValue;
-  private readonly EventHandler<TValue> _viewChangedHandler;
+  private readonly EventHandler<TValue>? _viewChangedHandler;
 
   private IDisposable? _vmSubscription;
   private Action<TValue>? _vmSetter;
   private bool _updating;
+  private readonly bool _isTwoWay;
 
   public ViewBinder(
     TView view,
     Action<EventHandler<TValue>> subscribe,
     Action<EventHandler<TValue>> unsubscribe,
-    Func<TView, TValue> getViewValue,
     Action<TView, TValue> setViewValue) {
 
     _viewRef = new WeakReference<TView>(view);
     _subscribe = subscribe;
     _unsubscribe = unsubscribe;
-    _getViewValue = getViewValue;
     _setViewValue = setViewValue;
-
     _viewChangedHandler = OnViewChanged;
+    _isTwoWay = true;
+
     _subscribe(_viewChangedHandler);
+  }
+
+  public ViewBinder(TView view, Action<TView, TValue> setViewValue) {
+    _viewRef = new WeakReference<TView>(view);
+    _setViewValue = setViewValue;
+    _isTwoWay = false;
   }
 
   private void OnViewChanged(object? sender, TValue newValue) {
     if (_updating) return;
 
     if (!_viewRef.TryGetTarget(out var view)) {
-      _unsubscribe?.Invoke(_viewChangedHandler);
+      _unsubscribe?.Invoke(_viewChangedHandler!);
       _vmSubscription?.Dispose();
       return;
     }
@@ -46,21 +51,11 @@ public sealed class ViewBinder<TView, TValue> where TView : class {
     _vmSetter?.Invoke(newValue);
   }
 
-  public void Bind<TSource, TProp>(
-    TSource source,
-    Expression<Func<TSource, TProp>> propertyExpression,
-    BindingU.Mode mode = BindingU.Mode.TwoWay)
+  public void Bind<TSource, TProp>(TSource source, Expression<Func<TSource, TProp>> propertyExpression)
     where TSource : class, INotifyPropertyChanged {
 
     _vmSubscription?.Dispose();
     _vmSetter = null;
-
-    if (propertyExpression.Body is not MemberExpression m)
-      throw new ArgumentException("Expression must be a property access", nameof(propertyExpression));
-
-    var propName = m.Member.Name;
-    var getter = BindingU.GetterCache.GetGetter<TSource, TProp>(propName);
-    var setter = BindingU.SetterCache.GetSetter<TSource, TProp>(propName);
 
     if (!_viewRef.TryGetTarget(out var view)) return;
 
@@ -70,18 +65,19 @@ public sealed class ViewBinder<TView, TValue> where TView : class {
 
       _updating = true;
       try {
-        var converted = (TValue)Convert.ChangeType(p, typeof(TValue))!;
-        _setViewValue(v, converted);
+        _setViewValue(v, (TValue)Convert.ChangeType(p, typeof(TValue))!);
       }
       finally { _updating = false; }
     });
 
     // View → VM
-    if (mode == BindingU.Mode.TwoWay) {
+    if (_isTwoWay) {
+      var propertyName = BindingU.GetPropertyName(propertyExpression);
+      var setter = BindingU.SetterCache.GetSetter<TSource, TProp>(propertyName);
+
       _vmSetter = val => {
-        if (_updating) return;
-        var converted = Convert.ChangeType(val, typeof(TProp))!;
-        setter(source, (TProp)converted);
+        if (!_updating)
+          setter(source, (TProp)Convert.ChangeType(val, typeof(TProp))!);
       };
     }
   }

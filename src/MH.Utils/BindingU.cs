@@ -9,8 +9,6 @@ using System.Runtime.CompilerServices;
 namespace MH.Utils;
 
 public static class BindingU {
-  public enum Mode { OneWay, TwoWay }
-
   private static readonly ConditionalWeakTable<INotifyPropertyChanged, PropertySubscriptionTable> _propertySubs = new();
   private static readonly ConditionalWeakTable<INotifyCollectionChanged, CollectionSubscriptionTable> _collectionSubs = new();
 

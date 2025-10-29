@@ -1,4 +1,5 @@
-﻿using MH.Utils.Interfaces;
+﻿using MH.Utils.Extensions;
+using MH.Utils.Interfaces;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows.Input;
@@ -6,7 +7,7 @@ using System.Windows.Input;
 namespace MH.Utils.BaseClasses;
 
 public class MenuItem : TreeItem {
-  public ICommand? Command { get; set; }
+  public ICommand? Command { get; }
   public object? CommandParameter { get; set; }
   public string? InputGestureText { get; set; }
   public new string Icon => !string.IsNullOrEmpty(base.Icon) ? base.Icon : (Command as RelayCommandBase)?.Icon ?? string.Empty;
@@ -21,6 +22,11 @@ public class MenuItem : TreeItem {
   public MenuItem(ICommand command, object? commandParameter = null) {
     Command = command;
     CommandParameter = commandParameter;
+
+    if (Command is RelayCommandBase cmd) {
+      this.Bind(cmd, x => x.Icon, (t, _) => t.OnPropertyChanged(nameof(Icon)), false);
+      this.Bind(cmd, x => x.Text, (t, _) => t.OnPropertyChanged(nameof(Text)), false);
+    }
   }
 
   public void Add(MenuItem menuItem) {

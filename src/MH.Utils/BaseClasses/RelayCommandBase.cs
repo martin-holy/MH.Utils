@@ -4,8 +4,11 @@ using System.Runtime.CompilerServices;
 namespace MH.Utils.BaseClasses;
 
 public abstract class RelayCommandBase : ObservableObject {
-  public string? Icon { get; set; }
-  public string? Text { get; set; }
+  private string? _icon;
+  private string? _text;
+
+  public string? Icon { get => _icon; set { _icon = value; OnPropertyChanged(); } }
+  public string? Text { get => _text; set { _text = value; OnPropertyChanged(); } }
 
   protected Func<bool>? _canExecuteFunc;
 
@@ -31,8 +34,8 @@ public abstract class RelayCommandBase : ObservableObject {
   protected RelayCommandBase() { }
 
   protected RelayCommandBase(string? icon, string? text) {
-    Icon = icon;
-    Text = text;
+    _icon = icon;
+    _text = text;
   }
 
   public void RaiseCanExecuteChanged() =>

@@ -18,7 +18,7 @@ public static class StringExtensions {
     return index;
   }
 
-  public static bool TryParseDoubleUniversal(this string s, out double result) {
+  public static bool TryParseDoubleUniversal(this string? s, out double result) {
     result = 0.0;
     if (string.IsNullOrEmpty(s)) return false;
     var clean = new string(s.Where(x => char.IsDigit(x) || x == '.' || x == ',' || x == '-').ToArray());

@@ -5,7 +5,7 @@ using System.Runtime.CompilerServices;
 
 namespace MH.Utils;
 
-public sealed class ViewBinder<TView, TValue> where TView : class {
+public sealed class ViewBinder<TView, TValue> : IDisposable where TView : class {
   private readonly WeakReference<TView> _viewRef;
   private readonly Action<EventHandler<TValue>>? _subscribe;
   private readonly Action<EventHandler<TValue>>? _unsubscribe;
@@ -15,6 +15,7 @@ public sealed class ViewBinder<TView, TValue> where TView : class {
   private IDisposable? _vmSubscription;
   private Action<TValue>? _vmSetter;
   private bool _updating;
+  private bool _disposed;
   private readonly bool _isTwoWay;
 
   public ViewBinder(
@@ -27,7 +28,7 @@ public sealed class ViewBinder<TView, TValue> where TView : class {
     _subscribe = subscribe;
     _unsubscribe = unsubscribe;
     _setViewValue = setViewValue;
-    _viewChangedHandler = OnViewChanged;
+    _viewChangedHandler = _onViewChanged;
     _isTwoWay = true;
 
     _subscribe(_viewChangedHandler);
@@ -39,7 +40,7 @@ public sealed class ViewBinder<TView, TValue> where TView : class {
     _isTwoWay = false;
   }
 
-  private void OnViewChanged(object? sender, TValue newValue) {
+  private void _onViewChanged(object? sender, TValue newValue) {
     if (_updating) return;
 
     if (!_viewRef.TryGetTarget(out var view)) {
@@ -80,5 +81,15 @@ public sealed class ViewBinder<TView, TValue> where TView : class {
           setter(source, (TProp)Convert.ChangeType(val, typeof(TProp))!);
       };
     }
+  }
+
+  public void Dispose() {
+    if (_disposed) return;
+    _disposed = true;
+
+    _vmSubscription?.Dispose();
+
+    if (_unsubscribe != null && _viewChangedHandler != null)
+      _unsubscribe(_viewChangedHandler);
   }
 }

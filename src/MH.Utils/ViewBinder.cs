@@ -5,7 +5,10 @@ using System.Runtime.CompilerServices;
 
 namespace MH.Utils;
 
-public sealed class ViewBinder<TView, TValue> : IDisposable where TView : class {
+public sealed class ViewBinder<TView, TValue, TSource, TProp> : IDisposable
+  where TView : class
+  where TSource : class, INotifyPropertyChanged {
+
   private readonly WeakReference<TView> _viewRef;
   private readonly Action<EventHandler<TValue>>? _subscribe;
   private readonly Action<EventHandler<TValue>>? _unsubscribe;
@@ -22,7 +25,9 @@ public sealed class ViewBinder<TView, TValue> : IDisposable where TView : class 
     TView view,
     Action<EventHandler<TValue>> subscribe,
     Action<EventHandler<TValue>> unsubscribe,
-    Action<TView, TValue> setViewValue) {
+    Action<TView, TValue> setViewValue,
+    TSource source,
+    Expression<Func<TSource, TProp>> propertyExpression) {
 
     _viewRef = new WeakReference<TView>(view);
     _subscribe = subscribe;
@@ -32,12 +37,20 @@ public sealed class ViewBinder<TView, TValue> : IDisposable where TView : class 
     _isTwoWay = true;
 
     _subscribe(_viewChangedHandler);
+    _bind(source, propertyExpression);
   }
 
-  public ViewBinder(TView view, Action<TView, TValue> setViewValue) {
+  public ViewBinder(
+    TView view,
+    Action<TView, TValue> setViewValue,
+    TSource source,
+    Expression<Func<TSource, TProp>> propertyExpression) {
+
     _viewRef = new WeakReference<TView>(view);
     _setViewValue = setViewValue;
     _isTwoWay = false;
+
+    _bind(source, propertyExpression);
   }
 
   private void _onViewChanged(object? sender, TValue newValue) {
@@ -52,9 +65,7 @@ public sealed class ViewBinder<TView, TValue> : IDisposable where TView : class 
     _vmSetter?.Invoke(newValue);
   }
 
-  public void Bind<TSource, TProp>(TSource source, Expression<Func<TSource, TProp>> propertyExpression)
-    where TSource : class, INotifyPropertyChanged {
-
+  private void _bind(TSource source, Expression<Func<TSource, TProp>> propertyExpression) {
     _vmSubscription?.Dispose();
     _vmSetter = null;
 

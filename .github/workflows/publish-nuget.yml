@@ -1,22 +1,29 @@
-name: Debug Repo Structure
+name: Publish NuGet Package
 
 on:
-  workflow_dispatch:
+  release:
+    types: [published]
 
 jobs:
-  list-files:
+  publish:
     runs-on: windows-latest
+
     steps:
-      - uses: actions/checkout@v3
+    - uses: actions/checkout@v3
 
-      - name: List root directory
-        run: dir
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: '8.0.x'
 
-      - name: List src folder
-        run: dir src
-
-      - name: List MH.Utils folder
-        run: dir src\MH.Utils
-
-      - name: List MH.Utils src folder
-        run: dir src\MH.Utils\src
+    - name: Restore dependencies
+      run: dotnet restore src/MH.Utils/MH.Utils.csproj
+      
+    - name: Build
+      run: dotnet build src/MH.Utils/MH.Utils.csproj --configuration Release
+    
+    - name: Pack
+      run: dotnet pack src/MH.Utils/MH.Utils.csproj --configuration Release --output nupkg
+    
+    - name: Publish to NuGet
+      run: dotnet nuget push ./nupkg/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json

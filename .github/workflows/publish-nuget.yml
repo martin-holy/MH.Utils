@@ -7,6 +7,7 @@ on:
 jobs:
   publish:
     runs-on: windows-latest
+
     steps:
     - uses: actions/checkout@v3
 
@@ -16,16 +17,13 @@ jobs:
         dotnet-version: '8.0.x'
 
     - name: Restore dependencies
-      run: dotnet restore
-      working-directory: src/MH.Utils
+      run: dotnet restore ./src/MH.Utils/MH.Utils.csproj
 
     - name: Build
-      run: dotnet build --configuration Release
-      working-directory: src/MH.Utils
-    
+      run: dotnet build ./src/MH.Utils/MH.Utils.csproj --configuration Release --no-restore
+
     - name: Pack
-      run: dotnet pack --configuration Release --output nupkg
-      working-directory: src/MH.Utils
+      run: dotnet pack ./src/MH.Utils/MH.Utils.csproj --configuration Release --output ./nupkg --no-build
 
     - name: Publish to NuGet
-      run: dotnet nuget push ./nupkg/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
+      run: dotnet nuget push ./nupkg/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate

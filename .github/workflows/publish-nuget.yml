@@ -1,0 +1,28 @@
+name: Publish NuGet Package
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: '8.0.x'  # adjust to your project version
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Build
+      run: dotnet build --configuration Release
+
+    - name: Pack NuGet package
+      run: dotnet pack ./MH.Utils/MH.Utils.csproj --configuration Release --output ./nupkg
+
+    - name: Publish to NuGet
+      run: dotnet nuget push ./nupkg/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json

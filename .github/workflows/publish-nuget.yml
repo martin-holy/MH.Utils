@@ -16,13 +16,13 @@ jobs:
         dotnet-version: '8.0.x'  # adjust to your project version
 
     - name: Restore dependencies
-      run: dotnet restore
+      run: dotnet restore ./src/MH.Utils/MH.Utils.csproj
 
     - name: Build
-      run: dotnet build --configuration Release
+      run: dotnet build ./src/MH.Utils/MH.Utils.csproj --configuration Release
 
     - name: Pack NuGet package
       run: dotnet pack ./src/MH.Utils/MH.Utils.csproj --configuration Release --output ./nupkg
 
     - name: Publish to NuGet
-      run: dotnet nuget push ./src/MH.Utils/bin/Release/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
+      run: dotnet nuget push ./nupkg/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json

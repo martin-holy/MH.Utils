@@ -13,16 +13,19 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v3
       with:
-        dotnet-version: '8.0.x'  # adjust to your project version
+        dotnet-version: '8.0.x'
 
     - name: Restore dependencies
-      run: dotnet restore ./src/MH.Utils/MH.Utils.csproj
+      run: dotnet restore
+      working-directory: ./src/MH.Utils
 
     - name: Build
-      run: dotnet build ./src/MH.Utils/MH.Utils.csproj --configuration Release
+      run: dotnet build --configuration Release
+      working-directory: ./src/MH.Utils
 
     - name: Pack NuGet package
-      run: dotnet pack ./src/MH.Utils/MH.Utils.csproj --configuration Release --output ./nupkg
+      run: dotnet pack --configuration Release --output ../../nupkg
+      working-directory: ./src/MH.Utils
 
     - name: Publish to NuGet
       run: dotnet nuget push ./nupkg/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json

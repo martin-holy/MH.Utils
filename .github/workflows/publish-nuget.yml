@@ -22,7 +22,7 @@ jobs:
       run: dotnet build --configuration Release
 
     - name: Pack NuGet package
-      run: dotnet pack ./MH.Utils/MH.Utils.csproj --configuration Release --output ./nupkg
+      run: dotnet pack ./src/MH.Utils/MH.Utils.csproj --configuration Release --output ./nupkg
 
     - name: Publish to NuGet
-      run: dotnet nuget push ./nupkg/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
+      run: dotnet nuget push ./src/MH.Utils/bin/Release/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json

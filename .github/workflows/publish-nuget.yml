@@ -11,7 +11,10 @@ jobs:
     - uses: actions/checkout@v3
 
     - name: List files
-      run: ls -R src/MH.Utils
+      run: dir
+
+    - name: List files 2
+      run: dir src/MH.Utils
 
     - name: Setup .NET
       uses: actions/setup-dotnet@v3

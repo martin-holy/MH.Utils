@@ -1,19 +1,32 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <Authors>Martin Holý</Authors>
-    <Copyright>Martin Holý</Copyright>
-    <RunAnalyzersDuringBuild>False</RunAnalyzersDuringBuild>
-    <RunAnalyzersDuringLiveAnalysis>False</RunAnalyzersDuringLiveAnalysis>
-    <EnableNETAnalyzers>True</EnableNETAnalyzers>
-  </PropertyGroup>
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<Nullable>enable</Nullable>
 
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-    <Version>$(CurrentDateTimeVersion)</Version>
-    <AssemblyVersion>$(CurrentDateTimeVersion)</AssemblyVersion>
-    <FileVersion>$(CurrentDateTimeVersion)</FileVersion>
-  </PropertyGroup>
+		<Authors>Martin Holý</Authors>
+		<Company>Martin Holý</Company>
+		<Copyright>Martin Holý</Copyright>
 
+		<RunAnalyzersDuringBuild>False</RunAnalyzersDuringBuild>
+		<RunAnalyzersDuringLiveAnalysis>False</RunAnalyzersDuringLiveAnalysis>
+		<EnableNETAnalyzers>True</EnableNETAnalyzers>
+
+		<!-- Package info for NuGet -->
+		<PackageId>MH.Utils</PackageId>
+		<Description>
+			A collection of platform-independent utility classes for .NET applications, providing essential extensions, data structures, event handling, logging, file and IO helpers, and simple in-memory database support.
+		</Description>
+		<PackageTags>Utilities, Helpers, Extensions, Events, Logging, In-memory-database, IO, Collections, cross-platform, MVVM</PackageTags>
+		<PackageLicenseExpression>CC0-1.0</PackageLicenseExpression>
+		<RepositoryUrl>https://github.com/martin-holy/MH.Utils</RepositoryUrl>
+
+		<Version>3.0.0</Version>
+		<AssemblyVersion>3.0.0.0</AssemblyVersion>
+		<FileVersion>3.0.0.0</FileVersion>
+
+		<IncludeSymbols>true</IncludeSymbols>
+		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
+	</PropertyGroup>
+	
 </Project>

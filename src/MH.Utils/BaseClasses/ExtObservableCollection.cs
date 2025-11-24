@@ -25,7 +25,7 @@ public class ExtObservableCollection<T> : ObservableCollection<T> {
     _notifyChange(NotifyCollectionChangedAction.Add, items);
   }
 
-  public void RemoveItems(IList<T> items, Action<T> itemAction) {
+  public void RemoveItems(IList<T> items, Action<T>? itemAction) {
     foreach (var item in items) {
       itemAction?.Invoke(item);
       Items.Remove(item);

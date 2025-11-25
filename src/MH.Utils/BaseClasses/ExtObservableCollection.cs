@@ -38,10 +38,10 @@ public class ExtObservableCollection<T> : ObservableCollection<T> {
     OnPropertyChanged(new("Count"));
     OnPropertyChanged(new("Item[]"));
 
-    if (items == null)
-      OnCollectionChanged(new(NotifyCollectionChangedAction.Reset));
+    if (items?.Count == 1)
+      OnCollectionChanged(new(action, items[0]));
     else
-      OnCollectionChanged(new(action, items));
+      OnCollectionChanged(new(NotifyCollectionChangedAction.Reset));
   }
 }
 

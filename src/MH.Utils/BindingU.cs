@@ -1,9 +1,10 @@
-﻿using MH.Utils.BaseClasses;
-using System;
+﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Linq.Expressions;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 
 namespace MH.Utils;
@@ -19,6 +20,7 @@ public static class BindingU {
     return m.Member.Name;
   }
 
+  // Non-nested property binding
   public static IDisposable Bind<TTarget, TSource, TProp>(
     this TTarget target,
     TSource source,
@@ -60,6 +62,40 @@ public static class BindingU {
     return target;
   }
 
+  // Nested property binding
+  public static IDisposable BindNested<TTarget, TSource, TProp>(
+    this TTarget target,
+    TSource source,
+    Expression<Func<TSource, TProp>> expr,
+    Action<TTarget, TProp> onChange,
+    bool invokeInitOnChange = true)
+    where TTarget : class
+    where TSource : class, INotifyPropertyChanged {
+
+    return _bindNested(target, source, expr,
+      onLeafValue: (t, v) => onChange(t, (TProp)v!),
+      onLeafCollection: null,
+      invokeInit: invokeInitOnChange);
+  }
+
+  // Nested collection binding
+  public static IDisposable BindCollectionNested<TTarget, TSource, TCol>(
+    this TTarget target,
+    TSource source,
+    Expression<Func<TSource, TCol?>> expr,
+    Action<TTarget, NotifyCollectionChangedEventArgs> onChange,
+    bool invokeInitOnChange = true)
+    where TTarget : class
+    where TSource : class, INotifyPropertyChanged
+    where TCol : class, INotifyCollectionChanged {
+
+    return _bindNested(target, source, expr,
+      onLeafValue: null,
+      onLeafCollection: (t, e) => onChange(t, e),
+      invokeInit: invokeInitOnChange);
+  }
+
+  // Direct collection binding (no source property)
   public static IDisposable Bind<TTarget>(
     this TTarget target,
     INotifyCollectionChanged source,
@@ -81,6 +117,134 @@ public static class BindingU {
     onChange(target, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
 
     return sub.AddHandler(handler);
+  }
+
+  // Core nested binding implementation
+  private static IDisposable _bindNested<TTarget, TSource, TLeaf>(
+    TTarget target,
+    TSource root,
+    Expression<Func<TSource, TLeaf>> expr,
+    Action<TTarget, object>? onLeafValue,
+    Action<TTarget, NotifyCollectionChangedEventArgs>? onLeafCollection,
+    bool invokeInit)
+    where TTarget : class
+    where TSource : class, INotifyPropertyChanged {
+
+    var members = _getNestedMembers(expr); // leaf last
+    var propertyNames = new List<string>(members.Count);
+    var getters = new List<IHopGetter>(members.Count);
+
+    // Build typed hop-getters and validate the chain
+    for (int i = 0; i < members.Count; i++) {
+      var me = members[i];
+      var declaringType = me.Expression!.Type;
+      bool isLeaf = i == members.Count - 1;
+
+      if (!isLeaf && !typeof(INotifyPropertyChanged).IsAssignableFrom(declaringType))
+        throw new InvalidOperationException(
+          $"Property '{me.Member.Name}' of type '{declaringType}' must implement INotifyPropertyChanged for nested binding.");
+
+      propertyNames.Add(me.Member.Name);
+
+      // Create a typed hop getter (cached)
+      var getter = HopGetterCache.GetOrAdd(me.Member);
+      getters.Add(getter);
+    }
+
+    var subscriptions = new List<IDisposable>();
+    var weakTarget = new WeakReference<TTarget>(target);
+    bool disposed = false;
+
+    void RebuildFrom(int startHop) {
+      if (disposed || !weakTarget.TryGetTarget(out var tTarget)) return;
+
+      // Dispose subscriptions from this hop onward
+      for (int i = subscriptions.Count - 1; i >= startHop; i--) {
+        subscriptions[i].Dispose();
+        subscriptions.RemoveAt(i);
+      }
+
+      // Navigate to the current instance for this hop
+      object? currentInstance = root;
+      for (int i = 0; i < startHop; i++) {
+        if (currentInstance == null) break;
+        currentInstance = getters[i].Get(currentInstance);
+      }
+
+      // Subscribe to each property in the chain
+      for (int hop = startHop; hop < members.Count; hop++) {
+        if (currentInstance == null) break;
+
+        var propertyName = propertyNames[hop];
+        var capturedHop = hop;
+
+        // Subscribe to parent to detect replacement
+        if (currentInstance is INotifyPropertyChanged npc) {
+          var sub = BindInternalSubscribe(npc, propertyName, () => {
+            if (weakTarget.TryGetTarget(out _))
+              RebuildFrom(capturedHop + 1);
+          });
+
+          subscriptions.Add(sub);
+        }
+
+        // Move to next instance using typed getter
+        currentInstance = getters[hop].Get(currentInstance);
+      }
+
+      // Leaf handling depends on what client asked for
+      if (!weakTarget.TryGetTarget(out tTarget)) return;
+
+      if (onLeafCollection != null && currentInstance is INotifyCollectionChanged collection) {
+        var table = _collectionSubs.GetOrCreateValue(collection);
+        var collSub = table.GetOrAdd(collection);
+
+        void CollectionHandler(object? s, NotifyCollectionChangedEventArgs e) {
+          if (weakTarget.TryGetTarget(out var t))
+            onLeafCollection(t, e);
+        }
+
+        subscriptions.Add(collSub.AddHandler(CollectionHandler));
+
+        if (invokeInit)
+          onLeafCollection(tTarget, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+      }
+      else if (onLeafValue != null) {
+        if (invokeInit)
+          onLeafValue(tTarget, currentInstance!);
+      }
+    }
+
+    // Start building the subscription chain
+    RebuildFrom(0);
+
+    return new Subscription(() => {
+      if (disposed) return;
+      disposed = true;
+      foreach (var sub in subscriptions) sub.Dispose();
+    });
+
+    // Internal helper for simple property subscription
+    static IDisposable BindInternalSubscribe(INotifyPropertyChanged src, string propertyName, Action onChanged) {
+      void Handler(object? s, PropertyChangedEventArgs e) {
+        if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName == propertyName)
+          onChanged();
+      }
+
+      src.PropertyChanged += Handler;
+      return new Subscription(() => src.PropertyChanged -= Handler);
+    }
+  }
+
+  // Extract nested member expressions from lambda
+  private static List<MemberExpression> _getNestedMembers<TSource, TProp>(Expression<Func<TSource, TProp>> pathExpr) {
+    var members = new List<MemberExpression>();
+    Expression? e = pathExpr.Body;
+    while (e is MemberExpression me) {
+      members.Insert(0, me);
+      e = me.Expression;
+    }
+    return members;
   }
 
   private interface IPropertySubscription {
@@ -336,6 +500,50 @@ public static class BindingU {
     }
   }
 
+  internal interface IHopGetter {
+    object? Get(object? parent);
+  }
+
+  internal sealed class HopGetter<TParent, TChild> : IHopGetter where TParent : class {
+    private readonly Func<TParent, TChild> _getter;
+
+    public HopGetter(Func<TParent, TChild> getter) {
+      _getter = getter ?? throw new ArgumentNullException(nameof(getter));
+    }
+
+    // parent should be TParent (non-null-check is caller's responsibility)
+    public object? Get(object? parent) => _getter((TParent)parent!);
+
+    public static IHopGetter Create(PropertyInfo property) {
+      var param = Expression.Parameter(typeof(TParent), "p");
+      var access = Expression.Property(param, property);
+      var lambda = Expression.Lambda<Func<TParent, TChild>>(access, param);
+      var compiled = lambda.Compile();
+      return new HopGetter<TParent, TChild>(compiled);
+    }
+  }
+
+  internal static class HopGetterCache {
+    private static readonly ConcurrentDictionary<(Type DeclaringType, string Name), IHopGetter> _cache = [];
+
+    public static IHopGetter GetOrAdd(MemberInfo member) {
+      if (member is not PropertyInfo prop)
+        throw new ArgumentException("Only property members are supported", nameof(member));
+
+      var key = (prop.DeclaringType!, prop.Name);
+
+      return _cache.GetOrAdd(key, _ => {
+        var parentType = prop.DeclaringType!;
+        var childType = prop.PropertyType;
+        var genericType = typeof(HopGetter<,>).MakeGenericType(parentType, childType);
+        var mi = genericType.GetMethod("Create", BindingFlags.Public | BindingFlags.Static | BindingFlags.NonPublic);
+        if (mi == null) throw new InvalidOperationException("Unable to find Create method on HopGetter<>");
+        var created = mi.Invoke(null, new object[] { prop });
+        return (IHopGetter)created!;
+      });
+    }
+  }
+
   public static class GetterCache {
     private static readonly Dictionary<(Type, string), Delegate> _cache = [];
 
@@ -374,7 +582,18 @@ public static class BindingU {
     }
   }
 
-  private class Subscription(Action _unsubscribe) : IDisposable {
-    public void Dispose() => _unsubscribe();
+  private class Subscription : IDisposable {
+    private readonly Action _unsubscribe;
+    private bool _disposed;
+
+    public Subscription(Action unsubscribe) {
+      _unsubscribe = unsubscribe;
+    }
+
+    public void Dispose() {
+      if (_disposed) return;
+      _disposed = true;
+      _unsubscribe();
+    }
   }
 }

@@ -33,7 +33,6 @@ public static class BindingU {
     var propertyName = GetPropertyName(propertyExpression);
     var getter = GetterCache.GetGetter<TSource, TProp>(propertyName);
     var weakTarget = new WeakReference<TTarget>(target);
-
     var table = _propertySubs.GetOrCreateValue(source);
     var sub = table.GetOrAdd(source, propertyName, getter);
 
@@ -79,11 +78,11 @@ public static class BindingU {
   }
 
   // Nested collection binding
-  public static IDisposable BindCollectionNested<TTarget, TSource, TCol>(
+  public static IDisposable Bind<TTarget, TSource, TCol>(
     this TTarget target,
     TSource source,
     Expression<Func<TSource, TCol?>> expr,
-    Action<TTarget, NotifyCollectionChangedEventArgs> onChange,
+    Action<TTarget, TCol?, NotifyCollectionChangedEventArgs> onChange,
     bool invokeInitOnChange = true)
     where TTarget : class
     where TSource : class, INotifyPropertyChanged
@@ -91,7 +90,7 @@ public static class BindingU {
 
     return _bindNested(target, source, expr,
       onLeafValue: null,
-      onLeafCollection: (t, e) => onChange(t, e),
+      onLeafCollection: (t, c, e) => onChange(t, (TCol?)c, e),
       invokeInit: invokeInitOnChange);
   }
 
@@ -125,14 +124,14 @@ public static class BindingU {
     TSource root,
     Expression<Func<TSource, TLeaf>> expr,
     Action<TTarget, object>? onLeafValue,
-    Action<TTarget, NotifyCollectionChangedEventArgs>? onLeafCollection,
+    Action<TTarget, INotifyCollectionChanged, NotifyCollectionChangedEventArgs>? onLeafCollection,
     bool invokeInit)
     where TTarget : class
     where TSource : class, INotifyPropertyChanged {
 
     var members = _getNestedMembers(expr); // leaf last
-    var propertyNames = new List<string>(members.Count);
-    var getters = new List<IHopGetter>(members.Count);
+    var propertyNames = new string[members.Count];
+    var getters = new IHopGetter[members.Count];
 
     // Build typed hop-getters and validate the chain
     for (int i = 0; i < members.Count; i++) {
@@ -144,11 +143,8 @@ public static class BindingU {
         throw new InvalidOperationException(
           $"Property '{me.Member.Name}' of type '{declaringType}' must implement INotifyPropertyChanged for nested binding.");
 
-      propertyNames.Add(me.Member.Name);
-
-      // Create a typed hop getter (cached)
-      var getter = HopGetterCache.GetOrAdd(me.Member);
-      getters.Add(getter);
+      propertyNames[i] = me.Member.Name;
+      getters[i] = HopGetterCache.GetOrAdd(me.Member);
     }
 
     var subscriptions = new List<IDisposable>();
@@ -201,13 +197,15 @@ public static class BindingU {
 
         void CollectionHandler(object? s, NotifyCollectionChangedEventArgs e) {
           if (weakTarget.TryGetTarget(out var t))
-            onLeafCollection(t, e);
+            onLeafCollection(t, collection, e);
+          else
+            collSub.RemoveHandler(CollectionHandler);
         }
 
         subscriptions.Add(collSub.AddHandler(CollectionHandler));
 
         if (invokeInit)
-          onLeafCollection(tTarget, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+          onLeafCollection(tTarget, collection, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
       }
       else if (onLeafValue != null) {
         if (invokeInit)

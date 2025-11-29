@@ -95,6 +95,7 @@ public static class BindingU {
   }
 
   // Direct collection binding (no source property)
+  [Obsolete] // each bindind should have a source to watch over changes on collection property it self
   public static IDisposable Bind<TTarget>(
     this TTarget target,
     INotifyCollectionChanged source,
@@ -118,7 +119,6 @@ public static class BindingU {
     return sub.AddHandler(handler);
   }
 
-  // Core nested binding implementation
   private static IDisposable _bindNested<TTarget, TSource, TLeaf>(
     TTarget target,
     TSource root,
@@ -130,18 +130,21 @@ public static class BindingU {
     where TSource : class, INotifyPropertyChanged {
 
     var members = _getNestedMembers(expr); // leaf last
-    var propertyNames = new string[members.Count];
-    var getters = new IHopGetter[members.Count];
+    int hopCount = members.Count;
 
-    // Build typed hop-getters and validate the chain
-    for (int i = 0; i < members.Count; i++) {
+    var propertyNames = new string[hopCount];
+    var getters = new IHopGetter[hopCount];
+
+    for (int i = 0; i < hopCount; i++) {
       var me = members[i];
-      var declaringType = me.Expression!.Type;
-      bool isLeaf = i == members.Count - 1;
+      bool isLeaf = i == hopCount - 1;
 
-      if (!isLeaf && !typeof(INotifyPropertyChanged).IsAssignableFrom(declaringType))
-        throw new InvalidOperationException(
-          $"Property '{me.Member.Name}' of type '{declaringType}' must implement INotifyPropertyChanged for nested binding.");
+      if (!isLeaf) {
+        var declaringType = me.Expression!.Type;
+        if (!typeof(INotifyPropertyChanged).IsAssignableFrom(declaringType))
+          throw new InvalidOperationException(
+              $"Property '{me.Member.Name}' of '{declaringType}' must implement INotifyPropertyChanged.");
+      }
 
       propertyNames[i] = me.Member.Name;
       getters[i] = HopGetterCache.GetOrAdd(me.Member);
@@ -160,35 +163,39 @@ public static class BindingU {
         subscriptions.RemoveAt(i);
       }
 
-      // Navigate to the current instance for this hop
       object? currentInstance = root;
       for (int i = 0; i < startHop; i++) {
         if (currentInstance == null) break;
         currentInstance = getters[i].Get(currentInstance);
       }
 
-      // Subscribe to each property in the chain
-      for (int hop = startHop; hop < members.Count; hop++) {
+      for (int hop = startHop; hop < hopCount; hop++) {
         if (currentInstance == null) break;
 
         var propertyName = propertyNames[hop];
         var capturedHop = hop;
 
-        // Subscribe to parent to detect replacement
         if (currentInstance is INotifyPropertyChanged npc) {
-          var sub = BindInternalSubscribe(npc, propertyName, () => {
-            if (weakTarget.TryGetTarget(out _))
-              RebuildFrom(capturedHop + 1);
-          });
+          var declaringType = members[capturedHop].Expression!.Type;
+          var propType = members[capturedHop].Type;
 
+          var sub = AddPropertyTableHandler(
+              npc,
+              currentInstance!,
+              declaringType,
+              propType,
+              propertyName,
+              () => {
+                if (weakTarget.TryGetTarget(out _))
+                  RebuildFrom(capturedHop + 1);
+              }
+          );
           subscriptions.Add(sub);
         }
 
-        // Move to next instance using typed getter
         currentInstance = getters[hop].Get(currentInstance);
       }
 
-      // Leaf handling depends on what client asked for
       if (!weakTarget.TryGetTarget(out tTarget)) return;
 
       if (onLeafCollection != null && currentInstance is INotifyCollectionChanged collection) {
@@ -213,25 +220,9 @@ public static class BindingU {
       }
     }
 
-    // Start building the subscription chain
     RebuildFrom(0);
 
-    return new Subscription(() => {
-      if (disposed) return;
-      disposed = true;
-      foreach (var sub in subscriptions) sub.Dispose();
-    });
-
-    // Internal helper for simple property subscription
-    static IDisposable BindInternalSubscribe(INotifyPropertyChanged src, string propertyName, Action onChanged) {
-      void Handler(object? s, PropertyChangedEventArgs e) {
-        if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName == propertyName)
-          onChanged();
-      }
-
-      src.PropertyChanged += Handler;
-      return new Subscription(() => src.PropertyChanged -= Handler);
-    }
+    return new NestedDispose(subscriptions);
   }
 
   // Extract nested member expressions from lambda
@@ -243,6 +234,87 @@ public static class BindingU {
       e = me.Expression;
     }
     return members;
+  }
+
+  private sealed class Handler : IDisposable {
+    public string PropertyName = default!;
+    public Action OnChanged = default!;
+    public INotifyPropertyChanged TargetNode = default!;
+
+    public void OnEvent(object? sender, PropertyChangedEventArgs e) {
+      if (e.PropertyName == PropertyName)
+        OnChanged();
+    }
+
+    public void Dispose() {
+      TargetNode.PropertyChanged -= OnEvent;
+
+      // Reset fields before returning to pool
+      PropertyName = default!;
+      OnChanged = default!;
+      TargetNode = default!;
+
+      HandlerPool.Add(this);
+    }
+  }
+
+  private static readonly ConcurrentBag<Handler> HandlerPool = new();
+
+  public static IDisposable AddPropertyTableHandler(
+    INotifyPropertyChanged nodeInstance,
+    object sourceInstance,
+    Type declaringType,
+    Type propType,
+    string propertyName,
+    Action onChanged) {
+
+    var h = HandlerPool.TryTake(out var handler) ? handler : new Handler();
+    h.PropertyName = propertyName;
+    h.OnChanged = onChanged;
+    h.TargetNode = nodeInstance;
+
+    nodeInstance.PropertyChanged += h.OnEvent;
+
+    return h;
+  }
+
+  private sealed class NestedDispose : IDisposable {
+    private List<IDisposable>? _subscriptions;
+    private bool _disposed;
+
+    public NestedDispose(List<IDisposable> subscriptions) {
+      _subscriptions = subscriptions;
+    }
+
+    public void Dispose() {
+      if (_disposed) return;
+      _disposed = true;
+
+      var subs = _subscriptions;
+      _subscriptions = null;
+
+      if (subs is null) return;
+      foreach (var sub in subs)
+        sub.Dispose();
+    }
+  }
+
+  private sealed class HandlerSubscription<TSource, TProp> : IDisposable
+    where TSource : class, INotifyPropertyChanged {
+    private readonly PropertySubscription<TSource, TProp> _parent;
+    private readonly Action<TProp> _handler;
+    private bool _disposed;
+
+    public HandlerSubscription(PropertySubscription<TSource, TProp> parent, Action<TProp> handler) {
+      _parent = parent;
+      _handler = handler;
+    }
+
+    public void Dispose() {
+      if (_disposed) return;
+      _disposed = true;
+      _parent.RemoveHandler(_handler);
+    }
   }
 
   private interface IPropertySubscription {
@@ -295,7 +367,7 @@ public static class BindingU {
         newArr[arr.Length] = handler;
         _handlers = newArr;
       }
-      return new Subscription(() => RemoveHandler(handler));
+      return new HandlerSubscription<TSource, TProp>(this, handler);
     }
 
     public void RemoveHandler(Action<TProp> handler) {
@@ -390,6 +462,23 @@ public static class BindingU {
     }
   }
 
+  private sealed class CollectionHandlerSubscription : IDisposable {
+    private readonly CollectionSubscription _parent;
+    private readonly NotifyCollectionChangedEventHandler _handler;
+    private bool _disposed;
+
+    public CollectionHandlerSubscription(CollectionSubscription parent, NotifyCollectionChangedEventHandler handler) {
+      _parent = parent;
+      _handler = handler;
+    }
+
+    public void Dispose() {
+      if (_disposed) return;
+      _disposed = true;
+      _parent.RemoveHandler(_handler);
+    }
+  }
+
   private class CollectionSubscription {
     private readonly INotifyCollectionChanged _source;
     private readonly CollectionSubscriptionTable _table;
@@ -426,7 +515,7 @@ public static class BindingU {
         newArr[arr.Length] = handler;
         _handlers = newArr;
       }
-      return new Subscription(() => RemoveHandler(handler));
+      return new CollectionHandlerSubscription(this, handler);
     }
 
     public void RemoveHandler(NotifyCollectionChangedEventHandler handler) {
@@ -506,42 +595,40 @@ public static class BindingU {
     private readonly Func<TParent, TChild> _getter;
 
     public HopGetter(Func<TParent, TChild> getter) {
-      _getter = getter ?? throw new ArgumentNullException(nameof(getter));
+      _getter = getter;
     }
 
-    // parent should be TParent (non-null-check is caller's responsibility)
     public object? Get(object? parent) => _getter((TParent)parent!);
 
-    public static IHopGetter Create(PropertyInfo property) {
+    public static HopGetter<TParent, TChild> Create(PropertyInfo property) {
       var param = Expression.Parameter(typeof(TParent), "p");
       var access = Expression.Property(param, property);
       var lambda = Expression.Lambda<Func<TParent, TChild>>(access, param);
       var compiled = lambda.Compile();
+
       return new HopGetter<TParent, TChild>(compiled);
     }
   }
 
   internal static class HopGetterCache {
-    private static readonly ConcurrentDictionary<(Type DeclaringType, string Name), IHopGetter> _cache = [];
+    private static readonly ConcurrentDictionary<PropertyInfo, IHopGetter> _cache = new();
 
     public static IHopGetter GetOrAdd(MemberInfo member) {
       if (member is not PropertyInfo prop)
-        throw new ArgumentException("Only property members are supported", nameof(member));
+        throw new ArgumentException("Only property members are supported.", nameof(member));
 
-      var key = (prop.DeclaringType!, prop.Name);
-
-      return _cache.GetOrAdd(key, _ => {
-        var parentType = prop.DeclaringType!;
-        var childType = prop.PropertyType;
+      return _cache.GetOrAdd(prop, static p => {
+        var parentType = p.DeclaringType!;
+        var childType = p.PropertyType;
         var genericType = typeof(HopGetter<,>).MakeGenericType(parentType, childType);
-        var mi = genericType.GetMethod("Create", BindingFlags.Public | BindingFlags.Static | BindingFlags.NonPublic);
-        if (mi == null) throw new InvalidOperationException("Unable to find Create method on HopGetter<>");
-        var created = mi.Invoke(null, new object[] { prop });
-        return (IHopGetter)created!;
+        var createMethod = genericType.GetMethod("Create", BindingFlags.Public | BindingFlags.Static)!;
+
+        return (IHopGetter)createMethod.Invoke(null, new object[] { p })!;
       });
     }
   }
 
+  // TODO pass PropertyInfo instead of propertyName and use it as key
   public static class GetterCache {
     private static readonly Dictionary<(Type, string), Delegate> _cache = [];
 
@@ -577,21 +664,6 @@ public static class BindingU {
 
       _cache[key] = compiled;
       return compiled;
-    }
-  }
-
-  private class Subscription : IDisposable {
-    private readonly Action _unsubscribe;
-    private bool _disposed;
-
-    public Subscription(Action unsubscribe) {
-      _unsubscribe = unsubscribe;
-    }
-
-    public void Dispose() {
-      if (_disposed) return;
-      _disposed = true;
-      _unsubscribe();
     }
   }
 }

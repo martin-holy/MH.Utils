@@ -10,6 +10,8 @@ using System.Runtime.CompilerServices;
 
 namespace MH.Utils;
 
+// TODO should TProp and TCol be nullable?
+
 public static class BindingU {
   private static readonly ConditionalWeakTable<INotifyPropertyChanged, PropertySubscriptionTable> _propertySubs = new();
   private static readonly ConditionalWeakTable<INotifyCollectionChanged, CollectionSubscriptionTable> _collectionSubs = new();
@@ -50,7 +52,31 @@ public static class BindingU {
     return sub.AddHandler(handler);
   }
 
-  public static IDisposable Bind_NoExpr<TTarget, TSource, TProp>(
+  [Obsolete] // each bindind should have a source to watch over changes on collection property it self
+  public static IDisposable Bind<TTarget>(
+    this TTarget target,
+    INotifyCollectionChanged source,
+    Action<TTarget, NotifyCollectionChangedEventArgs> onChange)
+    where TTarget : class {
+
+    var weakTarget = new WeakReference<TTarget>(target);
+
+    var table = _collectionSubs.GetOrCreateValue(source);
+    var sub = table.GetOrAdd(source);
+
+    void handler(object? s, NotifyCollectionChangedEventArgs e) {
+      if (weakTarget.TryGetTarget(out var t))
+        onChange(t, e);
+      else
+        sub.RemoveHandler(handler);
+    }
+
+    onChange(target, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+
+    return sub.AddHandler(handler);
+  }
+
+  public static IDisposable Bind<TTarget, TSource, TProp>(
     this TTarget target,
     TSource source,
     string propertyName,
@@ -77,65 +103,23 @@ public static class BindingU {
     return sub.AddHandler(handler);
   }
 
-  public static IDisposable BindNested_NoExpr<TTarget, TSource, TProp>(
+  public static IDisposable Bind<TTarget, TSource, TProp>(
     this TTarget target,
     TSource source,
-    string[] path,
-    Func<object?, object?>[] hops,
+    string[] propertyNames,
+    Func<object?, object?>[] getters,
     Action<TTarget, TProp> onChange,
     bool invokeInitOnChange = true)
     where TTarget : class
     where TSource : class, INotifyPropertyChanged {
 
-    return _bindNested<TTarget, TSource, TProp>(target, source, path, hops,
+    return _bindNested<TTarget, TSource, TProp>(target, source, propertyNames, getters,
       onLeafValue: (t, v) => onChange(t, (TProp)v!),
       onLeafCollection: null,
       invokeInit: invokeInitOnChange);
   }
 
-  public static IDisposable BindNested_NoExpr<TTarget, TSource, TCol>(
-    this TTarget target,
-    TSource source,
-    string[] path,
-    Func<object?, object?>[] hops,
-    Action<TTarget, TCol?, NotifyCollectionChangedEventArgs> onChange,
-    bool invokeInitOnChange = true)
-    where TTarget : class
-    where TSource : class, INotifyPropertyChanged
-    where TCol : class, INotifyCollectionChanged {
-
-    return _bindNested<TTarget, TSource, TCol>(target, source, path, hops,
-      onLeafValue: null,
-      onLeafCollection: (t, c, e) => onChange(t, (TCol?)c, e),
-      invokeInit: invokeInitOnChange);
-  }
-
-  // Direct collection binding (no source property)
-  [Obsolete] // each bindind should have a source to watch over changes on collection property it self
-  public static IDisposable Bind<TTarget>(
-    this TTarget target,
-    INotifyCollectionChanged source,
-    Action<TTarget, NotifyCollectionChangedEventArgs> onChange)
-    where TTarget : class {
-
-    var weakTarget = new WeakReference<TTarget>(target);
-
-    var table = _collectionSubs.GetOrCreateValue(source);
-    var sub = table.GetOrAdd(source);
-
-    void handler(object? s, NotifyCollectionChangedEventArgs e) {
-      if (weakTarget.TryGetTarget(out var t))
-        onChange(t, e);
-      else
-        sub.RemoveHandler(handler);
-    }
-
-    onChange(target, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
-
-    return sub.AddHandler(handler);
-  }
-
-  public static IDisposable BindRootCollection<TTarget, TSource, TCol>(
+  public static IDisposable Bind<TTarget, TSource, TCol>(
     this TTarget target,
     TSource source,
     string propertyName,
@@ -171,8 +155,6 @@ public static class BindingU {
     var rootSub = AddPropertyTableHandler(
       source,
       source,
-      declaringType: source.GetType(),
-      propType: typeof(object),
       propertyName,
       () => {
         if (weakTarget.TryGetTarget(out _))
@@ -187,6 +169,7 @@ public static class BindingU {
     return new NestedDispose(subs);
   }
 
+  // TODO use this in _bindNested
   private static IDisposable _bindCollectionLeaf<TTarget, TCol>(
     TTarget target,
     TCol collection,
@@ -196,8 +179,8 @@ public static class BindingU {
     where TCol : INotifyCollectionChanged {
 
     var weakTarget = new WeakReference<TTarget>(target);
-    var subsTable = _collectionSubs.GetOrCreateValue(collection);
-    var collSub = subsTable.GetOrAdd(collection);
+    var table = _collectionSubs.GetOrCreateValue(collection);
+    var collSub = table.GetOrAdd(collection);
 
     void Handler(object? s, NotifyCollectionChangedEventArgs e) {
       if (weakTarget.TryGetTarget(out var t))
@@ -214,6 +197,23 @@ public static class BindingU {
     return d;
   }
 
+  public static IDisposable Bind<TTarget, TSource, TCol>(
+    this TTarget target,
+    TSource source,
+    string[] propertyNames,
+    Func<object?, object?>[] getters,
+    Action<TTarget, TCol?, NotifyCollectionChangedEventArgs> onChange,
+    bool invokeInitOnChange = true)
+    where TTarget : class
+    where TSource : class, INotifyPropertyChanged
+    where TCol : class, INotifyCollectionChanged {
+
+    return _bindNested<TTarget, TSource, TCol>(target, source, propertyNames, getters,
+      onLeafValue: null,
+      onLeafCollection: (t, c, e) => onChange(t, (TCol?)c, e),
+      invokeInit: invokeInitOnChange);
+  }
+
   private static IDisposable _bindNested<TTarget, TSource, TLeaf>(
     TTarget target,
     TSource root,
@@ -225,12 +225,7 @@ public static class BindingU {
     where TTarget : class
     where TSource : class, INotifyPropertyChanged {
 
-    if (propertyNames == null) throw new ArgumentNullException(nameof(propertyNames));
-    if (getters == null) throw new ArgumentNullException(nameof(getters));
-    if (propertyNames.Length != getters.Length) throw new ArgumentException("propertyNames and getters must have same length");
-
     int hopCount = propertyNames.Length;
-
     var subscriptions = new List<IDisposable>();
     var weakTarget = new WeakReference<TTarget>(target);
     bool disposed = false;
@@ -257,25 +252,13 @@ public static class BindingU {
         var propertyName = propertyNames[hop];
         var capturedHop = hop;
 
-        // For non-leaf hops we require the instance type to implement INotifyPropertyChanged.
-        // We cannot check the declaring type at compile time anymore (no Expression),
-        // so enforce it at runtime and produce a comparable exception message.
-        bool isLeaf = hop == hopCount - 1;
-        if (!isLeaf) {
-          var declaringInstance = currentInstance;
-          if (declaringInstance != null && !(declaringInstance is INotifyPropertyChanged)) {
-            throw new InvalidOperationException(
-                $"Property '{propertyName}' of '{declaringInstance.GetType()}' must implement INotifyPropertyChanged.");
-          }
-        }
+        if (hop < hopCount - 1 && currentInstance is not INotifyPropertyChanged)
+          throw new InvalidOperationException($"Property '{propertyName}' of '{currentInstance.GetType()}' must implement INotifyPropertyChanged.");
 
         if (currentInstance is INotifyPropertyChanged npc) {
-          // pass currentInstance.GetType() as declaringType and typeof(object) as propType (propType is unused in your AddPropertyTableHandler)
           var sub = AddPropertyTableHandler(
               npc,
-              currentInstance!,
-              declaringType: currentInstance!.GetType(),
-              propType: typeof(object),
+              currentInstance,
               propertyName,
               () => {
                 if (weakTarget.TryGetTarget(out _))
@@ -344,8 +327,6 @@ public static class BindingU {
   public static IDisposable AddPropertyTableHandler(
     INotifyPropertyChanged nodeInstance,
     object sourceInstance,
-    Type declaringType,
-    Type propType,
     string propertyName,
     Action onChanged) {
 
@@ -355,7 +336,6 @@ public static class BindingU {
     h.TargetNode = nodeInstance;
 
     nodeInstance.PropertyChanged += h.OnEvent;
-
     return h;
   }
 

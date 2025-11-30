@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Specialized;
@@ -20,7 +21,7 @@ public static class BindingU {
     return m.Member.Name;
   }
 
-  // Non-nested property binding
+  [Obsolete]
   public static IDisposable Bind<TTarget, TSource, TProp>(
     this TTarget target,
     TSource source,
@@ -49,46 +50,61 @@ public static class BindingU {
     return sub.AddHandler(handler);
   }
 
-  public static TTarget WithBind<TTarget, TSource, TProp>(
+  public static IDisposable Bind_NoExpr<TTarget, TSource, TProp>(
     this TTarget target,
     TSource source,
-    Expression<Func<TSource, TProp>> propertyExpression,
-    Action<TTarget, TProp> onChange)
-    where TTarget : class
-    where TSource : class, INotifyPropertyChanged {
-
-    target.Bind(source, propertyExpression, onChange);
-    return target;
-  }
-
-  // Nested property binding
-  public static IDisposable BindNested<TTarget, TSource, TProp>(
-    this TTarget target,
-    TSource source,
-    Expression<Func<TSource, TProp>> expr,
+    string propertyName,
+    Func<TSource, TProp> getter,
     Action<TTarget, TProp> onChange,
     bool invokeInitOnChange = true)
     where TTarget : class
     where TSource : class, INotifyPropertyChanged {
 
-    return _bindNested(target, source, expr,
+    var weakTarget = new WeakReference<TTarget>(target);
+    var table = _propertySubs.GetOrCreateValue(source);
+    var sub = table.GetOrAdd(source, propertyName, getter);
+
+    void handler(TProp value) {
+      if (weakTarget.TryGetTarget(out var t))
+        onChange(t, value);
+      else
+        sub.RemoveHandler(handler);
+    }
+
+    if (invokeInitOnChange)
+      onChange(target, getter(source));
+
+    return sub.AddHandler(handler);
+  }
+
+  public static IDisposable BindNested_NoExpr<TTarget, TSource, TProp>(
+    this TTarget target,
+    TSource source,
+    string[] path,
+    Func<object?, object?>[] hops,
+    Action<TTarget, TProp> onChange,
+    bool invokeInitOnChange = true)
+    where TTarget : class
+    where TSource : class, INotifyPropertyChanged {
+
+    return _bindNested<TTarget, TSource, TProp>(target, source, path, hops,
       onLeafValue: (t, v) => onChange(t, (TProp)v!),
       onLeafCollection: null,
       invokeInit: invokeInitOnChange);
   }
 
-  // Nested collection binding
-  public static IDisposable Bind<TTarget, TSource, TCol>(
+  public static IDisposable BindNested_NoExpr<TTarget, TSource, TCol>(
     this TTarget target,
     TSource source,
-    Expression<Func<TSource, TCol?>> expr,
+    string[] path,
+    Func<object?, object?>[] hops,
     Action<TTarget, TCol?, NotifyCollectionChangedEventArgs> onChange,
     bool invokeInitOnChange = true)
     where TTarget : class
     where TSource : class, INotifyPropertyChanged
     where TCol : class, INotifyCollectionChanged {
 
-    return _bindNested(target, source, expr,
+    return _bindNested<TTarget, TSource, TCol>(target, source, path, hops,
       onLeafValue: null,
       onLeafCollection: (t, c, e) => onChange(t, (TCol?)c, e),
       invokeInit: invokeInitOnChange);
@@ -119,36 +135,101 @@ public static class BindingU {
     return sub.AddHandler(handler);
   }
 
+  public static IDisposable BindRootCollection<TTarget, TSource, TCol>(
+    this TTarget target,
+    TSource source,
+    string propertyName,
+    Func<TSource, TCol?> getter,
+    Action<TTarget, TCol, NotifyCollectionChangedEventArgs> onLeafCollection,
+    bool invokeInit = true)
+    where TTarget : class
+    where TSource : class, INotifyPropertyChanged
+    where TCol : INotifyCollectionChanged {
+
+    var weakTarget = new WeakReference<TTarget>(target);
+    var subs = new List<IDisposable>();
+    bool disposed = false;
+
+    void Rebind() {
+      if (disposed || !weakTarget.TryGetTarget(out var tTarget))
+        return;
+
+      // dispose previous collection subscription
+      for (int i = subs.Count - 1; i >= 1; i--) {
+        subs[i].Dispose();
+        subs.RemoveAt(i);
+      }
+
+      if (getter(source) is not TCol instance) return;
+
+      // subscribe to collection as leaf
+      var colSub = _bindCollectionLeaf(tTarget, instance, onLeafCollection, invokeInit);
+      subs.Add(colSub);
+    }
+
+    // root property change subscription
+    var rootSub = AddPropertyTableHandler(
+      source,
+      source,
+      declaringType: source.GetType(),
+      propType: typeof(object),
+      propertyName,
+      () => {
+        if (weakTarget.TryGetTarget(out _))
+          Rebind();
+      });
+
+    subs.Add(rootSub);
+
+    // initial bind
+    Rebind();
+
+    return new NestedDispose(subs);
+  }
+
+  private static IDisposable _bindCollectionLeaf<TTarget, TCol>(
+    TTarget target,
+    TCol collection,
+    Action<TTarget, TCol, NotifyCollectionChangedEventArgs> onLeafCollection,
+    bool invokeInit)
+    where TTarget : class
+    where TCol : INotifyCollectionChanged {
+
+    var weakTarget = new WeakReference<TTarget>(target);
+    var subsTable = _collectionSubs.GetOrCreateValue(collection);
+    var collSub = subsTable.GetOrAdd(collection);
+
+    void Handler(object? s, NotifyCollectionChangedEventArgs e) {
+      if (weakTarget.TryGetTarget(out var t))
+        onLeafCollection(t, collection, e);
+      else
+        collSub.RemoveHandler(Handler);
+    }
+
+    var d = collSub.AddHandler(Handler);
+
+    if (invokeInit && weakTarget.TryGetTarget(out var initT))
+      onLeafCollection(initT, collection, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+
+    return d;
+  }
+
   private static IDisposable _bindNested<TTarget, TSource, TLeaf>(
     TTarget target,
     TSource root,
-    Expression<Func<TSource, TLeaf>> expr,
+    string[] propertyNames,
+    Func<object?, object?>[] getters,
     Action<TTarget, object>? onLeafValue,
     Action<TTarget, INotifyCollectionChanged, NotifyCollectionChangedEventArgs>? onLeafCollection,
     bool invokeInit)
     where TTarget : class
     where TSource : class, INotifyPropertyChanged {
 
-    var members = _getNestedMembers(expr); // leaf last
-    int hopCount = members.Count;
+    if (propertyNames == null) throw new ArgumentNullException(nameof(propertyNames));
+    if (getters == null) throw new ArgumentNullException(nameof(getters));
+    if (propertyNames.Length != getters.Length) throw new ArgumentException("propertyNames and getters must have same length");
 
-    var propertyNames = new string[hopCount];
-    var getters = new IHopGetter[hopCount];
-
-    for (int i = 0; i < hopCount; i++) {
-      var me = members[i];
-      bool isLeaf = i == hopCount - 1;
-
-      if (!isLeaf) {
-        var declaringType = me.Expression!.Type;
-        if (!typeof(INotifyPropertyChanged).IsAssignableFrom(declaringType))
-          throw new InvalidOperationException(
-              $"Property '{me.Member.Name}' of '{declaringType}' must implement INotifyPropertyChanged.");
-      }
-
-      propertyNames[i] = me.Member.Name;
-      getters[i] = HopGetterCache.GetOrAdd(me.Member);
-    }
+    int hopCount = propertyNames.Length;
 
     var subscriptions = new List<IDisposable>();
     var weakTarget = new WeakReference<TTarget>(target);
@@ -164,9 +245,10 @@ public static class BindingU {
       }
 
       object? currentInstance = root;
+      // walk to startHop using the getters
       for (int i = 0; i < startHop; i++) {
         if (currentInstance == null) break;
-        currentInstance = getters[i].Get(currentInstance);
+        currentInstance = getters[i](currentInstance);
       }
 
       for (int hop = startHop; hop < hopCount; hop++) {
@@ -175,15 +257,25 @@ public static class BindingU {
         var propertyName = propertyNames[hop];
         var capturedHop = hop;
 
-        if (currentInstance is INotifyPropertyChanged npc) {
-          var declaringType = members[capturedHop].Expression!.Type;
-          var propType = members[capturedHop].Type;
+        // For non-leaf hops we require the instance type to implement INotifyPropertyChanged.
+        // We cannot check the declaring type at compile time anymore (no Expression),
+        // so enforce it at runtime and produce a comparable exception message.
+        bool isLeaf = hop == hopCount - 1;
+        if (!isLeaf) {
+          var declaringInstance = currentInstance;
+          if (declaringInstance != null && !(declaringInstance is INotifyPropertyChanged)) {
+            throw new InvalidOperationException(
+                $"Property '{propertyName}' of '{declaringInstance.GetType()}' must implement INotifyPropertyChanged.");
+          }
+        }
 
+        if (currentInstance is INotifyPropertyChanged npc) {
+          // pass currentInstance.GetType() as declaringType and typeof(object) as propType (propType is unused in your AddPropertyTableHandler)
           var sub = AddPropertyTableHandler(
               npc,
               currentInstance!,
-              declaringType,
-              propType,
+              declaringType: currentInstance!.GetType(),
+              propType: typeof(object),
               propertyName,
               () => {
                 if (weakTarget.TryGetTarget(out _))
@@ -193,7 +285,7 @@ public static class BindingU {
           subscriptions.Add(sub);
         }
 
-        currentInstance = getters[hop].Get(currentInstance);
+        currentInstance = getters[hop](currentInstance);
       }
 
       if (!weakTarget.TryGetTarget(out tTarget)) return;
@@ -223,17 +315,6 @@ public static class BindingU {
     RebuildFrom(0);
 
     return new NestedDispose(subscriptions);
-  }
-
-  // Extract nested member expressions from lambda
-  private static List<MemberExpression> _getNestedMembers<TSource, TProp>(Expression<Func<TSource, TProp>> pathExpr) {
-    var members = new List<MemberExpression>();
-    Expression? e = pathExpr.Body;
-    while (e is MemberExpression me) {
-      members.Insert(0, me);
-      e = me.Expression;
-    }
-    return members;
   }
 
   private sealed class Handler : IDisposable {
@@ -584,47 +665,6 @@ public static class BindingU {
         _subs = null;
       else if (_subs is CollectionSubscription[] arr2 && arr2.Length > 1)
         _subs = arr2[..^1]; // remove last
-    }
-  }
-
-  internal interface IHopGetter {
-    object? Get(object? parent);
-  }
-
-  internal sealed class HopGetter<TParent, TChild> : IHopGetter where TParent : class {
-    private readonly Func<TParent, TChild> _getter;
-
-    public HopGetter(Func<TParent, TChild> getter) {
-      _getter = getter;
-    }
-
-    public object? Get(object? parent) => _getter((TParent)parent!);
-
-    public static HopGetter<TParent, TChild> Create(PropertyInfo property) {
-      var param = Expression.Parameter(typeof(TParent), "p");
-      var access = Expression.Property(param, property);
-      var lambda = Expression.Lambda<Func<TParent, TChild>>(access, param);
-      var compiled = lambda.Compile();
-
-      return new HopGetter<TParent, TChild>(compiled);
-    }
-  }
-
-  internal static class HopGetterCache {
-    private static readonly ConcurrentDictionary<PropertyInfo, IHopGetter> _cache = new();
-
-    public static IHopGetter GetOrAdd(MemberInfo member) {
-      if (member is not PropertyInfo prop)
-        throw new ArgumentException("Only property members are supported.", nameof(member));
-
-      return _cache.GetOrAdd(prop, static p => {
-        var parentType = p.DeclaringType!;
-        var childType = p.PropertyType;
-        var genericType = typeof(HopGetter<,>).MakeGenericType(parentType, childType);
-        var createMethod = genericType.GetMethod("Create", BindingFlags.Public | BindingFlags.Static)!;
-
-        return (IHopGetter)createMethod.Invoke(null, new object[] { p })!;
-      });
     }
   }
 

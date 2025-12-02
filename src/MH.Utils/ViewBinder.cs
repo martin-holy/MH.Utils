@@ -5,58 +5,56 @@ using System.Runtime.CompilerServices;
 
 namespace MH.Utils;
 
-public sealed class ViewBinder<TView, TValue, TSource, TProp> : IDisposable
-  where TView : class
+public sealed class ViewBinder<TTarget, TSource, TProp, TValue> : IDisposable
+  where TTarget : class
   where TSource : class, INotifyPropertyChanged {
 
-  private readonly WeakReference<TView> _viewRef;
+  private readonly WeakReference<TTarget> _weakTarget;
   private readonly Action<EventHandler<TValue>>? _subscribe;
   private readonly Action<EventHandler<TValue>>? _unsubscribe;
-  private readonly Action<TView, TValue> _setViewValue;
+  private readonly Action<TTarget, TValue> _setValue;
   private readonly EventHandler<TValue>? _viewChangedHandler;
 
   private IDisposable? _vmSubscription;
   private Action<TValue>? _vmSetter;
   private bool _updating;
   private bool _disposed;
-  private readonly bool _isTwoWay;
 
   public ViewBinder(
-    TView view,
-    Action<EventHandler<TValue>> subscribe,
-    Action<EventHandler<TValue>> unsubscribe,
-    Action<TView, TValue> setViewValue,
+    TTarget target,
     TSource source,
-    Expression<Func<TSource, TProp>> propertyExpression) {
+    string propertyName,
+    Func<TSource, TProp> getter,
+    Action<TSource, TProp> setter,
+    Action<TTarget, TValue> setValue,
+    Action<EventHandler<TValue>> subscribe,
+    Action<EventHandler<TValue>> unsubscribe) {
 
-    _viewRef = new WeakReference<TView>(view);
+    _weakTarget = new WeakReference<TTarget>(target);
     _subscribe = subscribe;
     _unsubscribe = unsubscribe;
-    _setViewValue = setViewValue;
+    _setValue = setValue;
     _viewChangedHandler = _onViewChanged;
-    _isTwoWay = true;
-
     _subscribe(_viewChangedHandler);
-    _bind(source, propertyExpression);
+    _bind(source, propertyName, getter, setter);
   }
 
   public ViewBinder(
-    TView view,
-    Action<TView, TValue> setViewValue,
+    TTarget target,
     TSource source,
-    Expression<Func<TSource, TProp>> propertyExpression) {
+    string propertyName,
+    Func<TSource, TProp> getter,
+    Action<TTarget, TValue> setValue) {
 
-    _viewRef = new WeakReference<TView>(view);
-    _setViewValue = setViewValue;
-    _isTwoWay = false;
-
-    _bind(source, propertyExpression);
+    _weakTarget = new WeakReference<TTarget>(target);
+    _setValue = setValue;
+    _bind(source, propertyName, getter, null);
   }
 
   private void _onViewChanged(object? sender, TValue newValue) {
     if (_updating) return;
 
-    if (!_viewRef.TryGetTarget(out var view)) {
+    if (!_weakTarget.TryGetTarget(out var _)) {
       _unsubscribe?.Invoke(_viewChangedHandler!);
       _vmSubscription?.Dispose();
       return;
@@ -65,31 +63,26 @@ public sealed class ViewBinder<TView, TValue, TSource, TProp> : IDisposable
     _vmSetter?.Invoke(newValue);
   }
 
-  private void _bind(TSource source, Expression<Func<TSource, TProp>> propertyExpression) {
+  private void _bind(TSource source, string propertyName, Func<TSource, TProp> getter, Action<TSource, TProp>? setter) {
     _vmSubscription?.Dispose();
     _vmSetter = null;
 
-    if (!_viewRef.TryGetTarget(out var view)) return;
+    if (!_weakTarget.TryGetTarget(out var target)) return;
 
     // VM → View
-    _vmSubscription = BindingU.Bind(view, source, propertyExpression, (_, p) => {
-      if (!_viewRef.TryGetTarget(out var v)) return;
-
+    _vmSubscription = BindingU.Bind(target, source, propertyName, getter, (t, v) => {
       _updating = true;
       try {
-        _setViewValue(v, (TValue)Convert.ChangeType(p, typeof(TValue))!);
+        _setValue(t, (TValue)Convert.ChangeType(v, typeof(TValue))!);
       }
       finally { _updating = false; }
     });
 
     // View → VM
-    if (_isTwoWay) {
-      var propertyName = BindingU.GetPropertyName(propertyExpression);
-      var setter = BindingU.SetterCache.GetSetter<TSource, TProp>(propertyName);
-
-      _vmSetter = val => {
+    if (setter != null) {
+      _vmSetter = v => {
         if (!_updating)
-          setter(source, (TProp)Convert.ChangeType(val, typeof(TProp))!);
+          setter(source, (TProp)Convert.ChangeType(v, typeof(TProp))!);
       };
     }
   }

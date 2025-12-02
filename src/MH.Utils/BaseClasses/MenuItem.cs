@@ -24,8 +24,8 @@ public class MenuItem : TreeItem {
     CommandParameter = commandParameter;
 
     if (Command is RelayCommandBase cmd) {
-      this.Bind(cmd, x => x.Icon, (t, _) => t.OnPropertyChanged(nameof(Icon)), false);
-      this.Bind(cmd, x => x.Text, (t, _) => t.OnPropertyChanged(nameof(Text)), false);
+      this.Bind(cmd, nameof(RelayCommandBase.Icon), x => x.Icon, (s, _) => s.OnPropertyChanged(nameof(Icon)), false);
+      this.Bind(cmd, nameof(RelayCommandBase.Text), x => x.Text, (s, _) => s.OnPropertyChanged(nameof(Text)), false);
     }
   }
 

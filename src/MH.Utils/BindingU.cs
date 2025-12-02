@@ -13,66 +13,18 @@ namespace MH.Utils;
 public static class BindingU {
   private static readonly ConditionalWeakTable<INotifyPropertyChanged, PropertySubscriptionTable> _propertySubs = new();
   private static readonly ConditionalWeakTable<INotifyCollectionChanged, CollectionSubscriptionTable> _collectionSubs = new();
-  private static readonly ConditionalWeakTable<INotifyCollectionChanged, CollectionSubscriptionTable2> _collectionSubs2 = new();
 
-  public static string GetPropertyName<TSource, TProp>(Expression<Func<TSource, TProp>> propertyExpression) {
-    if (propertyExpression.Body is not MemberExpression m)
-      throw new ArgumentException("Expression must be a property access", nameof(propertyExpression));
-
-    return m.Member.Name;
-  }
-
-  [Obsolete]
-  public static IDisposable Bind<TTarget, TSource, TProp>(
+  public static TTarget WithBind<TTarget, TSource, TProp>(
     this TTarget target,
     TSource source,
-    Expression<Func<TSource, TProp>> propertyExpression,
-    Action<TTarget, TProp> onChange,
-    bool invokeInitOnChange = true)
+    string propertyName,
+    Func<TSource, TProp> getter,
+    Action<TTarget, TProp> onChange)
     where TTarget : class
     where TSource : class, INotifyPropertyChanged {
 
-    var propertyName = GetPropertyName(propertyExpression);
-    var getter = GetterCache.GetGetter<TSource, TProp>(propertyName);
-    var weakTarget = new WeakReference<TTarget>(target);
-    var table = _propertySubs.GetOrCreateValue(source);
-    var sub = table.GetOrAdd(source, propertyName, getter);
-
-    void handler(TProp value) {
-      if (weakTarget.TryGetTarget(out var t))
-        onChange(t, value);
-      else
-        sub.RemoveHandler(handler);
-    }
-
-    if (invokeInitOnChange)
-      onChange(target, getter(source));
-
-    return sub.AddHandler(handler);
-  }
-
-  [Obsolete] // each bindind should have a source to watch over changes on collection property it self
-  public static IDisposable Bind<TTarget>(
-    this TTarget target,
-    INotifyCollectionChanged source,
-    Action<TTarget, NotifyCollectionChangedEventArgs> onChange)
-    where TTarget : class {
-
-    var weakTarget = new WeakReference<TTarget>(target);
-
-    var table = _collectionSubs.GetOrCreateValue(source);
-    var sub = table.GetOrAdd(source);
-
-    void handler(object? s, NotifyCollectionChangedEventArgs e) {
-      if (weakTarget.TryGetTarget(out var t))
-        onChange(t, e);
-      else
-        sub.RemoveHandler(handler);
-    }
-
-    onChange(target, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
-
-    return sub.AddHandler(handler);
+    target.Bind(source, propertyName, getter, onChange);
+    return target;
   }
 
   public static IDisposable Bind<TTarget, TSource, TProp>(
@@ -86,7 +38,7 @@ public static class BindingU {
     where TSource : class, INotifyPropertyChanged {
 
     var weakTarget = new WeakReference<TTarget>(target);
-    var table = _propertySubs2.GetOrCreateValue(source);
+    var table = _propertySubs.GetOrCreateValue(source);
     var sub = table.GetOrAdd(source, propertyName, o => getter((TSource)o!));
 
     void handler(object? valueObj) {
@@ -114,10 +66,33 @@ public static class BindingU {
     where TTarget : class
     where TSource : class, INotifyPropertyChanged {
 
-    return _bindNested(target, source, propertyNames, getters,
-      onLeafValue: (t, v) => onChange(t, (TProp)v!),
-      onLeafCollection: null,
-      invokeInit: invokeInitOnChange);
+    return _bindNested(target, source, propertyNames, getters, (t, v) => onChange(t, (TProp)v!), null, invokeInitOnChange);
+  }
+
+  public static IDisposable Bind<TTarget, TCol>(
+    this TTarget target,
+    TCol source,
+    Action<TTarget, TCol, NotifyCollectionChangedEventArgs> onChange,
+    bool invokeInitOnChange = true)
+    where TTarget : class
+    where TCol : INotifyCollectionChanged {
+
+    var weakTarget = new WeakReference<TTarget>(target);
+    return _bindCollection(target, weakTarget, source, onChange, invokeInitOnChange);
+  }
+
+  public static IDisposable Bind<TTarget, TSource, TCol>(
+    this TTarget target,
+    TSource source,
+    string[] propertyNames,
+    Func<object?, object?>[] getters,
+    Action<TTarget, TCol?, NotifyCollectionChangedEventArgs> onChange,
+    bool invokeInitOnChange = true)
+    where TTarget : class
+    where TSource : class, INotifyPropertyChanged
+    where TCol : class, INotifyCollectionChanged {
+
+    return _bindNested(target, source, propertyNames, getters, null, (t, c, e) => onChange(t, (TCol?)c, e), invokeInitOnChange);
   }
 
   public static IDisposable Bind<TTarget, TSource, TCol>(
@@ -125,8 +100,8 @@ public static class BindingU {
     TSource source,
     string propertyName,
     Func<TSource, TCol?> getter,
-    Action<TTarget, TCol, NotifyCollectionChangedEventArgs> onLeafCollection,
-    bool invokeInit = true)
+    Action<TTarget, TCol, NotifyCollectionChangedEventArgs> onChange,
+    bool invokeInitOnChange = true)
     where TTarget : class
     where TSource : class, INotifyPropertyChanged
     where TCol : INotifyCollectionChanged {
@@ -145,10 +120,10 @@ public static class BindingU {
 
       if (getter(source) is not TCol instance) return;
 
-      subs.Add(_bindCollection(strongTarget, weakTarget, instance, onLeafCollection, invokeInit));
+      subs.Add(_bindCollection(strongTarget, weakTarget, instance, onChange, invokeInitOnChange));
     }
 
-    var table = _propertySubs2.GetOrCreateValue(source);
+    var table = _propertySubs.GetOrCreateValue(source);
     var rootSub = table.GetOrAdd(source, propertyName, o => getter((TSource)o!));
     var handler = rootSub.AddHandler(_ => { if (weakTarget.TryGetTarget(out var _)) Rebind(); });
     subs.Add(handler);
@@ -161,44 +136,27 @@ public static class BindingU {
     TTarget target,
     WeakReference<TTarget> weakTarget,
     TCol collection,
-    Action<TTarget, TCol, NotifyCollectionChangedEventArgs> onLeafCollection,
-    bool invokeInit)
+    Action<TTarget, TCol, NotifyCollectionChangedEventArgs> onChange,
+    bool invokeInitOnChange)
     where TTarget : class
     where TCol : INotifyCollectionChanged {
 
-    var table = _collectionSubs2.GetOrCreateValue(collection);
+    var table = _collectionSubs.GetOrCreateValue(collection);
     var collSub = table.GetOrAdd(collection);
 
     void Handler(object? s, NotifyCollectionChangedEventArgs e) {
       if (weakTarget.TryGetTarget(out var t))
-        onLeafCollection(t, collection, e);
+        onChange(t, collection, e);
       else
         collSub.RemoveHandler(Handler);
     }
 
     var handler = collSub.AddHandler(Handler);
 
-    if (invokeInit)
-      onLeafCollection(target, collection, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+    if (invokeInitOnChange)
+      onChange(target, collection, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
 
     return handler;
-  }
-
-  public static IDisposable Bind<TTarget, TSource, TCol>(
-    this TTarget target,
-    TSource source,
-    string[] propertyNames,
-    Func<object?, object?>[] getters,
-    Action<TTarget, TCol?, NotifyCollectionChangedEventArgs> onChange,
-    bool invokeInitOnChange = true)
-    where TTarget : class
-    where TSource : class, INotifyPropertyChanged
-    where TCol : class, INotifyCollectionChanged {
-
-    return _bindNested(target, source, propertyNames, getters,
-      onLeafValue: null,
-      onLeafCollection: (t, c, e) => onChange(t, (TCol?)c, e),
-      invokeInit: invokeInitOnChange);
   }
 
   private static IDisposable _bindNested<TTarget>(
@@ -206,9 +164,9 @@ public static class BindingU {
     INotifyPropertyChanged root,
     string[] propertyNames,
     Func<object?, object?>[] getters,
-    Action<TTarget, object?>? onLeafValue,
-    Action<TTarget, INotifyCollectionChanged, NotifyCollectionChangedEventArgs>? onLeafCollection,
-    bool invokeInit)
+    Action<TTarget, object?>? onChangeProperty,
+    Action<TTarget, INotifyCollectionChanged, NotifyCollectionChangedEventArgs>? onChangeCollection,
+    bool invokeInitOnChange)
     where TTarget : class {
 
     int hopCount = propertyNames.Length;
@@ -239,7 +197,7 @@ public static class BindingU {
           throw new InvalidOperationException($"Property '{propertyName}' of '{currentInstance.GetType()}' must implement INotifyPropertyChanged.");
 
         if (currentInstance is INotifyPropertyChanged npc) {
-          var table = _propertySubs2.GetOrCreateValue(npc);
+          var table = _propertySubs.GetOrCreateValue(npc);
           var sub = table.GetOrAdd(npc, propertyName, o => getters[capturedHop](o));
           var handler = sub.AddHandler(_ => {
             if (weakTarget.TryGetTarget(out var _))
@@ -253,10 +211,10 @@ public static class BindingU {
 
       if (!weakTarget.TryGetTarget(out var strongTarget)) return;
 
-      if (onLeafCollection != null && currentInstance is INotifyCollectionChanged collection)
-        subs.Add(_bindCollection(strongTarget, weakTarget, collection, onLeafCollection, invokeInit));
-      else if (onLeafValue != null && invokeInit)
-        onLeafValue(strongTarget, currentInstance!);
+      if (onChangeCollection != null && currentInstance is INotifyCollectionChanged collection)
+        subs.Add(_bindCollection(strongTarget, weakTarget, collection, onChangeCollection, invokeInitOnChange));
+      else if (onChangeProperty != null && invokeInitOnChange)
+        onChangeProperty(strongTarget, currentInstance!);
     }
 
     RebuildFrom(0);
@@ -285,183 +243,19 @@ public static class BindingU {
     }
   }
 
-  private sealed class HandlerSubscription<TSource, TProp> : IDisposable
-    where TSource : class, INotifyPropertyChanged {
-    private readonly PropertySubscription<TSource, TProp> _parent;
-    private readonly Action<TProp> _handler;
-    private bool _disposed;
-
-    public HandlerSubscription(PropertySubscription<TSource, TProp> parent, Action<TProp> handler) {
-      _parent = parent;
-      _handler = handler;
-    }
-
-    public void Dispose() {
-      if (_disposed) return;
-      _disposed = true;
-      _parent.RemoveHandler(_handler);
-    }
-  }
-
   private interface IPropertySubscription {
     string PropertyName { get; }
+    void RemoveAllHandlers();
   }
 
-  private class PropertySubscription<TSource, TProp> : IPropertySubscription
-    where TSource : class, INotifyPropertyChanged {
-
-    private readonly TSource _source;
-    private readonly Func<TSource, TProp> _getter;
-    private readonly PropertySubscriptionTable _table;
-    private object? _handlers; // null | Action<TProp> | Action<TProp>[]
-
-    public string PropertyName { get; }
-
-    public PropertySubscription(TSource source, string propertyName, Func<TSource, TProp> getter, PropertySubscriptionTable table) {
-      _source = source;
-      PropertyName = propertyName;
-      _getter = getter;
-      _table = table;
-      _source.PropertyChanged += _onChanged;
-    }
-
-    private void _onChanged(object? sender, PropertyChangedEventArgs e) {
-      if (!string.IsNullOrEmpty(e.PropertyName) && e.PropertyName != PropertyName) return;
-
-      var value = _getter(_source);
-      switch (_handlers) {
-        case Action<TProp> single:
-          single(value);
-          break;
-        case Action<TProp>[] arr:
-          for (int i = 0; i < arr.Length; i++)
-            arr[i](value);
-          break;
-      }
-    }
-
-    public IDisposable AddHandler(Action<TProp> handler) {
-      if (_handlers is null) {
-        _handlers = handler;
-      }
-      else if (_handlers is Action<TProp> single) {
-        _handlers = new Action<TProp>[] { single, handler };
-      }
-      else if (_handlers is Action<TProp>[] arr) {
-        var newArr = new Action<TProp>[arr.Length + 1];
-        Array.Copy(arr, newArr, arr.Length);
-        newArr[arr.Length] = handler;
-        _handlers = newArr;
-      }
-      return new HandlerSubscription<TSource, TProp>(this, handler);
-    }
-
-    public void RemoveHandler(Action<TProp> handler) {
-      if (_handlers is Action<TProp> single) {
-        if (single == handler) {
-          _handlers = null;
-          _cleanupIfEmpty();
-        }
-      }
-      else if (_handlers is Action<TProp>[] arr) {
-        int idx = Array.IndexOf(arr, handler);
-        if (idx >= 0) {
-          if (arr.Length == 2) {
-            // collapse back to single
-            _handlers = arr[1 - idx];
-          }
-          else {
-            var newArr = new Action<TProp>[arr.Length - 1];
-            if (idx > 0) Array.Copy(arr, 0, newArr, 0, idx);
-            if (idx < arr.Length - 1) Array.Copy(arr, idx + 1, newArr, idx, arr.Length - idx - 1);
-            _handlers = newArr.Length == 0 ? null : newArr;
-          }
-          if (_handlers == null)
-            _cleanupIfEmpty();
-        }
-      }
-    }
-
-    private void _cleanupIfEmpty() {
-      _source.PropertyChanged -= _onChanged;
-      _table.Remove(PropertyName);
-    }
-  }
-
-  private class PropertySubscriptionTable {
-    private object? _subs; // null | IPropertySubscription | IPropertySubscription[]
-
-    public PropertySubscription<TSource, TProp> GetOrAdd<TSource, TProp>(
-      TSource source, string propertyName, Func<TSource, TProp> getter)
-      where TSource : class, INotifyPropertyChanged {
-
-      if (_subs is null) {
-        var sub = new PropertySubscription<TSource, TProp>(source, propertyName, getter, this);
-        _subs = sub;
-        return sub;
-      }
-      else if (_subs is IPropertySubscription single) {
-        if (single.PropertyName == propertyName && single is PropertySubscription<TSource, TProp> typed)
-          return typed;
-
-        // promote to array
-        var newSub = new PropertySubscription<TSource, TProp>(source, propertyName, getter, this);
-        _subs = new IPropertySubscription[] { single, newSub };
-        return newSub;
-      }
-      else if (_subs is IPropertySubscription[] arr) {
-        foreach (var entry in arr) {
-          if (entry.PropertyName == propertyName && entry is PropertySubscription<TSource, TProp> ps)
-            return ps;
-        }
-        var newArr = new IPropertySubscription[arr.Length + 1];
-        Array.Copy(arr, newArr, arr.Length);
-        var sub = new PropertySubscription<TSource, TProp>(source, propertyName, getter, this);
-        newArr[arr.Length] = sub;
-        _subs = newArr;
-        return sub;
-      }
-
-      throw new InvalidOperationException("Unexpected state in PropertySubscriptionTable");
-    }
-
-    public void Remove(string propertyName) {
-      if (_subs is IPropertySubscription single) {
-        if (single.PropertyName == propertyName)
-          _subs = null;
-      }
-      else if (_subs is IPropertySubscription[] arr) {
-        int idx = Array.FindIndex(arr, s => s.PropertyName == propertyName);
-        if (idx >= 0) {
-          if (arr.Length == 2) {
-            // collapse back to single
-            _subs = arr[1 - idx];
-          }
-          else {
-            var newArr = new IPropertySubscription[arr.Length - 1];
-            if (idx > 0) Array.Copy(arr, 0, newArr, 0, idx);
-            if (idx < arr.Length - 1) Array.Copy(arr, idx + 1, newArr, idx, arr.Length - idx - 1);
-            _subs = newArr;
-          }
-        }
-      }
-    }
-  }
-
-  // Object-based subscription interface
-  private interface IPropertySubscription2 {
-    string PropertyName { get; }
-    void RemoveAllHandlers(); // remove all handlers
-  }
-
-  private class PropertySubscription2 : IPropertySubscription2 {
+  private class PropertySubscription : IPropertySubscription {
     public string PropertyName { get; }
 
     private readonly List<Action<object?>> _handlers = new();
     private readonly INotifyPropertyChanged _source;
     private readonly Func<object?, object?> _getter;
 
-    public PropertySubscription2(INotifyPropertyChanged source, string propertyName, Func<object?, object?> getter) {
+    public PropertySubscription(INotifyPropertyChanged source, string propertyName, Func<object?, object?> getter) {
       _source = source;
       PropertyName = propertyName;
       _getter = getter;
@@ -490,11 +284,11 @@ public static class BindingU {
     }
 
     private sealed class HandlerWrapper : IDisposable {
-      private readonly PropertySubscription2 _parent;
+      private readonly PropertySubscription _parent;
       private readonly Action<object?> _handler;
       private bool _disposed;
 
-      public HandlerWrapper(PropertySubscription2 parent, Action<object?> handler) {
+      public HandlerWrapper(PropertySubscription parent, Action<object?> handler) {
         _parent = parent;
         _handler = handler;
       }
@@ -507,39 +301,37 @@ public static class BindingU {
     }
   }
 
-  private class PropertySubscriptionTable2 {
-    private readonly List<IPropertySubscription2> _subs = new();
+  private class PropertySubscriptionTable {
+    private readonly List<IPropertySubscription> _subs = new();
 
-    public PropertySubscription2 GetOrAdd(INotifyPropertyChanged source, string propertyName, Func<object?, object?> getter) {
+    public PropertySubscription GetOrAdd(INotifyPropertyChanged source, string propertyName, Func<object?, object?> getter) {
       foreach (var sub in _subs) {
-        if (sub.PropertyName == propertyName && sub is PropertySubscription2 typed)
+        if (sub.PropertyName == propertyName && sub is PropertySubscription typed)
           return typed;
       }
 
-      var newSub = new PropertySubscription2(source, propertyName, getter);
+      var newSub = new PropertySubscription(source, propertyName, getter);
       _subs.Add(newSub);
       return newSub;
     }
 
-    public void Remove(IPropertySubscription2 sub) {
+    public void Remove(IPropertySubscription sub) {
       _subs.Remove(sub);
       sub.RemoveAllHandlers();
     }
   }
 
-  private static readonly ConditionalWeakTable<INotifyPropertyChanged, PropertySubscriptionTable2> _propertySubs2 = new();
-
-  private interface ICollectionSubscription2 {
+  private interface ICollectionSubscription {
     INotifyCollectionChanged Source { get; }
-    void RemoveAllHandlers(); // remove all handlers
+    void RemoveAllHandlers();
   }
 
-  private sealed class CollectionSubscription2 : ICollectionSubscription2 {
-    public INotifyCollectionChanged Source { get; }
-
+  private sealed class CollectionSubscription : ICollectionSubscription {
     private readonly List<NotifyCollectionChangedEventHandler> _handlers = new();
 
-    public CollectionSubscription2(INotifyCollectionChanged source) {
+    public INotifyCollectionChanged Source { get; }
+
+    public CollectionSubscription(INotifyCollectionChanged source) {
       Source = source;
       Source.CollectionChanged += OnChanged;
     }
@@ -563,11 +355,11 @@ public static class BindingU {
     }
 
     private sealed class HandlerWrapper : IDisposable {
-      private readonly CollectionSubscription2 _parent;
+      private readonly CollectionSubscription _parent;
       private readonly NotifyCollectionChangedEventHandler _handler;
       private bool _disposed;
 
-      public HandlerWrapper(CollectionSubscription2 parent, NotifyCollectionChangedEventHandler handler) {
+      public HandlerWrapper(CollectionSubscription parent, NotifyCollectionChangedEventHandler handler) {
         _parent = parent;
         _handler = handler;
       }
@@ -580,187 +372,23 @@ public static class BindingU {
     }
   }
 
-  private class CollectionSubscriptionTable2 {
-    private readonly List<ICollectionSubscription2> _subs = new();
+  private class CollectionSubscriptionTable {
+    private readonly List<ICollectionSubscription> _subs = new();
 
-    public CollectionSubscription2 GetOrAdd(INotifyCollectionChanged source) {
+    public CollectionSubscription GetOrAdd(INotifyCollectionChanged source) {
       foreach (var sub in _subs) {
-        if (ReferenceEquals(sub.Source, source) && sub is CollectionSubscription2 typed)
+        if (ReferenceEquals(sub.Source, source) && sub is CollectionSubscription typed)
           return typed;
       }
 
-      var newSub = new CollectionSubscription2(source);
+      var newSub = new CollectionSubscription(source);
       _subs.Add(newSub);
       return newSub;
     }
 
-    public void Remove(ICollectionSubscription2 sub) {
+    public void Remove(ICollectionSubscription sub) {
       _subs.Remove(sub);
       sub.RemoveAllHandlers();
-    }
-  }
-
-  private sealed class CollectionHandlerSubscription : IDisposable {
-    private readonly CollectionSubscription _parent;
-    private readonly NotifyCollectionChangedEventHandler _handler;
-    private bool _disposed;
-
-    public CollectionHandlerSubscription(CollectionSubscription parent, NotifyCollectionChangedEventHandler handler) {
-      _parent = parent;
-      _handler = handler;
-    }
-
-    public void Dispose() {
-      if (_disposed) return;
-      _disposed = true;
-      _parent.RemoveHandler(_handler);
-    }
-  }
-
-  private class CollectionSubscription {
-    private readonly INotifyCollectionChanged _source;
-    private readonly CollectionSubscriptionTable _table;
-    private object? _handlers; // null | NotifyCollectionChangedEventHandler | NotifyCollectionChangedEventHandler[]
-
-    public CollectionSubscription(INotifyCollectionChanged source, CollectionSubscriptionTable table) {
-      _source = source;
-      _table = table;
-      _source.CollectionChanged += _onChanged;
-    }
-
-    private void _onChanged(object? sender, NotifyCollectionChangedEventArgs e) {
-      switch (_handlers) {
-        case NotifyCollectionChangedEventHandler single:
-          single(sender, e);
-          break;
-        case NotifyCollectionChangedEventHandler[] arr:
-          for (int i = 0; i < arr.Length; i++)
-            arr[i](sender, e);
-          break;
-      }
-    }
-
-    public IDisposable AddHandler(NotifyCollectionChangedEventHandler handler) {
-      if (_handlers is null) {
-        _handlers = handler;
-      }
-      else if (_handlers is NotifyCollectionChangedEventHandler single) {
-        _handlers = new NotifyCollectionChangedEventHandler[] { single, handler };
-      }
-      else if (_handlers is NotifyCollectionChangedEventHandler[] arr) {
-        var newArr = new NotifyCollectionChangedEventHandler[arr.Length + 1];
-        Array.Copy(arr, newArr, arr.Length);
-        newArr[arr.Length] = handler;
-        _handlers = newArr;
-      }
-      return new CollectionHandlerSubscription(this, handler);
-    }
-
-    public void RemoveHandler(NotifyCollectionChangedEventHandler handler) {
-      if (_handlers is NotifyCollectionChangedEventHandler single) {
-        if (single == handler) {
-          _handlers = null;
-          _cleanupIfEmpty();
-        }
-      }
-      else if (_handlers is NotifyCollectionChangedEventHandler[] arr) {
-        int idx = Array.IndexOf(arr, handler);
-        if (idx >= 0) {
-          if (arr.Length == 2) {
-            // collapse to single
-            _handlers = arr[1 - idx];
-          }
-          else {
-            var newArr = new NotifyCollectionChangedEventHandler[arr.Length - 1];
-            if (idx > 0) Array.Copy(arr, 0, newArr, 0, idx);
-            if (idx < arr.Length - 1) Array.Copy(arr, idx + 1, newArr, idx, arr.Length - idx - 1);
-            _handlers = newArr.Length == 0 ? null : newArr;
-          }
-          if (_handlers == null)
-            _cleanupIfEmpty();
-        }
-      }
-    }
-
-    private void _cleanupIfEmpty() {
-      _source.CollectionChanged -= _onChanged;
-      _table.Clear();
-    }
-  }
-
-  private class CollectionSubscriptionTable {
-    private object? _subs; // null | CollectionSubscription | CollectionSubscription[]
-
-    public CollectionSubscription GetOrAdd(INotifyCollectionChanged source) {
-      if (_subs is null) {
-        var sub = new CollectionSubscription(source, this);
-        _subs = sub;
-        return sub;
-      }
-      else if (_subs is CollectionSubscription single) {
-        // promote to array
-        var newSub = new CollectionSubscription(source, this);
-        _subs = new CollectionSubscription[] { single, newSub };
-        return newSub;
-      }
-      else if (_subs is CollectionSubscription[] arr) {
-        var newArr = new CollectionSubscription[arr.Length + 1];
-        Array.Copy(arr, newArr, arr.Length);
-        var sub = new CollectionSubscription(source, this);
-        newArr[arr.Length] = sub;
-        _subs = newArr;
-        return sub;
-      }
-
-      throw new InvalidOperationException("Unexpected state in CollectionSubscriptionTable");
-    }
-
-    public void Clear() {
-      if (_subs is CollectionSubscription single)
-        _subs = null;
-      else if (_subs is CollectionSubscription[] arr && arr.Length == 1)
-        _subs = null;
-      else if (_subs is CollectionSubscription[] arr2 && arr2.Length > 1)
-        _subs = arr2[..^1]; // remove last
-    }
-  }
-
-  // TODO pass PropertyInfo instead of propertyName and use it as key
-  public static class GetterCache {
-    private static readonly Dictionary<(Type, string), Delegate> _cache = [];
-
-    public static Func<TSource, TProp> GetGetter<TSource, TProp>(string propertyName) {
-      var key = (typeof(TSource), propertyName);
-      if (_cache.TryGetValue(key, out var existing))
-        return (Func<TSource, TProp>)existing;
-
-      var srcParam = Expression.Parameter(typeof(TSource), "src");
-      var prop = Expression.Property(srcParam, propertyName);
-      var lambda = Expression.Lambda<Func<TSource, TProp>>(prop, srcParam);
-      var compiled = lambda.Compile();
-
-      _cache[key] = compiled;
-      return compiled;
-    }
-  }
-
-  public static class SetterCache {
-    private static readonly Dictionary<(Type, string), Delegate> _cache = [];
-
-    public static Action<TSource, TProp> GetSetter<TSource, TProp>(string propertyName) {
-      var key = (typeof(TSource), propertyName);
-      if (_cache.TryGetValue(key, out var existing))
-        return (Action<TSource, TProp>)existing;
-
-      var srcParam = Expression.Parameter(typeof(TSource), "src");
-      var valueParam = Expression.Parameter(typeof(TProp), "value");
-      var prop = Expression.Property(srcParam, propertyName);
-      var assign = Expression.Assign(prop, valueParam);
-      var lambda = Expression.Lambda<Action<TSource, TProp>>(assign, srcParam, valueParam);
-      var compiled = lambda.Compile();
-
-      _cache[key] = compiled;
-      return compiled;
     }
   }
 }

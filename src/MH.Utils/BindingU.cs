@@ -213,8 +213,8 @@ public static class BindingU {
 
       if (onChangeCollection != null && currentInstance is INotifyCollectionChanged collection)
         subs.Add(_bindCollection(strongTarget, weakTarget, collection, onChangeCollection, invokeInitOnChange));
-      else if (onChangeProperty != null && invokeInitOnChange)
-        onChangeProperty(strongTarget, currentInstance!);
+      else if (onChangeProperty != null && currentInstance != null && invokeInitOnChange)
+        onChangeProperty(strongTarget, currentInstance);
     }
 
     RebuildFrom(0);

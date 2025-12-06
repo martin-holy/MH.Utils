@@ -1,4 +1,4 @@
-3.1.0:
+3.1.0-preview.1:
  - [N] BindingU: nested binding
  - [U] BindingU: breaking changes!
  - [U] ViewBinder: breaking changes!

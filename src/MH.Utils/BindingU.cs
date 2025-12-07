@@ -61,12 +61,12 @@ public static class BindingU {
     TSource source,
     string[] propertyNames,
     Func<object?, object?>[] getters,
-    Action<TTarget, TProp> onChange,
+    Action<TTarget, TProp?> onChange,
     bool invokeInitOnChange = true)
     where TTarget : class
     where TSource : class, INotifyPropertyChanged {
 
-    return _bindNested(target, source, propertyNames, getters, (t, v) => onChange(t, (TProp)v!), null, invokeInitOnChange);
+    return _bindNested(target, source, propertyNames, getters, (t, v) => onChange(t, (TProp?)v), null, invokeInitOnChange);
   }
 
   public static IDisposable Bind<TTarget, TCol>(
@@ -213,7 +213,7 @@ public static class BindingU {
 
       if (onChangeCollection != null && currentInstance is INotifyCollectionChanged collection)
         subs.Add(_bindCollection(strongTarget, weakTarget, collection, onChangeCollection, invokeInitOnChange));
-      else if (onChangeProperty != null && currentInstance != null && invokeInitOnChange)
+      else if (onChangeProperty != null && invokeInitOnChange)
         onChangeProperty(strongTarget, currentInstance);
     }
 

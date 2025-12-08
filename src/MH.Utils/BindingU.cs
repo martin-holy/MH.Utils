@@ -18,8 +18,8 @@ public static class BindingU {
     this TTarget target,
     TSource source,
     string propertyName,
-    Func<TSource, TProp> getter,
-    Action<TTarget, TProp> onChange)
+    Func<TSource, TProp?> getter,
+    Action<TTarget, TProp?> onChange)
     where TTarget : class
     where TSource : class, INotifyPropertyChanged {
 
@@ -31,8 +31,8 @@ public static class BindingU {
     this TTarget target,
     TSource source,
     string propertyName,
-    Func<TSource, TProp> getter,
-    Action<TTarget, TProp> onChange,
+    Func<TSource, TProp?> getter,
+    Action<TTarget, TProp?> onChange,
     bool invokeInitOnChange = true)
     where TTarget : class
     where TSource : class, INotifyPropertyChanged {
@@ -47,7 +47,7 @@ public static class BindingU {
         return;
       }
 
-      onChange(t, (TProp)valueObj!);
+      onChange(t, (TProp?)valueObj);
     }
 
     if (invokeInitOnChange)
@@ -56,15 +56,14 @@ public static class BindingU {
     return sub.AddHandler(handler);
   }
 
-  public static IDisposable Bind<TTarget, TSource, TProp>(
+  public static IDisposable Bind<TTarget, TProp>(
     this TTarget target,
-    TSource source,
+    INotifyPropertyChanged source,
     string[] propertyNames,
     Func<object?, object?>[] getters,
     Action<TTarget, TProp?> onChange,
     bool invokeInitOnChange = true)
-    where TTarget : class
-    where TSource : class, INotifyPropertyChanged {
+    where TTarget : class {
 
     return _bindNested(target, source, propertyNames, getters, (t, v) => onChange(t, (TProp?)v), null, invokeInitOnChange);
   }
@@ -72,7 +71,7 @@ public static class BindingU {
   public static IDisposable Bind<TTarget, TCol>(
     this TTarget target,
     TCol source,
-    Action<TTarget, TCol, NotifyCollectionChangedEventArgs> onChange,
+    Action<TTarget, TCol?, NotifyCollectionChangedEventArgs> onChange,
     bool invokeInitOnChange = true)
     where TTarget : class
     where TCol : INotifyCollectionChanged {
@@ -81,15 +80,14 @@ public static class BindingU {
     return _bindCollection(target, weakTarget, source, onChange, invokeInitOnChange);
   }
 
-  public static IDisposable Bind<TTarget, TSource, TCol>(
+  public static IDisposable Bind<TTarget, TCol>(
     this TTarget target,
-    TSource source,
+    INotifyPropertyChanged source,
     string[] propertyNames,
     Func<object?, object?>[] getters,
     Action<TTarget, TCol?, NotifyCollectionChangedEventArgs> onChange,
     bool invokeInitOnChange = true)
     where TTarget : class
-    where TSource : class, INotifyPropertyChanged
     where TCol : class, INotifyCollectionChanged {
 
     return _bindNested(target, source, propertyNames, getters, null, (t, c, e) => onChange(t, (TCol?)c, e), invokeInitOnChange);
@@ -100,7 +98,7 @@ public static class BindingU {
     TSource source,
     string propertyName,
     Func<TSource, TCol?> getter,
-    Action<TTarget, TCol, NotifyCollectionChangedEventArgs> onChange,
+    Action<TTarget, TCol?, NotifyCollectionChangedEventArgs> onChange,
     bool invokeInitOnChange = true)
     where TTarget : class
     where TSource : class, INotifyPropertyChanged
@@ -136,7 +134,7 @@ public static class BindingU {
     TTarget target,
     WeakReference<TTarget> weakTarget,
     TCol collection,
-    Action<TTarget, TCol, NotifyCollectionChangedEventArgs> onChange,
+    Action<TTarget, TCol?, NotifyCollectionChangedEventArgs> onChange,
     bool invokeInitOnChange)
     where TTarget : class
     where TCol : INotifyCollectionChanged {
@@ -165,7 +163,7 @@ public static class BindingU {
     string[] propertyNames,
     Func<object?, object?>[] getters,
     Action<TTarget, object?>? onChangeProperty,
-    Action<TTarget, INotifyCollectionChanged, NotifyCollectionChangedEventArgs>? onChangeCollection,
+    Action<TTarget, INotifyCollectionChanged?, NotifyCollectionChangedEventArgs>? onChangeCollection,
     bool invokeInitOnChange)
     where TTarget : class {
 

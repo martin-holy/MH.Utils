@@ -50,7 +50,7 @@ public class BindingUTests {
   public void P4_NestedProperty_InitialAndChange() {
     var list = new List<string?>();
     var o = new Test { Data = new TestData { Name = "A" } };
-    o.Bind<Test, Test, string>(
+    o.Bind<Test, string>(
       o,
       [nameof(Test.Data), nameof(TestData.Name)],
       [s => (s as Test)?.Data, s => (s as TestData)?.Name],
@@ -63,7 +63,7 @@ public class BindingUTests {
   public void P5_NestedProperty_NullData_ThenSetData() {
     var list = new List<string?>();
     var o = new Test { Data = null };
-    o.Bind<Test, Test, string>(
+    o.Bind<Test, string>(
       o,
       [nameof(Test.Data), nameof(TestData.Name)],
       [s => (s as Test)?.Data, s => (s as TestData)?.Name],
@@ -104,7 +104,7 @@ public class BindingUTests {
   public void C3_NestedCollection_NullToNew() {
     var list = new List<string?>();
     var o = new Test { Data = new TestData { Strings = null } };
-    o.Bind<Test, Test, ObservableCollection<string>>(
+    o.Bind<Test, ObservableCollection<string>>(
       o,
       [nameof(Test.Data), nameof(TestData.Strings)],
       [s => (s as Test)?.Data, s => (s as TestData)?.Strings],
@@ -117,7 +117,7 @@ public class BindingUTests {
   public void C4_NestedCollection_DataReplaced() {
     var list = new List<string?>();
     var o = new Test { Data = new TestData { Strings = ["A"] } };
-    o.Bind<Test, Test, ObservableCollection<string>>(
+    o.Bind<Test, ObservableCollection<string>>(
       o,
       [nameof(Test.Data), nameof(TestData.Strings)],
       [s => (s as Test)?.Data, s => (s as TestData)?.Strings],

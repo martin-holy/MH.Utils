@@ -10,11 +10,11 @@ namespace MH.Utils.Benchmarks;
 [MemoryDiagnoser]
 public class BindingBenchmarks {
 
-  private BindingUTests.Test _root;
-  private BindingUTests.TestData _data;
-  private ObservableCollection<string> _collection;
+  private BindingUTests.Test _root = null!;
+  private BindingUTests.TestData _data = null!;
+  private ObservableCollection<string> _collection = null!;
 
-  private IDisposable _binding;
+  private IDisposable? _binding;
   private int _sinkCounter;
 
   [GlobalSetup]
@@ -34,7 +34,7 @@ public class BindingBenchmarks {
   [Benchmark]
   public void Create_NestedProperty_Binding() {
     _binding?.Dispose();
-    _binding = _root.Bind<Test, Test, string>(
+    _binding = _root.Bind<Test, string>(
       _root,
       [nameof(Test.Data), nameof(TestData.Name)],
       [s => (s as Test)?.Data, s => (s as TestData)?.Name],
@@ -50,7 +50,7 @@ public class BindingBenchmarks {
   [Benchmark]
   public void Create_NestedCollection_Binding() {
     _binding?.Dispose();
-    _binding = _root.Bind<Test, Test, ObservableCollection<string>>(
+    _binding = _root.Bind<Test, ObservableCollection<string>>(
       _root,
       [nameof(Test.Data), nameof(TestData.Strings)],
       [s => (s as Test)?.Data, s => (s as TestData)?.Strings],

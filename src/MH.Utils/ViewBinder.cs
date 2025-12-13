@@ -96,4 +96,73 @@ public sealed class ViewBinder<TTarget, TSource, TProp, TValue> : IDisposable
     if (_unsubscribe != null && _viewChangedHandler != null)
       _unsubscribe(_viewChangedHandler);
   }
+
+  /* Obsolete */
+
+  [Obsolete]
+  private bool _isTwoWay;
+
+  [Obsolete]
+  public ViewBinder(
+    TTarget target,
+    Action<EventHandler<TValue>> subscribe,
+    Action<EventHandler<TValue>> unsubscribe,
+    Action<TTarget, TValue> setValue,
+    TSource source,
+    Expression<Func<TSource, TProp>> propertyExpression) {
+
+    _weakTarget = new WeakReference<TTarget>(target);
+    _subscribe = subscribe;
+    _unsubscribe = unsubscribe;
+    _setValue = setValue;
+    _viewChangedHandler = _onViewChanged;
+    _isTwoWay = true;
+
+    _subscribe(_viewChangedHandler);
+    _bind(source, propertyExpression);
+  }
+
+  [Obsolete]
+  public ViewBinder(
+    TTarget target,
+    Action<TTarget, TValue> setValue,
+    TSource source,
+    Expression<Func<TSource, TProp>> propertyExpression) {
+
+    _weakTarget = new WeakReference<TTarget>(target);
+    _setValue = setValue;
+    _isTwoWay = false;
+
+    _bind(source, propertyExpression);
+  }
+
+  [Obsolete]
+  private void _bind(TSource source, Expression<Func<TSource, TProp>> propertyExpression) {
+    _vmSubscription?.Dispose();
+    _vmSetter = null;
+
+    if (!_weakTarget.TryGetTarget(out var target)) return;
+
+    // VM → View
+    _vmSubscription = BindingU.Bind(target, source, propertyExpression, (_, p) => {
+      if (!_weakTarget.TryGetTarget(out var t)) return;
+
+      _updating = true;
+      try {
+        _setValue(t, (TValue)Convert.ChangeType(p, typeof(TValue))!);
+      }
+      finally { _updating = false; }
+    });
+
+    // View → VM
+    if (_isTwoWay) {
+      var propertyName = BindingU.GetPropertyName(propertyExpression);
+      var setter = BindingU.SetterCache.GetSetter<TSource, TProp>(propertyName);
+
+      _vmSetter = val => {
+        if (!_updating)
+          setter(source, (TProp)Convert.ChangeType(val, typeof(TProp))!);
+      };
+    }
+  }
 }

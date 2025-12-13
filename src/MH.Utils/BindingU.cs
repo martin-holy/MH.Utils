@@ -389,4 +389,121 @@ public static class BindingU {
       sub.RemoveAllHandlers();
     }
   }
+
+  /* Obsolete */
+
+  [Obsolete]
+  public static class GetterCache {
+    private static readonly Dictionary<(Type, string), Delegate> _cache = [];
+
+    public static Func<TSource, TProp> GetGetter<TSource, TProp>(string propertyName) {
+      var key = (typeof(TSource), propertyName);
+      if (_cache.TryGetValue(key, out var existing))
+        return (Func<TSource, TProp>)existing;
+
+      var srcParam = Expression.Parameter(typeof(TSource), "src");
+      var prop = Expression.Property(srcParam, propertyName);
+      var lambda = Expression.Lambda<Func<TSource, TProp>>(prop, srcParam);
+      var compiled = lambda.Compile();
+
+      _cache[key] = compiled;
+      return compiled;
+    }
+  }
+
+  [Obsolete]
+  public static class SetterCache {
+    private static readonly Dictionary<(Type, string), Delegate> _cache = [];
+
+    public static Action<TSource, TProp> GetSetter<TSource, TProp>(string propertyName) {
+      var key = (typeof(TSource), propertyName);
+      if (_cache.TryGetValue(key, out var existing))
+        return (Action<TSource, TProp>)existing;
+
+      var srcParam = Expression.Parameter(typeof(TSource), "src");
+      var valueParam = Expression.Parameter(typeof(TProp), "value");
+      var prop = Expression.Property(srcParam, propertyName);
+      var assign = Expression.Assign(prop, valueParam);
+      var lambda = Expression.Lambda<Action<TSource, TProp>>(assign, srcParam, valueParam);
+      var compiled = lambda.Compile();
+
+      _cache[key] = compiled;
+      return compiled;
+    }
+  }
+
+  [Obsolete]
+  public static string GetPropertyName<TSource, TProp>(Expression<Func<TSource, TProp>> propertyExpression) {
+    if (propertyExpression.Body is not MemberExpression m)
+      throw new ArgumentException("Expression must be a property access", nameof(propertyExpression));
+
+    return m.Member.Name;
+  }
+
+  [Obsolete]
+  public static IDisposable Bind<TTarget, TSource, TProp>(
+    this TTarget target,
+    TSource source,
+    Expression<Func<TSource, TProp>> propertyExpression,
+    Action<TTarget, TProp?> onChange,
+    bool invokeInitOnChange = true)
+    where TTarget : class
+    where TSource : class, INotifyPropertyChanged {
+
+    var propertyName = GetPropertyName(propertyExpression);
+    var getter = GetterCache.GetGetter<TSource, TProp>(propertyName);
+    var weakTarget = new WeakReference<TTarget>(target);
+
+    var table = _propertySubs.GetOrCreateValue(source);
+    var sub = table.GetOrAdd(source, propertyName, s => getter((TSource)s!));
+
+    void handler(object? value) {
+      if (weakTarget.TryGetTarget(out var t))
+        onChange(t, (TProp?)value);
+      else
+        sub.RemoveHandler(handler);
+    }
+
+    if (invokeInitOnChange)
+      onChange(target, (TProp?)getter(source));
+
+    return sub.AddHandler(handler);
+  }
+
+  [Obsolete]
+  public static TTarget WithBind<TTarget, TSource, TProp>(
+    this TTarget target,
+    TSource source,
+    Expression<Func<TSource, TProp>> propertyExpression,
+    Action<TTarget, TProp?> onChange)
+    where TTarget : class
+    where TSource : class, INotifyPropertyChanged {
+
+    target.Bind(source, propertyExpression, onChange);
+    return target;
+  }
+
+  [Obsolete]
+  public static IDisposable Bind<TTarget>(
+    this TTarget target,
+    INotifyCollectionChanged source,
+    Action<TTarget, NotifyCollectionChangedEventArgs> onChange)
+    where TTarget : class {
+
+    var weakTarget = new WeakReference<TTarget>(target);
+
+    var table = _collectionSubs.GetOrCreateValue(source);
+    var sub = table.GetOrAdd(source);
+
+    void handler(object? s, NotifyCollectionChangedEventArgs e) {
+      if (weakTarget.TryGetTarget(out var t))
+        onChange(t, e);
+      else
+        sub.RemoveHandler(handler);
+    }
+
+    onChange(target, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+
+    return sub.AddHandler(handler);
+  }
 }

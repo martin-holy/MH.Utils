@@ -258,15 +258,14 @@ public static class BindingU {
 
   private interface IPropertySubscription {
     string PropertyName { get; }
-    void RemoveAllHandlers();
   }
 
   private class PropertySubscription : IPropertySubscription {
-    public string PropertyName { get; }
-
     private readonly List<Action<object?>> _handlers = new();
     private readonly INotifyPropertyChanged _source;
     private readonly Func<object?, object?> _getter;
+
+    public string PropertyName { get; }
 
     public PropertySubscription(INotifyPropertyChanged source, string propertyName, Func<object?, object?> getter) {
       _source = source;
@@ -290,10 +289,6 @@ public static class BindingU {
 
     public void RemoveHandler(Action<object?> handler) {
       _handlers.Remove(handler);
-    }
-
-    public void RemoveAllHandlers() {
-      _handlers.Clear();
     }
 
     private sealed class HandlerWrapper : IDisposable {
@@ -327,16 +322,10 @@ public static class BindingU {
       _subs.Add(newSub);
       return newSub;
     }
-
-    public void Remove(IPropertySubscription sub) {
-      _subs.Remove(sub);
-      sub.RemoveAllHandlers();
-    }
   }
 
   private interface ICollectionSubscription {
     INotifyCollectionChanged Source { get; }
-    void RemoveAllHandlers();
   }
 
   private sealed class CollectionSubscription : ICollectionSubscription {
@@ -361,10 +350,6 @@ public static class BindingU {
 
     public void RemoveHandler(NotifyCollectionChangedEventHandler handler) {
       _handlers.Remove(handler);
-    }
-
-    public void RemoveAllHandlers() {
-      _handlers.Clear();
     }
 
     private sealed class HandlerWrapper : IDisposable {
@@ -397,11 +382,6 @@ public static class BindingU {
       var newSub = new CollectionSubscription(source);
       _subs.Add(newSub);
       return newSub;
-    }
-
-    public void Remove(ICollectionSubscription sub) {
-      _subs.Remove(sub);
-      sub.RemoveAllHandlers();
     }
   }
 

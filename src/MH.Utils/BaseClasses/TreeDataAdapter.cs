@@ -10,11 +10,13 @@ public class TreeDataAdapter<T>(SimpleDB db, string name, int propsCount)
   where T : class, ITreeItem {
 
   public event EventHandler<T>? ItemRenamedEvent;
+  public event EventHandler<T>? ItemMovedEvent;
 
   public virtual T ItemCreate(ITreeItem parent, string name) => throw new NotImplementedException();
   public virtual void ItemCopy(ITreeItem item, ITreeItem dest) => throw new NotImplementedException();
   
   protected void _raiseItemRenamed(T item) => ItemRenamedEvent?.Invoke(this, item);
+  protected void _raiseItemMoved(T item) => ItemMovedEvent?.Invoke(this, item);
 
   protected virtual void _onItemRenamed(T item) { }
 
@@ -44,8 +46,10 @@ public class TreeDataAdapter<T>(SimpleDB db, string name, int propsCount)
         : null;
 
   public virtual void ItemMove(ITreeItem item, ITreeItem dest, bool aboveDest) {
-    if (Tree.ItemMove(item, dest, aboveDest))
+    if (Tree.ItemMove(item, dest, aboveDest)) {
       IsModified = true;
+      _raiseItemMoved((T)item);
+    }
   }
 
   public virtual void ItemDelete(ITreeItem item) {

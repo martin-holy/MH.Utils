@@ -19,7 +19,7 @@ public class TableDataAdapter<T>(SimpleDB db, string name, int propsCount)
     }
   }
 
-  protected string _tablePropsFilePath = Path.Combine("db", $"{name}_props.csv");
+  protected string _tablePropsFilePath = Path.Combine(db.DbDir, $"{name}_props.csv");
   protected Dictionary<string, string> _tableProps = new();
   public Dictionary<int, T> AllDict { get; } = [];
   protected List<(T, string[])> _allCsv = [];

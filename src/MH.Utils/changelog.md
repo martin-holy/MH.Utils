@@ -4,6 +4,8 @@
 	- [U] ViewBinder: more performant methods without Expression
 	- [U] BindingU: invoke init onChange action
 	- [N] TreeDataAdapter: ItemMovedEvent
+	- [N] SimpleDB: public DbDir property
+	- [B] TableDataAdapter: db path to table props file
 
 3.0.1:
 	- [C] ExtObservableCollection: RemoveItems nullable itemAction

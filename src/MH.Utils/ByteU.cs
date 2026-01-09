@@ -38,4 +38,17 @@ public static class ByteU {
     stream.WriteByte((byte)(value >> 8));
     stream.WriteByte((byte)value);
   }
+
+  public static void CopyBytes(Stream input, Stream output, int count) {
+    var buffer = new byte[count];
+    int read = 0;
+
+    while (read < count) {
+      int r = input.Read(buffer, read, count - read);
+      if (r <= 0) throw new EndOfStreamException();
+      read += r;
+    }
+
+    output.Write(buffer, 0, count);
+  }
 }

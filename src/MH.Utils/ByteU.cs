@@ -51,4 +51,11 @@ public static class ByteU {
 
     output.Write(buffer, 0, count);
   }
+
+  public static bool StartsWith(byte[] data, byte[] prefix) {
+    if (data.Length < prefix.Length) return false;
+    for (int i = 0; i < prefix.Length; i++)
+      if (data[i] != prefix[i]) return false;
+    return true;
+  }
 }

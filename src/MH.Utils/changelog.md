@@ -2,7 +2,8 @@
 	- [N] ByteU: Read/Write big endian methods
 	- [N] ByteU: CopyBytes method
 	- [N] ByteU: StartsWith method
-	- [N] XmpU: XMP read and lossless write with extended XMP support for JPEG 
+	- [N] XmpU: XMP read and lossless write with extended XMP support for JPEG
+	- [N] MathU: GreatestCommonDivisor
 
 3.2.0:
 	- [U] BindingU: invoke init onChange action

@@ -4,6 +4,7 @@
 	- [N] ByteU: StartsWith method
 	- [N] XmpU: XMP read and lossless write with extended XMP support for JPEG
 	- [N] MathU: GreatestCommonDivisor
+	- [N] XmpU: UpdateDimensions
 
 3.2.0:
 	- [U] BindingU: invoke init onChange action

@@ -1,9 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Runtime.Serialization;
 using System.Text;
-using System.Xml;
+using System.Text.RegularExpressions;
 
 namespace MH.Utils;
 
@@ -102,7 +101,7 @@ public static class XmpU {
       var full = new byte[fullLen];
 
       foreach (var (offset, data) in chunks) {
-        if (offset < 0 || offset + data.Length > full.Length)  continue;
+        if (offset < 0 || offset + data.Length > full.Length) continue;
         Buffer.BlockCopy(data, 0, full, offset, data.Length);
       }
 
@@ -263,5 +262,22 @@ public static class XmpU {
     ByteU.WriteBigEndianUInt32(stream, (uint)fullLength);
     ByteU.WriteBigEndianUInt32(stream, (uint)offset);
     stream.Write(data, dataOffset, dataLength);
+  }
+
+  public static string UpdateDimensions(string xmp, int width, int height) {
+    xmp = _regexReplace(xmp, @"(tiff:ImageWidth\s*=\s*"")[^""]*(""?)", $"$1{width}$2");
+    xmp = _regexReplace(xmp, @"(tiff:ImageLength\s*=\s*"")[^""]*(""?)", $"$1{height}$2");
+    xmp = _regexReplace(xmp, @"(exif:PixelXDimension\s*=\s*"")[^""]*(""?)", $"$1{width}$2");
+    xmp = _regexReplace(xmp, @"(exif:PixelYDimension\s*=\s*"")[^""]*(""?)", $"$1{height}$2");
+    return xmp;
+  }
+
+  private static string _regexReplace(string input, string pattern, string replacement) {
+    try {
+      return Regex.Replace(input, pattern, replacement, RegexOptions.IgnoreCase);
+    }
+    catch {
+      return input;
+    }
   }
 }

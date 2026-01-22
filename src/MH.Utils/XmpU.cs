@@ -151,6 +151,27 @@ public static class XmpU {
     return null;
   }
 
+  public static bool WriteToJpeg(string srcPath, string? xmp) {
+    var tmpPath = srcPath + ".tmp";
+    try {
+      using var input = File.OpenRead(srcPath);
+      using var output = File.Create(tmpPath);
+      WriteToJpeg(input, output, xmp);
+      File.Delete(srcPath);
+      File.Move(tmpPath, srcPath);
+      return true;
+    }
+    catch (Exception ex) {
+      Log.Error(ex, srcPath);
+      try {
+        if (File.Exists(tmpPath))
+          File.Delete(tmpPath);
+      }
+      catch { }
+      return false;
+    }
+  }
+
   public static void WriteToJpeg(Stream input, Stream output, string? xmp) {
     var xmpBytes = xmp == null ? null : Encoding.UTF8.GetBytes(xmp);
     var xmpWritten = false;

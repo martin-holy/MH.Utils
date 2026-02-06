@@ -5,6 +5,7 @@
 	- [N] XmpU: XMP read and lossless write with extended XMP support for JPEG
 	- [N] MathU: GreatestCommonDivisor
 	- [N] XmpU: UpdateDimensions
+	- [U] SimpleDB: Notifiy Changes change on UI thread
 
 3.2.0:
 	- [U] BindingU: invoke init onChange action

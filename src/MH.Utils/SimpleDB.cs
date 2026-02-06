@@ -17,7 +17,7 @@ public class SimpleDB : ObservableObject {
   private bool _needBackUp;
 
   public string DbDir { get; }
-  public int Changes { get => _changes; set { _changes = value; OnPropertyChanged(); } }
+  public int Changes { get => _changes; set { _changes = value; Tasks.Dispatch(() => OnPropertyChanged(nameof(Changes))); } }
   public Dictionary<string, int> IdSequences { get; } = new();
   public bool IsReady { get; private set; }
 

@@ -1,3 +1,7 @@
+3.4.0:
+	- [N] SelectionManager
+	- [N] Generic ReferenceEqualityComparer
+
 3.3.0:
 	- [N] ByteU: Read/Write big endian methods
 	- [N] ByteU: CopyBytes method

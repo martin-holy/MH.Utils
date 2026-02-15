@@ -22,9 +22,9 @@
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<RepositoryUrl>https://github.com/martin-holy/MH.Utils</RepositoryUrl>
 
-		<Version>3.3.0</Version>
+		<Version>3.4.0</Version>
 		<AssemblyVersion>3.0.0.0</AssemblyVersion>
-		<FileVersion>3.3.0.0</FileVersion>
+		<FileVersion>3.4.0.0</FileVersion>
 
 		<IncludeSymbols>true</IncludeSymbols>
 		<SymbolPackageFormat>snupkg</SymbolPackageFormat>

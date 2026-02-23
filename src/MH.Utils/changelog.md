@@ -1,3 +1,6 @@
+3.5.0:
+	- [U] Tree: ToFlatTreeItems method with startLevel param
+
 3.4.0:
 	- [N] SelectionManager
 	- [N] Generic ReferenceEqualityComparer

@@ -145,12 +145,12 @@ public static class Tree {
   public static IEnumerable<T> Flatten<T>(this T item) where T : ITreeItem =>
     new[] { item }.Concat(item.Items.Cast<T>().Flatten());
 
-  public static List<FlatTreeItem> ToFlatTreeItems(IEnumerable<ITreeItem> roots) {
+  public static List<FlatTreeItem> ToFlatTreeItems(IEnumerable<ITreeItem> roots, int startLevel = 0) {
     var flatItems = new List<FlatTreeItem>();
     var stack = new Stack<(ITreeItem Node, int Level)>();
 
     foreach (var root in roots.Reverse())
-      stack.Push((root, 0));
+      stack.Push((root, startLevel));
 
     while (stack.Count > 0) {
       var (node, level) = stack.Pop();

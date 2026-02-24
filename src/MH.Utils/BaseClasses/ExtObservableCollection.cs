@@ -1,14 +1,21 @@
-﻿using System;
+﻿using MH.Utils.Interfaces;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 
 namespace MH.Utils.BaseClasses;
 
-public class ExtObservableCollection<T> : ObservableCollection<T> {
+public class ExtObservableCollection<T> : ObservableCollection<T>, IHasOwner {
+  public object? Owner { get; init; }
+
   public ExtObservableCollection() { }
 
+  public ExtObservableCollection(object? owner) => Owner = owner;
+
   public ExtObservableCollection(IEnumerable<T> items) : base(items) { }
+
+  public ExtObservableCollection(IEnumerable<T> items, object? owner = null) : base(items) => Owner = owner;
 
   public void Execute(Action<IList<T>> itemsAction) {
     itemsAction(Items);

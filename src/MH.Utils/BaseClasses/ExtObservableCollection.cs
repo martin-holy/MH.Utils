@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using System.Linq;
 
 namespace MH.Utils.BaseClasses;
 
@@ -67,5 +68,18 @@ public static class ExtObservableCollectionExtensions {
       collection = null;
 
     return collection;
+  }
+
+  public static bool Sort<TSource, TKey>(this ExtObservableCollection<TSource> collection, Func<TSource, TKey> keySelector) {
+    var sorted = collection.OrderBy(keySelector).ToList();
+    if (sorted.SequenceEqual(collection)) return false;
+
+    collection.Execute(items => {
+      items.Clear();
+      foreach (var item in sorted)
+        items.Add(item);
+    });
+
+    return true;
   }
 }

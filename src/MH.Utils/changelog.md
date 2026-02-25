@@ -1,5 +1,12 @@
 3.5.0:
 	- [U] Tree: ToFlatTreeItems method with startLevel param
+	- [N] IHasOwner
+	- [N] ExtObservableCollection: Owner property
+	- [N] ExtObservableCollectionExtensions: Sort
+	- [U] ExtObservableCollection: NotifyCollectionChangedEventArgs
+	- [U] TreeItem: Items with owner
+	- [U] ICollectionViewRow: Hash
+	- [N] FlatTree
 
 3.4.0:
 	- [N] SelectionManager

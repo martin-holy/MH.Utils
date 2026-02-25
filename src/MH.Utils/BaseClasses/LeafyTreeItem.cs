@@ -7,6 +7,11 @@ public interface ILeafyTreeItem {
 }
 
 public class LeafyTreeItem<T> : TreeItem, ILeafyTreeItem {
-  public ExtObservableCollection<T> Leaves { get; set; } = [];
+  public ExtObservableCollection<T> Leaves { get; }
+
+  public LeafyTreeItem() {
+    Leaves = new(this);
+  }
+
   INotifyCollectionChanged ILeafyTreeItem.Leaves => Leaves;
 }

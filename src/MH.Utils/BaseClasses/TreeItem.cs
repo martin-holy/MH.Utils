@@ -8,7 +8,7 @@ public class TreeItem : ListItem, ITreeItem {
   private ITreeItem? _parent;
 
   public ITreeItem? Parent { get => _parent; set { _parent = value; OnPropertyChanged(); } }
-  public ExtObservableCollection<ITreeItem> Items { get; } = [];
+  public ExtObservableCollection<ITreeItem> Items { get; }
   public bool IsExpanded {
     get => _bits[BitsMasks.IsExpanded];
     set {
@@ -19,11 +19,11 @@ public class TreeItem : ListItem, ITreeItem {
     }
   }
     
-  public TreeItem() : base(null, string.Empty) { }
+  public TreeItem() : base(null, string.Empty) { Items = new(this); }
 
-  public TreeItem(string? icon, string name) : base(icon, name) { }
+  public TreeItem(string? icon, string name) : base(icon, name) { Items = new(this); }
 
-  public TreeItem(object data) : base(null, string.Empty, data) { }
+  public TreeItem(object data) : base(null, string.Empty, data) { Items = new(this); }
 
   protected virtual void _onIsExpandedChanged(bool value) { }
 

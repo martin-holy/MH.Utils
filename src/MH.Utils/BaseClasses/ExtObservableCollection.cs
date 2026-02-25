@@ -47,7 +47,7 @@ public class ExtObservableCollection<T> : ObservableCollection<T>, IHasOwner {
     OnPropertyChanged(new("Item[]"));
 
     if (items?.Count == 1)
-      OnCollectionChanged(new(action, items[0]));
+      OnCollectionChanged(new(action, items[0], 0));
     else
       OnCollectionChanged(new(NotifyCollectionChangedAction.Reset));
   }

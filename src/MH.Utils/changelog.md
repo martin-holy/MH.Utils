@@ -7,6 +7,8 @@
 	- [U] TreeItem: Items with owner
 	- [U] ICollectionViewRow: Hash
 	- [N] FlatTree
+	- [N] MenuItemSeparator
+	- [U] MenuItem: with items as ITreeItem to support separator
 
 3.4.0:
 	- [N] SelectionManager

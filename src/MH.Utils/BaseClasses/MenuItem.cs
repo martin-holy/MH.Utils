@@ -1,5 +1,6 @@
 ﻿using MH.Utils.Extensions;
 using MH.Utils.Interfaces;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows.Input;
@@ -15,7 +16,7 @@ public class MenuItem : TreeItem {
 
   public MenuItem(string? icon, string name) : base(icon, name) { }
 
-  public MenuItem(string? icon, string name, IEnumerable<MenuItem> items) : this(icon, name) {
+  public MenuItem(string? icon, string name, IEnumerable<ITreeItem> items) : this(icon, name) {
     foreach (var item in items) Add(item);
   }
 
@@ -29,7 +30,7 @@ public class MenuItem : TreeItem {
     }
   }
 
-  public void Add(MenuItem menuItem) {
+  public void Add(ITreeItem menuItem) {
     Items.Add(menuItem);
   }
 

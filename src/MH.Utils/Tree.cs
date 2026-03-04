@@ -363,4 +363,11 @@ public static class Tree {
     var idx = item.Parent.Items.IndexOf(item);
     return idx < 1 ? null : item.Parent.Items[idx - 1];
   }
+
+  public static void DoForAll(IEnumerable<ITreeItem> items, Action<ITreeItem> action) {
+    foreach (var item in items) {
+      action(item);
+      DoForAll(item.Items, action);
+    }
+  }
 }

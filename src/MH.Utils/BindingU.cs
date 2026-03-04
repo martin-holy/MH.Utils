@@ -14,6 +14,170 @@ public static class BindingU {
   private static readonly ConditionalWeakTable<INotifyPropertyChanged, PropertySubscriptionTable> _propertySubs = new();
   private static readonly ConditionalWeakTable<INotifyCollectionChanged, CollectionSubscriptionTable> _collectionSubs = new();
 
+  public static IDisposable Bind<TSource, TProp>(
+    this TSource source,
+    string propertyName,
+    Func<TSource, TProp?> getter,
+    Action<TProp?> onChange,
+    bool invokeInitOnChange = true)
+    where TSource : INotifyPropertyChanged {
+
+    if (invokeInitOnChange)
+      onChange(getter(source));
+
+    var table = _propertySubs.GetOrCreateValue(source);
+    var sub = table.GetOrAdd(source, propertyName, o => getter((TSource)o!));
+
+    void _handler(object? value) {
+      onChange((TProp?)value);
+    }
+
+    return sub.AddHandler(_handler);
+  }
+
+  public static IDisposable Bind<TProp>(
+    this INotifyPropertyChanged source,
+    string[] propertyNames,
+    Func<object?, object?>[] getters,
+    Action<TProp?> onChange,
+    bool invokeInitOnChange = true) {
+
+    if (invokeInitOnChange)
+      onChange((TProp?)_getInstanceAtDepth(source, getters, getters.Length));
+
+    return _bindNested(source, propertyNames, getters, v => onChange((TProp?)v), null);
+  }
+
+  public static IDisposable Bind<TCol>(
+    this TCol source,
+    Action<TCol?, NotifyCollectionChangedEventArgs> onChange,
+    bool invokeInitOnChange = true)
+    where TCol : INotifyCollectionChanged {
+
+    if (invokeInitOnChange)
+      onChange(source, new(NotifyCollectionChangedAction.Reset));
+
+    return _bindCollection(source, onChange);
+  }
+
+  public static IDisposable Bind<TCol>(
+    this INotifyPropertyChanged source,
+    string[] propertyNames,
+    Func<object?, object?>[] getters,
+    Action<TCol?, NotifyCollectionChangedEventArgs> onChange,
+    bool invokeInitOnChange = true)
+    where TCol : INotifyCollectionChanged {
+
+    if (invokeInitOnChange)
+      onChange((TCol?)_getInstanceAtDepth(source, getters, getters.Length), new(NotifyCollectionChangedAction.Reset));
+
+    return _bindNested(source, propertyNames, getters, null, (c, e) => onChange((TCol?)c, e));
+  }
+
+  public static IDisposable Bind<TSource, TCol>(
+    this TSource source,
+    string propertyName,
+    Func<TSource, TCol?> getter,
+    Action<TCol?, NotifyCollectionChangedEventArgs> onChange,
+    bool invokeInitOnChange = true)
+    where TSource : class, INotifyPropertyChanged
+    where TCol : INotifyCollectionChanged {
+
+    if (invokeInitOnChange)
+      onChange((TCol?)getter(source), new(NotifyCollectionChangedAction.Reset));
+
+    var table = _propertySubs.GetOrCreateValue(source);
+    var sourceSub = table.GetOrAdd(source, propertyName, o => getter((TSource)o!));
+    var subs = new List<IDisposable>(2);
+    var handler = sourceSub.AddHandler(_ => _rebind(false));
+    subs.Add(handler);
+    _rebind(true);
+
+    void _rebind(bool initialBind) {
+      if (subs.Count == 2) {
+        subs[1].Dispose();
+        subs.RemoveAt(1);
+      }
+
+      var instance = (TCol?)getter(source);
+
+      if (!initialBind)
+        onChange(instance, new(NotifyCollectionChangedAction.Reset));
+
+      if (instance != null)
+        subs.Add(_bindCollection(instance, onChange));
+    }
+
+    return new NestedDispose(subs);
+  }
+
+  private static IDisposable _bindCollection<TCol>(
+    TCol collection,
+    Action<TCol?, NotifyCollectionChangedEventArgs> onChange)
+    where TCol : INotifyCollectionChanged {
+
+    var table = _collectionSubs.GetOrCreateValue(collection);
+    var collSub = table.GetOrAdd(collection);
+
+    void _handler(object? s, NotifyCollectionChangedEventArgs e) {
+      onChange(collection, e);
+    }
+
+    return collSub.AddHandler(_handler);
+  }
+
+  private static IDisposable _bindNested(
+    INotifyPropertyChanged root,
+    string[] propertyNames,
+    Func<object?, object?>[] getters,
+    Action<object?>? onChangeProperty,
+    Action<INotifyCollectionChanged?, NotifyCollectionChangedEventArgs>? onChangeCollection) {
+
+    int hopCount = propertyNames.Length;
+    var subs = new List<IDisposable>();
+    _rebuildFrom(0);
+
+    void _rebuildFrom(int startHop) {
+      for (int i = subs.Count - 1; i >= startHop; i--) {
+        subs[i].Dispose();
+        subs.RemoveAt(i);
+      }
+
+      object? currentInstance = _getInstanceAtDepth(root, getters, startHop);
+
+      for (int hop = startHop; hop < hopCount; hop++) {
+        if (currentInstance == null) break;
+
+        var propertyName = propertyNames[hop];
+        var capturedHop = hop;
+
+        if (currentInstance is INotifyPropertyChanged npc) {
+          var table = _propertySubs.GetOrCreateValue(npc);
+          var sub = table.GetOrAdd(npc, propertyName, o => getters[capturedHop](o));
+          var handler = sub.AddHandler(_ => _rebuildFrom(capturedHop + 1));
+          subs.Add(handler);
+        }
+        else if (hop < hopCount - 1)
+          throw new InvalidOperationException($"Property '{propertyName}' of '{currentInstance.GetType()}' must implement INotifyPropertyChanged.");
+
+        currentInstance = getters[hop](currentInstance);
+      }
+
+      if (startHop > 0) { // not the initial RebuildFrom(0)
+        if (onChangeCollection != null)
+          onChangeCollection((INotifyCollectionChanged?)currentInstance, new(NotifyCollectionChangedAction.Reset));
+        else if (onChangeProperty != null)
+          onChangeProperty(currentInstance);
+      }
+
+      if (onChangeCollection != null && currentInstance is INotifyCollectionChanged collection)
+        subs.Add(_bindCollection(collection, onChangeCollection));
+    }
+
+    return new NestedDispose(subs);
+  }
+
+  [Obsolete("Use Bind version without target")]
   public static TTarget WithBind<TTarget, TSource, TProp>(
     this TTarget target,
     TSource source,
@@ -27,6 +191,7 @@ public static class BindingU {
     return target;
   }
 
+  [Obsolete("Use version without target")]
   public static IDisposable Bind<TTarget, TSource, TProp>(
     this TTarget target,
     TSource source,
@@ -56,6 +221,7 @@ public static class BindingU {
     return sub.AddHandler(_handler);
   }
 
+  [Obsolete("Use version without target")]
   public static IDisposable Bind<TTarget, TProp>(
     this TTarget target,
     INotifyPropertyChanged source,
@@ -71,6 +237,7 @@ public static class BindingU {
     return _bindNested(target, source, propertyNames, getters, (t, v) => onChange(t, (TProp?)v), null);
   }
 
+  [Obsolete("Use version without target")]
   public static IDisposable Bind<TTarget, TCol>(
     this TTarget target,
     TCol source,
@@ -85,6 +252,7 @@ public static class BindingU {
     return _bindCollection(target, new WeakReference<TTarget>(target), source, onChange);
   }
 
+  [Obsolete("Use version without target")]
   public static IDisposable Bind<TTarget, TCol>(
     this TTarget target,
     INotifyPropertyChanged source,
@@ -101,6 +269,7 @@ public static class BindingU {
     return _bindNested(target, source, propertyNames, getters, null, (t, c, e) => onChange(t, (TCol?)c, e));
   }
 
+  [Obsolete("Use version without target")]
   public static IDisposable Bind<TTarget, TSource, TCol>(
     this TTarget target,
     TSource source,
@@ -146,6 +315,7 @@ public static class BindingU {
     return new NestedDispose(subs);
   }
 
+  [Obsolete("Use version without target")]
   private static IDisposable _bindCollection<TTarget, TCol>(
     TTarget target,
     WeakReference<TTarget> weakTarget,
@@ -167,6 +337,7 @@ public static class BindingU {
     return collSub.AddHandler(_handler);
   }
 
+  [Obsolete("Use version without target")]
   private static IDisposable _bindNested<TTarget>(
     TTarget target,
     INotifyPropertyChanged root,

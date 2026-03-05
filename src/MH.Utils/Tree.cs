@@ -364,10 +364,10 @@ public static class Tree {
     return idx < 1 ? null : item.Parent.Items[idx - 1];
   }
 
-  public static void DoForAll(IEnumerable<ITreeItem> items, Action<ITreeItem> action) {
+  public static void DoForAll(this IEnumerable<ITreeItem> items, Action<ITreeItem> action) {
     foreach (var item in items) {
       action(item);
-      DoForAll(item.Items, action);
+      items.DoForAll(action);
     }
   }
 }

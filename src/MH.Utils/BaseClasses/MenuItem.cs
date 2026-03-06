@@ -1,5 +1,4 @@
-﻿using MH.Utils.Extensions;
-using MH.Utils.Interfaces;
+﻿using MH.Utils.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -20,14 +19,10 @@ public class MenuItem : TreeItem {
     foreach (var item in items) Add(item);
   }
 
-  public MenuItem(ICommand command, object? commandParameter = null) {
+  public MenuItem(ICommand command, object? commandParameter = null, string? icon = null) {
+    if (!string.IsNullOrEmpty(icon)) base.Icon = icon;
     Command = command;
     CommandParameter = commandParameter;
-
-    if (Command is RelayCommandBase cmd) {
-      this.Bind(cmd, nameof(RelayCommandBase.Icon), x => x.Icon, (s, _) => s.OnPropertyChanged(nameof(Icon)), false);
-      this.Bind(cmd, nameof(RelayCommandBase.Text), x => x.Text, (s, _) => s.OnPropertyChanged(nameof(Text)), false);
-    }
   }
 
   public void Add(ITreeItem menuItem) {

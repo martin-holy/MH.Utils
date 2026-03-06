@@ -26,6 +26,36 @@ public class BindingBenchmarks {
   }
 
   [Benchmark]
+  public void WithoutTarget_Create_RootProperty_Binding() {
+    _binding?.Dispose();
+    _binding = _data.Bind(nameof(_data.Name), x => x.Name, p => _sinkCounter++);
+  }
+
+  [Benchmark]
+  public void WithoutTarget_Create_NestedProperty_Binding() {
+    _binding?.Dispose();
+    _binding = _root.Bind<string>(
+      [nameof(Test.Data), nameof(TestData.Name)],
+      [s => (s as Test)?.Data, s => (s as TestData)?.Name],
+      p => _sinkCounter++);
+  }
+
+  [Benchmark]
+  public void WithoutTarget_Create_RootCollection_Binding() {
+    _binding?.Dispose();
+    _binding = _data.Bind(nameof(_data.Strings), s => s.Strings, (c, e) => _sinkCounter++);
+  }
+
+  [Benchmark]
+  public void WithoutTarget_Create_NestedCollection_Binding() {
+    _binding?.Dispose();
+    _binding = _root.Bind<ObservableCollection<string>>(
+      [nameof(Test.Data), nameof(TestData.Strings)],
+      [s => (s as Test)?.Data, s => (s as TestData)?.Strings],
+      (c, e) => _sinkCounter++);
+  }
+
+  [Benchmark]
   public void Create_RootProperty_Binding() {
     _binding?.Dispose();
     _binding = _data.Bind(_data, nameof(_data.Name), x => x.Name, (t, p) => _sinkCounter++);

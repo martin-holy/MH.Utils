@@ -9,6 +9,9 @@
 	- [N] FlatTree
 	- [N] MenuItemSeparator
 	- [U] MenuItem: with items as ITreeItem to support separator
+	- [N] BindingU: Bind methods without target
+	- [N] Tree: DoForAll method
+	- [U] MenuItem: command with optional icon ctor
 
 3.4.0:
 	- [N] SelectionManager

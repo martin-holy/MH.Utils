@@ -20,10 +20,192 @@ public class BindingUTests {
   }
 
   [TestMethod]
+  public void WithoutTarget_RootProperty_InitialAndChange() {
+    var list = new List<string?>();
+    var o = new TestData { Name = "A" };
+    o.Bind(nameof(TestData.Name), x => x.Name, p => list.Add(p));
+    o.Name = "B";
+    CollectionAssert.AreEqual(new[] { "A", "B" }, list);
+  }
+
+  [TestMethod]
+  public void WithoutTarget_RootProperty_NullToValue() {
+    var list = new List<string?>();
+    var o = new TestData { Name = null };
+    o.Bind(nameof(TestData.Name), x => x.Name, p => list.Add(p));
+    o.Name = "X";
+    CollectionAssert.AreEqual(new[] { null, "X" }, list);
+  }
+
+  [TestMethod]
+  public void WithoutTarget_RootProperty_ValueToNull() {
+    var list = new List<string?>();
+    var o = new TestData { Name = "A" };
+    o.Bind(nameof(TestData.Name), x => x.Name, p => list.Add(p));
+    o.Name = null;
+    CollectionAssert.AreEqual(new[] { "A", null }, list);
+  }
+
+  [TestMethod]
+  public void WithoutTarget_NestedProperty_InitialAndChange() {
+    var list = new List<string?>();
+    var o = new Test { Data = new TestData { Name = "A" } };
+    o.Bind<string>(
+      [nameof(Test.Data), nameof(TestData.Name)],
+      [s => (s as Test)?.Data, s => (s as TestData)?.Name],
+      p => list.Add(p));
+    o.Data.Name = "B";
+    CollectionAssert.AreEqual(new[] { "A", "B" }, list);
+  }
+
+  [TestMethod]
+  public void WithoutTarget_NestedProperty_Parent_NullToValue() {
+    var list = new List<string?>();
+    var o = new Test { Data = null };
+    o.Bind<string>(
+      [nameof(Test.Data), nameof(TestData.Name)],
+      [s => (s as Test)?.Data, s => (s as TestData)?.Name],
+      p => list.Add(p));
+    o.Data = new TestData { Name = "X" };
+    CollectionAssert.AreEqual(new[] { null, "X" }, list);
+  }
+
+  [TestMethod]
+  public void WithoutTarget_NestedProperty_Parent_ValueToNull() {
+    var list = new List<string?>();
+    var o = new Test { Data = new TestData { Name = "X" } };
+    o.Bind<string>(
+      [nameof(Test.Data), nameof(TestData.Name)],
+      [s => (s as Test)?.Data, s => (s as TestData)?.Name],
+      p => list.Add(p));
+    o.Data = null;
+    CollectionAssert.AreEqual(new[] { "X", null }, list);
+  }
+
+  [TestMethod]
+  public void WithoutTarget_Collection_InitialAndAdd() {
+    var list = new List<string?>();
+    var col = new ObservableCollection<string>() { "A" };
+    col.Bind((c, e) => list.Add(c == null ? null : string.Join(", ", c)));
+    col.Add("B");
+    CollectionAssert.AreEqual(new[] { "A", "A, B" }, list);
+  }
+
+  [TestMethod]
+  public void WithoutTarget_RootCollection_InitialAndChange() {
+    var list = new List<string?>();
+    var o = new TestData { Strings = ["A"] };
+    o.Bind(
+      nameof(TestData.Strings),
+      s => s.Strings,
+      (c, e) => list.Add(c == null ? null : string.Join(", ", c)));
+    o.Strings = ["B", "C"];
+    CollectionAssert.AreEqual(new[] { "A", "B, C" }, list);
+  }
+
+  [TestMethod]
+  public void WithoutTarget_RootCollection_NullToValue() {
+    var list = new List<string?>();
+    var o = new TestData { Strings = null };
+    o.Bind(
+      nameof(TestData.Strings),
+      s => s.Strings,
+      (c, e) => list.Add(c == null ? null : string.Join(", ", c)));
+    o.Strings = ["A", "B"];
+    CollectionAssert.AreEqual(new[] { null, "A, B" }, list);
+  }
+
+  [TestMethod]
+  public void WithoutTarget_RootCollection_ValueToNull() {
+    var list = new List<string?>();
+    var o = new TestData { Strings = ["A", "B"] };
+    o.Bind(
+      nameof(TestData.Strings),
+      s => s.Strings,
+      (c, e) => list.Add(c == null ? null : string.Join(", ", c)));
+    o.Strings = null;
+    CollectionAssert.AreEqual(new[] { "A, B", null }, list);
+  }
+
+  [TestMethod]
+  public void WithoutTarget_RootCollection_AddRemove() {
+    var list = new List<string?>();
+    var o = new TestData { Strings = ["X"] };
+    o.Bind(
+      nameof(TestData.Strings),
+      s => s.Strings,
+      (c, e) => list.Add(c == null ? null : string.Join(", ", c)));
+    o.Strings.Add("A");
+    o.Strings.Add("B");
+    o.Strings.Remove("A");
+    CollectionAssert.AreEqual(new[] { "X", "X, A", "X, A, B", "X, B" }, list);
+  }
+
+  [TestMethod]
+  public void WithoutTarget_NestedCollection_InitialAndChange() {
+    var list = new List<string?>();
+    var o = new Test { Data = new TestData { Strings = ["A"] } };
+    o.Bind<ObservableCollection<string>>(
+      [nameof(Test.Data), nameof(TestData.Strings)],
+      [s => (s as Test)?.Data, s => (s as TestData)?.Strings],
+      (c, e) => list.Add(c == null ? null : string.Join(", ", c)));
+    o.Data.Strings = ["B", "C"];
+    CollectionAssert.AreEqual(new[] { "A", "B, C" }, list);
+  }
+
+  [TestMethod]
+  public void WithoutTarget_NestedCollection_NullToValue() {
+    var list = new List<string?>();
+    var o = new Test { Data = new TestData { Strings = null } };
+    o.Bind<ObservableCollection<string>>(
+      [nameof(Test.Data), nameof(TestData.Strings)],
+      [s => (s as Test)?.Data, s => (s as TestData)?.Strings],
+      (c, e) => list.Add(c == null ? null : string.Join(", ", c)));
+    o.Data.Strings = ["A"];
+    CollectionAssert.AreEqual(new[] { null, "A" }, list);
+  }
+
+  [TestMethod]
+  public void WithoutTarget_NestedCollection_Parent_ValueToValue() {
+    var list = new List<string?>();
+    var o = new Test { Data = new TestData { Strings = ["A"] } };
+    o.Bind<ObservableCollection<string>>(
+      [nameof(Test.Data), nameof(TestData.Strings)],
+      [s => (s as Test)?.Data, s => (s as TestData)?.Strings],
+      (c, e) => list.Add(c == null ? null : string.Join(", ", c)));
+    o.Data = new TestData { Strings = ["B", "C"] };
+    CollectionAssert.AreEqual(new[] { "A", "B, C" }, list);
+  }
+
+  [TestMethod]
+  public void WithoutTarget_NestedCollection_Parent_NullToValue() {
+    var list = new List<string?>();
+    var o = new Test { Data = null };
+    o.Bind<ObservableCollection<string>>(
+      [nameof(Test.Data), nameof(TestData.Strings)],
+      [s => (s as Test)?.Data, s => (s as TestData)?.Strings],
+      (c, e) => list.Add(c == null ? null : string.Join(", ", c)));
+    o.Data = new TestData { Strings = ["A", "B"] };
+    CollectionAssert.AreEqual(new[] { null, "A, B" }, list);
+  }
+
+  [TestMethod]
+  public void WithoutTarget_NestedCollection_Parent_ValueToNull() {
+    var list = new List<string?>();
+    var o = new Test { Data = new TestData { Strings = ["A", "B"] } };
+    o.Bind<ObservableCollection<string>>(
+      [nameof(Test.Data), nameof(TestData.Strings)],
+      [s => (s as Test)?.Data, s => (s as TestData)?.Strings],
+      (c, e) => list.Add(c == null ? null : string.Join(", ", c)));
+    o.Data = null;
+    CollectionAssert.AreEqual(new[] { "A, B", null }, list);
+  }
+
+  [TestMethod]
   public void RootProperty_InitialAndChange() {
     var list = new List<string?>();
     var o = new TestData { Name = "A" };
-    o.Bind(o, nameof(o.Name), x => x.Name, (t, p) => list.Add(p));
+    o.Bind(o, nameof(TestData.Name), x => x.Name, (t, p) => list.Add(p));
     o.Name = "B";
     CollectionAssert.AreEqual(new[] { "A", "B" }, list);
   }
@@ -32,7 +214,7 @@ public class BindingUTests {
   public void RootProperty_NullToValue() {
     var list = new List<string?>();
     var o = new TestData { Name = null };
-    o.Bind(o, nameof(o.Name), x => x.Name, (t, p) => list.Add(p));
+    o.Bind(o, nameof(TestData.Name), x => x.Name, (t, p) => list.Add(p));
     o.Name = "X";
     CollectionAssert.AreEqual(new[] { null, "X" }, list);
   }
@@ -41,7 +223,7 @@ public class BindingUTests {
   public void RootProperty_ValueToNull() {
     var list = new List<string?>();
     var o = new TestData { Name = "A" };
-    o.Bind(o, nameof(o.Name), x => x.Name, (t, p) => list.Add(p));
+    o.Bind(o, nameof(TestData.Name), x => x.Name, (t, p) => list.Add(p));
     o.Name = null;
     CollectionAssert.AreEqual(new[] { "A", null }, list);
   }
@@ -102,7 +284,7 @@ public class BindingUTests {
     var o = new TestData { Strings = ["A"] };
     o.Bind(
       o,
-      nameof(o.Strings),
+      nameof(TestData.Strings),
       s => s.Strings,
       (t, c, e) => { list.Add(c == null ? null : string.Join(", ", c)); });
     o.Strings = ["B", "C"];
@@ -115,7 +297,7 @@ public class BindingUTests {
     var o = new TestData { Strings = null };
     o.Bind(
       o,
-      nameof(o.Strings),
+      nameof(TestData.Strings),
       s => s.Strings,
       (t, c, e) => { list.Add(c == null ? null : string.Join(", ", c)); });
     o.Strings = ["A", "B"];
@@ -128,7 +310,7 @@ public class BindingUTests {
     var o = new TestData { Strings = ["A", "B"] };
     o.Bind(
       o,
-      nameof(o.Strings),
+      nameof(TestData.Strings),
       s => s.Strings,
       (t, c, e) => { list.Add(c == null ? null : string.Join(", ", c)); });
     o.Strings = null;
@@ -141,7 +323,7 @@ public class BindingUTests {
     var o = new TestData { Strings = ["X"] };
     o.Bind(
       o,
-      nameof(o.Strings),
+      nameof(TestData.Strings),
       s => s.Strings,
       (t, c, e) => { list.Add(c == null ? null : string.Join(", ", c)); });
     o.Strings.Add("A");

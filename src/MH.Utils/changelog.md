@@ -12,6 +12,8 @@
 	- [N] BindingU: Bind methods without target
 	- [N] Tree: DoForAll method
 	- [U] MenuItem: command with optional icon ctor
+	- [N] BindingScope
+	- [N] DisposableExtensions: DisposeWith BindingScope
 
 3.4.0:
 	- [N] SelectionManager

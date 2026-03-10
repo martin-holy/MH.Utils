@@ -14,6 +14,7 @@
 	- [U] MenuItem: command with optional icon ctor
 	- [N] BindingScope
 	- [N] DisposableExtensions: DisposeWith BindingScope
+	- [C] ViewBinder: Obsolete, use MH.UI.Binding.ViewBinder instead
 
 3.4.0:
 	- [N] SelectionManager

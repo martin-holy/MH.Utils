@@ -10,6 +10,10 @@ public sealed class BindingScope : IDisposable {
     _items.Add(disposable);
   }
 
+  public void AddRange(IEnumerable<IDisposable> disposable) {
+    _items.AddRange(disposable);
+  }
+
   public void Dispose() {
     for (int i = 0; i < _items.Count; i++)
       _items[i].Dispose();

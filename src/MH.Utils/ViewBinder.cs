@@ -5,7 +5,7 @@ using System.Runtime.CompilerServices;
 
 namespace MH.Utils;
 
-[Obsolete("Use MH.UI.Binding.ViewBinder instead")]
+[Obsolete("Use MH.UI.ViewBinder instead")]
 public sealed class ViewBinder<TTarget, TSource, TProp, TValue> : IDisposable
   where TTarget : class
   where TSource : class, INotifyPropertyChanged {

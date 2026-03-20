@@ -4,11 +4,6 @@ using System.Threading.Tasks;
 namespace MH.Utils;
 
 public static class Tasks {
-  public static TaskScheduler UiTaskScheduler { get; private set; } = null!;
-
-  public static void SetUiTaskScheduler() =>
-    UiTaskScheduler = TaskScheduler.FromCurrentSynchronizationContext();
-
   public static Task RunOnUiThread(Action action) =>
     RunOnUiThread(() => {
       action();

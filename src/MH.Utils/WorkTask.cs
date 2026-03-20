@@ -15,32 +15,35 @@ public sealed class WorkTask : IDisposable {
     if (_task == null || _waitingForCancel) return false;
 
     _waitingForCancel = true;
-    _cts?.Cancel();
 
-    // TODO BUG unexpected error, task was canceled. problem when returning false from catch
-    // to test it => resizing main window with thumbnails grid active will cause reloading to many times to fast
     try {
-      if (_task.Status != TaskStatus.Canceled)
-        await _task;
+      _cts?.Cancel();
+      await _task;
     }
-    catch (Exception) {
+    catch (OperationCanceledException) {
+      // expected
+    }
+    catch (Exception ex) {
+      Log.Error(ex);
+    }
+    finally {
       _waitingForCancel = false;
-      return true;
     }
-
-    _waitingForCancel = false;
 
     return true;
   }
 
-  public Task Start(Task task) {
+  public async Task Start(Func<CancellationToken, Task> work) {
     _cts = new();
     Token = _cts.Token;
-    _task = task;
-    if (_task.Status == TaskStatus.Created)
-      _task.Start();
 
-    return _task.ContinueWith(_ => Dispose());
+    try {
+      _task = work(Token);
+      await _task;
+    }
+    finally {
+      Dispose();
+    }
   }
 
   public void Dispose() {
@@ -49,7 +52,7 @@ public sealed class WorkTask : IDisposable {
       _cts?.Dispose();
       _cts = null;
     }
-    catch (Exception) {
+    catch {
       // ignored
     }
   }

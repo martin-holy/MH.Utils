@@ -9,16 +9,26 @@ public static class Tasks {
   public static void SetUiTaskScheduler() =>
     UiTaskScheduler = TaskScheduler.FromCurrentSynchronizationContext();
 
-  public static Task RunOnUiThread(Action action) {
-    var task = new Task(action);
-    task.Start(UiTaskScheduler);
-    return task;
-  }
+  public static Task RunOnUiThread(Action action) =>
+    RunOnUiThread(() => {
+      action();
+      return Task.CompletedTask;
+    });
 
-  public static Task<T> RunOnUiThread<T>(Func<T> func) {
-    var task = new Task<T>(func);
-    task.Start(UiTaskScheduler);
-    return task;
+  public static Task RunOnUiThread(Func<Task> func) {
+    var tcs = new TaskCompletionSource();
+
+    Dispatch(async () => {
+      try {
+        await func();
+        tcs.SetResult();
+  }
+      catch (Exception ex) {
+        tcs.SetException(ex);
+      }
+    });
+
+    return tcs.Task;
   }
 
   public static Action<Action> Dispatch { get; set; } = null!;

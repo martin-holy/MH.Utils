@@ -1,6 +1,8 @@
-3.6.0:
+4.0.0:
 	- [U] Tasks: RunOnUiThread
 	- [N] Tasks: DoWorkAsync
+	- [U] Tasks: UiTaskScheduler removed
+	- [U] WorkTask: Start(Func<CancellationToken, Task> work)
 
 3.5.0:
 	- [U] Tree: ToFlatTreeItems method with startLevel param

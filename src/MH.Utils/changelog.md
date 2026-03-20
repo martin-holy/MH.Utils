@@ -1,3 +1,7 @@
+3.6.0:
+	- [U] Tasks: RunOnUiThread
+	- [N] Tasks: DoWorkAsync
+
 3.5.0:
 	- [U] Tree: ToFlatTreeItems method with startLevel param
 	- [N] IHasOwner

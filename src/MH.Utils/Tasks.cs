@@ -37,11 +37,16 @@ public static class Tasks {
   /// Executes the work on background thread and then executes the onSuccess or the onError on UI thread
   /// </summary>
   public static void DoWork<T>(Func<T> work, Action<T> onSuccess, Action<Exception?> onError) {
-    Task.Run(work).ContinueWith(task => {
-      if (task.IsFaulted)
-        onError(task.Exception?.InnerException);
-      else
-        onSuccess(task.Result);
-    }, UiTaskScheduler);
+    _ = DoWorkAsync(work, onSuccess, onError);
+  }
+
+  public static async Task DoWorkAsync<T>(Func<T> work, Action<T> onSuccess, Action<Exception?> onError) {
+    try {
+      var result = await Task.Run(work);
+      await Tasks.RunOnUiThread(() => onSuccess(result));
+    }
+    catch (Exception ex) {
+      await Tasks.RunOnUiThread(() => onError(ex));
+    }
   }
 }

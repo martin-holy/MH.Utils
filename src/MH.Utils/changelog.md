@@ -5,6 +5,7 @@
 	- [U] WorkTask: Start(Func<CancellationToken, Task> work)
 	- [U] BindingU: obsolete removed
 	- [U] ViewBinder: removed (use MH.UI.ViewBinder instead)
+	- [U] Tree: ItemMove: collapse old parent if it is empty
 
 3.5.0:
 	- [U] Tree: ToFlatTreeItems method with startLevel param

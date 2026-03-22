@@ -3,6 +3,8 @@
 	- [N] Tasks: DoWorkAsync
 	- [U] Tasks: UiTaskScheduler removed
 	- [U] WorkTask: Start(Func<CancellationToken, Task> work)
+	- [U] BindingU: obsolete removed
+	- [U] ViewBinder: removed (use MH.UI.ViewBinder instead)
 
 3.5.0:
 	- [U] Tree: ToFlatTreeItems method with startLevel param

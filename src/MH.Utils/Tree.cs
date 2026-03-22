@@ -189,14 +189,18 @@ public static class Tree {
 
   public static bool ItemMove(ITreeItem item, ITreeItem dest, bool aboveDest) {
     var relative = item.GetType() == dest.GetType();
+    var oldParent = item.Parent;
     var newParent = relative
       ? dest.Parent
       : dest;
 
-    if (newParent == null || item.Parent == null) return false;
+    if (newParent == null || oldParent == null) return false;
 
-    if (!ReferenceEquals(item.Parent, newParent)) {
-      item.Parent.Items.Remove(item);
+    if (!ReferenceEquals(oldParent, newParent)) {
+      oldParent.Items.Remove(item);
+      if (oldParent.Items.Count == 0)
+        oldParent.IsExpanded = false;
+
       item.Parent = newParent;
     }
 

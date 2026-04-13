@@ -22,10 +22,10 @@ public static class BindingU {
       onChange(getter(source));
 
     var table = _propertySubs.GetOrCreateValue(source);
-    var sub = table.GetOrAdd(source, propertyName, o => getter((TSource)o!));
+    var sub = table.GetOrAdd(source, propertyName);
 
-    void _handler(object? value) {
-      onChange((TProp?)value);
+    void _handler() {
+      onChange(getter(source));
     }
 
     return sub.AddHandler(_handler);
@@ -83,9 +83,9 @@ public static class BindingU {
       onChange((TCol?)getter(source), new(NotifyCollectionChangedAction.Reset));
 
     var table = _propertySubs.GetOrCreateValue(source);
-    var sourceSub = table.GetOrAdd(source, propertyName, o => getter((TSource)o!));
+    var sourceSub = table.GetOrAdd(source, propertyName);
     var subs = new List<IDisposable>(2);
-    var handler = sourceSub.AddHandler(_ => _rebind(false));
+    var handler = sourceSub.AddHandler(() => _rebind(false));
     subs.Add(handler);
     _rebind(true);
 
@@ -149,8 +149,8 @@ public static class BindingU {
 
         if (currentInstance is INotifyPropertyChanged npc) {
           var table = _propertySubs.GetOrCreateValue(npc);
-          var sub = table.GetOrAdd(npc, propertyName, o => getters[capturedHop](o));
-          var handler = sub.AddHandler(_ => _rebuildFrom(capturedHop + 1));
+          var sub = table.GetOrAdd(npc, propertyName);
+          var handler = sub.AddHandler(() => _rebuildFrom(capturedHop + 1));
           subs.Add(handler);
         }
         else if (hop < hopCount - 1)
@@ -208,42 +208,45 @@ public static class BindingU {
   }
 
   private class PropertySubscription : IPropertySubscription {
-    private readonly List<Action<object?>> _handlers = new();
+    private readonly List<Action> _handlers = new();
     private readonly INotifyPropertyChanged _source;
-    private readonly Func<object?, object?> _getter;
 
     public string PropertyName { get; }
 
-    public PropertySubscription(INotifyPropertyChanged source, string propertyName, Func<object?, object?> getter) {
+    public PropertySubscription(
+      INotifyPropertyChanged source,
+      string propertyName) {
+
       _source = source;
       PropertyName = propertyName;
-      _getter = getter;
       _source.PropertyChanged += _onChanged;
     }
 
     private void _onChanged(object? sender, PropertyChangedEventArgs e) {
       if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName == PropertyName) {
-        var value = _getter(_source);
-        foreach (var h in _handlers.ToArray())
-          h(value);
+        for (int i = 0; i < _handlers.Count; i++)
+          _handlers[i]();
       }
     }
 
-    public IDisposable AddHandler(Action<object?> handler) {
+    public IDisposable AddHandler(Action handler) {
       _handlers.Add(handler);
       return new HandlerWrapper(this, handler);
     }
 
-    public void RemoveHandler(Action<object?> handler) {
+    public void RemoveHandler(Action handler) {
       _handlers.Remove(handler);
     }
 
     private sealed class HandlerWrapper : IDisposable {
       private readonly PropertySubscription _parent;
-      private readonly Action<object?> _handler;
+      private readonly Action _handler;
       private bool _disposed;
 
-      public HandlerWrapper(PropertySubscription parent, Action<object?> handler) {
+      public HandlerWrapper(
+        PropertySubscription parent,
+        Action handler) {
+
         _parent = parent;
         _handler = handler;
       }
@@ -257,15 +260,21 @@ public static class BindingU {
   }
 
   private class PropertySubscriptionTable {
-    private readonly List<IPropertySubscription> _subs = new();
+    private readonly List<PropertySubscription> _subs = new();
 
-    public PropertySubscription GetOrAdd(INotifyPropertyChanged source, string propertyName, Func<object?, object?> getter) {
+    public PropertySubscription GetOrAdd(
+      INotifyPropertyChanged source,
+      string propertyName) {
+
       foreach (var sub in _subs) {
-        if (sub.PropertyName == propertyName && sub is PropertySubscription typed)
-          return typed;
+        if (sub.PropertyName == propertyName)
+          return sub;
       }
 
-      var newSub = new PropertySubscription(source, propertyName, getter);
+      var newSub = new PropertySubscription(
+        source,
+        propertyName);
+
       _subs.Add(newSub);
       return newSub;
     }
@@ -286,8 +295,8 @@ public static class BindingU {
     }
 
     private void _onChanged(object? sender, NotifyCollectionChangedEventArgs e) {
-      foreach (var h in _handlers.ToArray())
-        h(sender, e);
+      for (int i = 0; i < _handlers.Count; i++)
+        _handlers[i](sender, e);
     }
 
     public IDisposable AddHandler(NotifyCollectionChangedEventHandler handler) {

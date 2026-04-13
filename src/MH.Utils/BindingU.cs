@@ -18,17 +18,14 @@ public static class BindingU {
     bool invokeInitOnChange = true)
     where TSource : INotifyPropertyChanged {
 
-    if (invokeInitOnChange)
-      onChange(getter(source));
+    var handler = new PropertyBindHandler<TSource, TProp>(source, getter, onChange);
+
+    if (invokeInitOnChange) handler.Invoke();
 
     var table = _propertySubs.GetOrCreateValue(source);
     var sub = table.GetOrAdd(source, propertyName);
 
-    void _handler() {
-      onChange(getter(source));
-    }
-
-    return sub.AddHandler(_handler);
+    return sub.AddHandler(handler.Invoke);
   }
 
   public static IDisposable Bind<TProp>(
@@ -180,6 +177,15 @@ public static class BindingU {
       value = value != null ? getters[i](value) : null;
 
     return value;
+  }
+
+  private sealed class PropertyBindHandler<TSource, TProp>(
+    TSource source,
+    Func<TSource, TProp?> getter,
+    Action<TProp?> onChange)
+    where TSource : INotifyPropertyChanged {
+
+    public void Invoke() => onChange(getter(source));
   }
 
   private sealed class NestedDispose : IDisposable {

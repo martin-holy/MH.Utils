@@ -56,38 +56,6 @@ public class BindingBenchmarks {
   }
 
   [Benchmark]
-  public void Create_RootProperty_Binding() {
-    _binding?.Dispose();
-    _binding = _data.Bind(_data, nameof(_data.Name), x => x.Name, (t, p) => _sinkCounter++);
-  }
-
-  [Benchmark]
-  public void Create_NestedProperty_Binding() {
-    _binding?.Dispose();
-    _binding = _root.Bind<Test, string>(
-      _root,
-      [nameof(Test.Data), nameof(TestData.Name)],
-      [s => (s as Test)?.Data, s => (s as TestData)?.Name],
-      (t, p) => _sinkCounter++);
-  }
-
-  [Benchmark]
-  public void Create_RootCollection_Binding() {
-    _binding?.Dispose();
-    _binding = _data.Bind(_data, nameof(_data.Strings), s => s.Strings, (t, c, e) => _sinkCounter++);
-  }
-
-  [Benchmark]
-  public void Create_NestedCollection_Binding() {
-    _binding?.Dispose();
-    _binding = _root.Bind<Test, ObservableCollection<string>>(
-      _root,
-      [nameof(Test.Data), nameof(TestData.Strings)],
-      [s => (s as Test)?.Data, s => (s as TestData)?.Strings],
-      (t, c, e) => _sinkCounter++);
-  }
-
-  [Benchmark]
   public void Direct_PropertyChanged_Subscription() {
     void Handler(object? s, PropertyChangedEventArgs e) {
       _sinkCounter++;

@@ -213,10 +213,7 @@ public static class BindingU {
 
     public string PropertyName { get; }
 
-    public PropertySubscription(
-      INotifyPropertyChanged source,
-      string propertyName) {
-
+    public PropertySubscription(INotifyPropertyChanged source, string propertyName) {
       _source = source;
       PropertyName = propertyName;
       _source.PropertyChanged += _onChanged;
@@ -243,10 +240,7 @@ public static class BindingU {
       private readonly Action _handler;
       private bool _disposed;
 
-      public HandlerWrapper(
-        PropertySubscription parent,
-        Action handler) {
-
+      public HandlerWrapper(PropertySubscription parent, Action handler) {
         _parent = parent;
         _handler = handler;
       }
@@ -262,19 +256,13 @@ public static class BindingU {
   private class PropertySubscriptionTable {
     private readonly List<PropertySubscription> _subs = new();
 
-    public PropertySubscription GetOrAdd(
-      INotifyPropertyChanged source,
-      string propertyName) {
-
+    public PropertySubscription GetOrAdd(INotifyPropertyChanged source, string propertyName) {
       foreach (var sub in _subs) {
         if (sub.PropertyName == propertyName)
           return sub;
       }
 
-      var newSub = new PropertySubscription(
-        source,
-        propertyName);
-
+      var newSub = new PropertySubscription(source, propertyName);
       _subs.Add(newSub);
       return newSub;
     }

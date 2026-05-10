@@ -11,7 +11,7 @@ public static class IOExtensions {
   /// <param name="path2"></param>
   /// <returns></returns>
   public static string PathCombine(string path1, string path2) =>
-    string.Concat(path1, Path.DirectorySeparatorChar.ToString(), path2);
+    string.Concat(path1, Path.DirectorySeparatorChar, path2);
 
   public static bool DeleteDirectoryIfEmpty(string path) {
     if (!Directory.Exists(path)) return false;

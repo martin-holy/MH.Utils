@@ -16,12 +16,24 @@ public class ListItem(string? icon, string name) : ObservableObject, IListItem {
   public bool IsHidden { get => _bits[BitsMasks.IsHidden]; set { _bits[BitsMasks.IsHidden] = value; OnPropertyChanged(); } }
   public bool IsIconHidden { get => _bits[BitsMasks.IsIconHidden]; set { _bits[BitsMasks.IsIconHidden] = value; OnPropertyChanged(); } }
   public bool IsNameHidden { get => _bits[BitsMasks.IsNameHidden]; set { _bits[BitsMasks.IsNameHidden] = value; OnPropertyChanged(); } }
-  public string? Icon { get => _icon; set { _icon = value; OnPropertyChanged(); } }
-  public string Name { get => _name; set { _name = value; OnPropertyChanged(); } }
+  public string? Icon { get => _getIcon(); set { _icon = value; OnPropertyChanged(); } }
+  public string Name { get => _getName(); set { _name = value; OnPropertyChanged(); } }
   public object? Data { get; set; }
 
   public ListItem(string? icon, string name, object data) : this(icon, name) {
     Data = data;
+  }
+
+  public ListItem(object data) : this(null, string.Empty, data) { }
+
+  private string? _getIcon() {
+    if (!string.IsNullOrEmpty(_icon)) return _icon;
+    return Data is IListItem li && !string.IsNullOrEmpty(li.Icon) ? li.Icon : null;
+  }
+
+  private string _getName() {
+    if (!string.IsNullOrEmpty(_name)) return _name;
+    return Data is IListItem li && !string.IsNullOrEmpty(li.Name) ? li.Name : string.Empty;
   }
 }
 

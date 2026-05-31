@@ -1,5 +1,6 @@
 4.1.0:
 	- [U] ListItem: Icon and Name from Data if Data are IListItem
+	- [N] CompositeObservableCollection
 
 4.0.0:
 	- [U] Tasks: RunOnUiThread

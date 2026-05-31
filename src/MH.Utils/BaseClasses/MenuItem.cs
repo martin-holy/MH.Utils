@@ -1,5 +1,5 @@
-﻿using MH.Utils.Interfaces;
-using System;
+﻿using MH.Utils.Collections;
+using MH.Utils.Interfaces;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows.Input;
@@ -7,6 +7,8 @@ using System.Windows.Input;
 namespace MH.Utils.BaseClasses;
 
 public class MenuItem : TreeItem {
+  private CompositeObservableCollection<ITreeItem>? _composite;
+
   public ICommand? Command { get; }
   public object? CommandParameter { get; set; }
   public string? InputGestureText { get; set; }
@@ -28,6 +30,24 @@ public class MenuItem : TreeItem {
   public void Add(ITreeItem menuItem) {
     Items.Add(menuItem);
   }
+
+  public MenuItem AddSource(ITreeItem item) {
+    _composite ??= new(Items);
+    _composite.Add(item);
+    return this;
+  }
+
+  public MenuItem AddSource<T>(IList<T> collection, ICommand command) {
+    _composite ??= new(Items);
+    _composite.AddCollection(collection, item => _wrapItem<T>(item, command));
+    return this;
+  }
+
+  private MenuItem _wrapItem<T>(T item, ICommand command) =>
+    new MenuItem(command) {
+      Data = item,
+      CommandParameter = item
+    };
 
   public MenuItem? GetWithData(object? data) =>
     data == null ? null : Items.SingleOrDefault(x => ReferenceEquals(x.Data, data)) as MenuItem;

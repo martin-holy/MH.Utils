@@ -12,6 +12,8 @@ namespace MH.Utils;
 public class FlatTree {
   private readonly ObservableCollection<ITreeItem> _rootHolder;
   private readonly Dictionary<ITreeItem, int> _indexMap = new();
+  private readonly HashSet<ITreeItem> _subscribedItems = new();
+
   private List<FlatTreeItem> _items = [];
 
   public IReadOnlyList<FlatTreeItem> Items => _items;
@@ -30,12 +32,22 @@ public class FlatTree {
 
   public void Reset() {
     Clear();
-    _insertItems(_rootHolder, 0, 0, notify: false);
+
+    foreach (var root in _rootHolder)
+      _subscribeSubtree(root);
+
+    _items = Tree.ToFlatTreeItems(_rootHolder);
+
+    _rebuildIndex();
+
     ResetEvent?.Invoke();
   }
 
   public void Clear() {
-    _unsubscribe(_items);
+    foreach (var item in _subscribedItems)
+      _unsubscribe(item);
+
+    _subscribedItems.Clear();
     _items = [];
     _indexMap.Clear();
   }
@@ -45,31 +57,28 @@ public class FlatTree {
 
   private void _insertItems(IEnumerable<ITreeItem> items, int startLevel, int index, bool notify = true) {
     var newItems = Tree.ToFlatTreeItems(items, startLevel);
-    _subscribe(newItems);
+
+    if (newItems.Count == 0) return;
+
     _items.InsertRange(index, newItems);
     _rebuildIndex();
     if (notify) RangeInsertedEvent?.Invoke(index, newItems.Count);
   }
 
+  private void _removeSubtree(int index) {
+    int end = _findSubtreeEndIndex(index);
+    _removeItems(index, end - index);
+  }
+
   private void _removeChildren(int parentIndex) {
     int end = _findSubtreeEndIndex(parentIndex);
     int removeStart = parentIndex + 1;
-    int count = end - parentIndex - 1;
+    int count = end - removeStart;
     _removeItems(removeStart, count);
-  }
-
-  private void _removeItem(int index) {
-    int end = _findSubtreeEndIndex(index);
-    int count = end - index;
-    _removeItems(index, count);
   }
 
   private void _removeItems(int removeStart, int count) {
     if (count <= 0) return;
-
-    for (int i = 0; i < count; i++)
-      _unsubscribe(_items[removeStart + i].TreeItem);
-
     _items.RemoveRange(removeStart, count);
     _rebuildIndex();
     RangeRemovedEvent?.Invoke(removeStart, count);
@@ -94,8 +103,15 @@ public class FlatTree {
     item.Items.CollectionChanged += _onTreeItemsChanged;
   }
 
-  private void _subscribe(IEnumerable<FlatTreeItem> items) {
-    foreach (var item in items) _subscribe(item.TreeItem);
+  private void _subscribeSubtree(ITreeItem item) {
+    if (!_subscribedItems.Add(item)) return;
+
+    _subscribe(item);
+
+    if (!item.IsExpanded) return;
+
+    foreach (var child in item.Items)
+      _subscribeSubtree(child);
   }
 
   private void _unsubscribe(ITreeItem item) {
@@ -103,27 +119,57 @@ public class FlatTree {
     item.Items.CollectionChanged -= _onTreeItemsChanged;
   }
 
-  private void _unsubscribe(IEnumerable<FlatTreeItem> items) {
-    foreach (var item in items) _unsubscribe(item.TreeItem);
+  private void _unsubscribeSubtree(ITreeItem item) {
+    if (!_subscribedItems.Remove(item)) return;
+
+    _unsubscribe(item);
+
+    foreach (var child in item.Items)
+      _unsubscribeSubtree(child);
   }
 
   private void _onTreeItemPropertyChanged(object? sender, PropertyChangedEventArgs e) {
     var item = (ITreeItem)sender!;
     int index = IndexOf(item);
+
+    if (index >= 0)
+      TreeItemPropertyChangedEvent?.Invoke(item, index, e);
+
+    if (e.Is(nameof(TreeItem.IsExpanded)))
+      _onIsExpandedChanged(item, index);
+    else if (e.Is(nameof(TreeItem.IsHidden)))
+      _onIsHiddenChanged(item, index);
+  }
+
+  private void _onIsExpandedChanged(ITreeItem item, int index) {
     if (index < 0) return;
 
-    TreeItemPropertyChangedEvent?.Invoke(item, index, e);
-
-    if (!e.Is(nameof(TreeItem.IsExpanded))) return;
-
     if (item.IsExpanded) {
+      foreach (var child in item.Items)
+        _subscribeSubtree(child);
+
       if (!_hasInsertedChildren(item, index))
         _insertItems(item.Items, _items[index].Level + 1, index + 1);
     }
-    else
+    else {
+      foreach (var child in item.Items)
+        _unsubscribeSubtree(child);
+
       _removeChildren(index);
+    }
 
     IsExpandedChangedEvent?.Invoke(index);
+  }
+
+  private void _onIsHiddenChanged(ITreeItem item, int index) {
+    if (item.IsHidden) {
+      if (index >= 0) _removeSubtree(index);
+      return;
+    }
+
+    if (index >= 0) return;
+    if (!item.IsVisible()) return;
+    _insertItems([item], item.GetLevel(), _getInsertIndex(item));
   }
 
   private bool _hasInsertedChildren(ITreeItem parent, int parentIndex) {
@@ -131,52 +177,82 @@ public class FlatTree {
     return next < _items.Count && _items[next].TreeItem.Parent == parent;
   }
 
+  private int _getInsertIndex(ITreeItem item) {
+    if (item.Parent == null)
+      return _getRootInsertIndex(item);
+
+    var parent = item.Parent;
+    int childIndex = parent.Items.IndexOf(item);
+
+    for (int i = childIndex - 1; i >= 0; i--) {
+      int visibleIndex = IndexOf(parent.Items[i]);
+
+      if (visibleIndex >= 0)
+        return _findSubtreeEndIndex(visibleIndex);
+    }
+
+    int parentIndex = IndexOf(parent);
+
+    return parentIndex + 1;
+  }
+
+  private int _getRootInsertIndex(ITreeItem item) {
+    int rootIndex = _rootHolder.IndexOf(item);
+
+    for (int i = rootIndex - 1; i >= 0; i--) {
+      int visibleIndex = IndexOf(_rootHolder[i]);
+
+      if (visibleIndex >= 0)
+        return _findSubtreeEndIndex(visibleIndex);
+    }
+
+    return 0;
+  }
+
   private void _onTreeItemsChanged(object? sender, NotifyCollectionChangedEventArgs e) {
     if (sender is not IHasOwner { Owner: ITreeItem parent }) return;
 
     int parentIndex = IndexOf(parent);
-    if (parentIndex < 0) return;
 
-    IsExpandedVisibilityChangedEvent?.Invoke(parentIndex);
+    if (parentIndex >= 0)
+      IsExpandedVisibilityChangedEvent?.Invoke(parentIndex);
 
-    if (!parent.IsExpanded) return;
-    int parentLevel = _items[parentIndex].Level;
+    if (e.OldItems != null) {
+      foreach (ITreeItem item in e.OldItems)
+        _unsubscribeSubtree(item);
+    }
+
+    if (e.NewItems != null && parent.IsExpanded) {
+      foreach (ITreeItem item in e.NewItems)
+        _subscribeSubtree(item);
+    }
+
+    if (!parent.IsVisible() || !parent.IsExpanded) return;
 
     if (e.Action == NotifyCollectionChangedAction.Add && e.NewItems != null) {
-      int insertIndex = _getInsertIndexForChild(parentIndex, e.NewStartingIndex);
+      int insertIndex = _getInsertIndex((ITreeItem)e.NewItems[0]!);
+
       var items = new List<ITreeItem>(e.NewItems.Count);
-      foreach (ITreeItem item in e.NewItems) items.Add(item);
-      _insertItems(items, parentLevel + 1, insertIndex);
+
+      foreach (ITreeItem item in e.NewItems)
+        items.Add(item);
+
+      _insertItems(items, parent.GetLevel() + 1, insertIndex);
+
       return;
     }
 
     if (e.Action == NotifyCollectionChangedAction.Remove && e.OldItems != null) {
-      foreach (ITreeItem item in e.OldItems)
-        _removeItem(IndexOf(item));
+      foreach (ITreeItem item in e.OldItems) {
+        int index = IndexOf(item);
+
+        if (index >= 0)
+          _removeSubtree(index);
+      }
 
       return;
     }
 
-    _removeChildren(parentIndex);
-    _insertItems(parent.Items, parentLevel + 1, parentIndex + 1);
-  }
-
-  private int _getInsertIndexForChild(int parentIndex, int childIndex) {
-    int level = _items[parentIndex].Level;
-    int i = parentIndex + 1;
-    int currentChild = 0;
-
-    while (i < _items.Count && _items[i].Level > level) {
-      if (_items[i].Level == level + 1) {
-        if (currentChild == childIndex) return i;
-        currentChild++;
-      }
-
-      int subtreeLevel = _items[i].Level;
-      i++;
-      while (i < _items.Count && _items[i].Level > subtreeLevel) i++;
-    }
-
-    return i;
+    Reset();
   }
 }

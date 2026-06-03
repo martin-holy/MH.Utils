@@ -12,6 +12,21 @@ public static class Tree {
   public static bool IsFullyExpanded(this ITreeItem self) =>
     self.IsExpanded && (self.Parent == null || IsFullyExpanded(self.Parent));
 
+  public static bool IsVisible(this ITreeItem self) {
+    if (self.IsHidden) return false;
+
+    var parent = self.Parent;
+
+    while (parent != null) {
+      if (parent.IsHidden || !parent.IsExpanded)
+        return false;
+
+      parent = parent.Parent;
+    }
+
+    return true;
+  }
+
   public static void ExpandTo(this ITreeItem self) {
     var items = self.GetThisAndParents().ToList();
 

@@ -1,7 +1,11 @@
-4.1.0:
+4.1.0 (not released):
 	- [U] ListItem: Icon and Name from Data if Data are IListItem
 	- [N] CompositeObservableCollection
 	- [N] MenuItem: AddSource methods for composit MenuItems
+	- [U] Tree: ToFlatTreeItems: hidden items not included to result
+	- [N] Tree: ITreeItem.IsVisible extension method
+	- [U] FlatTree: Hidden items are not included to FlatTree.Items
+	- [N] FlatTreeTests
 
 4.0.0:
 	- [U] Tasks: RunOnUiThread

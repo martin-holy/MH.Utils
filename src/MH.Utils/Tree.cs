@@ -154,8 +154,9 @@ public static class Tree {
 
     while (stack.Count > 0) {
       var (node, level) = stack.Pop();
+      if (node.IsHidden) continue;
       flatItems.Add(new(node, level));
-      if (!node.IsExpanded || node.IsHidden) continue;
+      if (!node.IsExpanded) continue;
       for (var i = node.Items.Count - 1; i >= 0; i--)
         stack.Push((node.Items[i], level + 1));
     }

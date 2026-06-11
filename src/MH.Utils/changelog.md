@@ -1,11 +1,13 @@
 4.1.0 (not released):
 	- [U] ListItem: Icon and Name from Data if Data are IListItem
 	- [N] CompositeObservableCollection
-	- [N] MenuItem: AddSource methods for composit MenuItems
+	- [N] MenuItem: AddSource methods for composite MenuItems
 	- [U] Tree: ToFlatTreeItems: hidden items not included to result
 	- [N] Tree: ITreeItem.IsVisible extension method
 	- [U] FlatTree: Hidden items are not included to FlatTree.Items
 	- [N] FlatTreeTests
+	- [N] DataSource
+	- [N] CsvDataSource
 
 4.0.0:
 	- [U] Tasks: RunOnUiThread
@@ -40,13 +42,13 @@
 	- [N] Generic ReferenceEqualityComparer
 
 3.3.0:
-	- [N] ByteU: Read/Write big endian methods
+	- [N] ByteU: Read/Write big median methods
 	- [N] ByteU: CopyBytes method
 	- [N] ByteU: StartsWith method
 	- [N] XmpU: XMP read and lossless write with extended XMP support for JPEG
 	- [N] MathU: GreatestCommonDivisor
 	- [N] XmpU: UpdateDimensions
-	- [U] SimpleDB: Notifiy Changes change on UI thread
+	- [U] SimpleDB: Notify Changes change on UI thread
 
 3.2.0:
 	- [U] BindingU: invoke init onChange action

@@ -1,11 +1,10 @@
-﻿using MH.Utils.DB.Interfaces;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace MH.Utils.DB.BaseClasses;
 
-public class Repository : IRepository {
+public class Repository : Interfaces.IRepository {
   public bool IsModified { get; set; }
 }
 
@@ -58,28 +57,28 @@ public class Repository<T> : Repository {
   }
 }
 
-public class Repository<T, TI> : Repository<T>, IRepository<TI> {
+public class Repository<T, TI> : Repository<T>, Interfaces.IRepository<TI> {
   private event EventHandler<TI> ItemCreatedIEvent = delegate { };
   private event EventHandler<TI> ItemUpdatedIEvent = delegate { };
   private event EventHandler<TI> ItemDeletedIEvent = delegate { };
   private event EventHandler<IList<TI>> ItemsDeletedIEvent = delegate { };
 
-  event EventHandler<TI> IRepository<TI>.ItemCreatedEvent {
+  event EventHandler<TI> Interfaces.IRepository<TI>.ItemCreatedEvent {
     add => ItemCreatedIEvent += value;
     remove => ItemCreatedIEvent -= value;
   }
 
-  event EventHandler<TI> IRepository<TI>.ItemUpdatedEvent {
+  event EventHandler<TI> Interfaces.IRepository<TI>.ItemUpdatedEvent {
     add => ItemUpdatedIEvent += value;
     remove => ItemUpdatedIEvent -= value;
   }
 
-  event EventHandler<TI> IRepository<TI>.ItemDeletedEvent {
+  event EventHandler<TI> Interfaces.IRepository<TI>.ItemDeletedEvent {
     add => ItemDeletedIEvent += value;
     remove => ItemDeletedIEvent -= value;
   }
 
-  event EventHandler<IList<TI>> IRepository<TI>.ItemsDeletedEvent {
+  event EventHandler<IList<TI>> Interfaces.IRepository<TI>.ItemsDeletedEvent {
     add => ItemsDeletedIEvent += value;
     remove => ItemsDeletedIEvent -= value;
   }

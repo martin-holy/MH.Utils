@@ -6,8 +6,9 @@
 	- [N] Tree: ITreeItem.IsVisible extension method
 	- [U] FlatTree: Hidden items are not included to FlatTree.Items
 	- [N] FlatTreeTests
-	- [N] DataSource
-	- [N] CsvDataSource
+	- [N] DB DataSource
+	- [N] DB CsvDataSource
+	- [N] DB Repository
 
 4.0.0:
 	- [U] Tasks: RunOnUiThread

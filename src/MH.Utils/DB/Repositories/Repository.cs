@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace MH.Utils.DB;
+namespace MH.Utils.DB.Repositories;
 
 public interface IRepository {
   bool IsModified { get; set; }

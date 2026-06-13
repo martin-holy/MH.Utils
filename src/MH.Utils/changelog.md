@@ -9,6 +9,7 @@
 	- [N] DB DataSource
 	- [N] DB CsvDataSource
 	- [N] DB Repository
+	- [N] DB TreeRepository
 
 4.0.0:
 	- [U] Tasks: RunOnUiThread

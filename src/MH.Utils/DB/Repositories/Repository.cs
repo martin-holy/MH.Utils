@@ -4,37 +4,20 @@ using System.Linq;
 
 namespace MH.Utils.DB.Repositories;
 
-public interface IRepository {
-  bool IsModified { get; set; }
-  bool AreRepoPropsModified { get; set; }
-  int ChangesCount { get; }
+public interface IRepository : IDbTrackable {
   public int MaxId { get; set; }
-
   public int GetNextId();
 }
 
 public interface IRepository<T> : IRepository {
   public HashSet<T> All { get; set; }
+  public void Modify(T item);
 }
 
-public class Repository : IRepository {
-  private bool _isModified;
-
-  public bool IsModified { get => _isModified; set => _setIsModified(value); }
-  public bool AreRepoPropsModified { get; set; }
-  public int ChangesCount { get; private set; }
+public class Repository : DbTrackable, IRepository {
   public int MaxId { get; set; }
 
   public virtual int GetNextId() => ++MaxId;
-
-  private void _setIsModified(bool value) {
-    _isModified = value;
-
-    if (value)
-      ChangesCount++;
-    else
-      ChangesCount = 0;
-  }
 }
 
 public class Repository<T> : Repository, IRepository<T> {

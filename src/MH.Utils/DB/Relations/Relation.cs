@@ -2,30 +2,16 @@
 
 namespace MH.Utils.DB.Relations;
 
-public interface IRelation {
-  bool IsModified { get; set; }
-  bool AreRelationPropsModified { get; set; }
-  int ChangesCount { get; }
-}
+public interface IRelation : IDbTrackable;
 
 public interface IRelation<TA, TB> : IRelation {
   public IRepository<TA> RepositoryA { get; }
   public IRepository<TB> RepositoryB { get; }
 }
 
-public class Relation : IRelation {
-  private bool _isModified;
+public class Relation : DbTrackable, IRelation;
 
-  public bool IsModified { get => _isModified; set => _setIsModified(value); }
-  public bool AreRelationPropsModified { get; set; }
-  public int ChangesCount { get; private set; }
-
-  private void _setIsModified(bool value) {
-    _isModified = value;
-
-    if (value)
-      ChangesCount++;
-    else
-      ChangesCount = 0;
-  }
+public class Relation<TA, TB>(IRepository<TA> repoA, IRepository<TB> repoB) : Relation, IRelation<TA, TB> {
+  public IRepository<TA> RepositoryA { get; } = repoA;
+  public IRepository<TB> RepositoryB { get; } = repoB;
 }

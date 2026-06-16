@@ -9,7 +9,6 @@ public interface IDataSource {
 
   public void Load();
   public bool Save();
-  // TODO should I call it Props?
   public void LoadProps();
   public bool SaveProps();
 }

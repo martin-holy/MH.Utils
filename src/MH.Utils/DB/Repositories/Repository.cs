@@ -1,17 +1,18 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace MH.Utils.DB.Repositories;
 
 public interface IRepository : IDbTrackable {
-  public int MaxId { get; set; }
-  public int GetNextId();
+  int MaxId { get; set; }
+  int GetNextId();
 }
 
 public interface IRepository<T> : IRepository {
-  public HashSet<T> All { get; set; }
-  public void Modify(T item);
+  HashSet<T> All { get; }
+  IEnumerable<T> GetAll(Func<T, bool> where);
+  void SetAll(HashSet<T> items);
+  void Modify(T item);
 }
 
 public class Repository : DbTrackable, IRepository {
@@ -21,7 +22,7 @@ public class Repository : DbTrackable, IRepository {
 }
 
 public class Repository<T> : Repository, IRepository<T> {
-  public HashSet<T> All { get; set; } = [];
+  public HashSet<T> All { get; private set; } = [];
 
   public event EventHandler<T>? ItemCreatedEvent;
   public event EventHandler<T>? ItemUpdatedEvent;
@@ -38,8 +39,14 @@ public class Repository<T> : Repository, IRepository<T> {
   protected virtual void _onItemDeleted(object sender, T item) { }
   protected virtual void _onItemsDeleted(object sender, IList<T> items) { }
 
-  public virtual IEnumerable<T> GetAll(Func<T, bool> where) =>
-    All.Where(where);
+  public virtual IEnumerable<T> GetAll(Func<T, bool> where) {
+    foreach (var item in All)
+      if (where(item))
+        yield return item;
+  }
+
+  public void SetAll(HashSet<T> items) =>
+    All = items;
 
   public virtual void Modify(T item) {
     IsModified = true;

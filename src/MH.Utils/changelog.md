@@ -10,6 +10,9 @@
 	- [N] DB CsvDataSource
 	- [N] DB Repository
 	- [N] DB TreeRepository
+	- [N] DB Relation
+	- [N] DB OneToOneRelation
+	- [N] DB DbTrackable
 
 4.0.0:
 	- [U] Tasks: RunOnUiThread

@@ -5,8 +5,8 @@ namespace MH.Utils.DB.Relations;
 public interface IRelation : IDbTrackable;
 
 public interface IRelation<TA, TB> : IRelation {
-  public IRepository<TA> RepositoryA { get; }
-  public IRepository<TB> RepositoryB { get; }
+  IRepository<TA> RepositoryA { get; }
+  IRepository<TB> RepositoryB { get; }
 }
 
 public class Relation : DbTrackable, IRelation;

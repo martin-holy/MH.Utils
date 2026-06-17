@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 namespace MH.Utils.DB.DataSources;
 
@@ -18,6 +19,23 @@ public abstract class CsvDataSource(SimpleDB db, string name, int fieldsCount) :
   public string FilePath { get; } = db.GetDBFilePath(name);
   public int FieldsCount { get; } = fieldsCount;
   public bool IsDriveRelated { get; set; }
+
+  protected virtual void _propsToCsv() { }
+
+  public override void LoadProps() =>
+    SimpleDB.LoadFromFile(
+      line => {
+        var prop = line.Split('|');
+        if (prop.Length != 2)
+          throw new ArgumentException("Incorrect number of values.", line);
+        (_props ??= []).Add(prop[0], prop[1]);
+      }, _propsFilePath);
+
+  public override bool SaveProps() {
+    _propsToCsv();
+    if (_props?.Count > 0 != true) return true;
+    return SimpleDB.SaveToFile(_props.Select(x => $"{x.Key}|{x.Value}"), x => x, _propsFilePath);
+  }
 
   protected void _validateFieldsCount(int fieldsCount, ReadOnlySpan<char> csv) {
     if (fieldsCount != FieldsCount)

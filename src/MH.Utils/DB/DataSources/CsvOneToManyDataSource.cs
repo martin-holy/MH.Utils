@@ -32,7 +32,7 @@ public abstract class CsvOneToManyDataSource<TA, TB>(
         var slice = csv[start..i];
 
         switch (field) {
-          case 0: key = KeySource.GetById(int.Parse(slice)); break;
+          case 0: key = KeySource.GetById(IdParser.Parse(slice)); break;
           case 1: valueIds = slice; break;
         }
 

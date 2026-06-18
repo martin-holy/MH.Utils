@@ -9,6 +9,8 @@ public interface ICsvDataSource : IDataSource {
   public SimpleDB DB { get; }
 }
 
+public readonly struct NoLinkInfo;
+
 public abstract class CsvDataSource(SimpleDB db, string name, int fieldsCount) : DataSource(name), ICsvDataSource {
   protected string? _currentVolumeSerialNumber;
   // TODO try to extract props to be optional
@@ -43,11 +45,11 @@ public abstract class CsvDataSource(SimpleDB db, string name, int fieldsCount) :
   }
 }
 
-public abstract class CsvDataSource<T>(SimpleDB db, string name, int fieldsCount)
+public abstract class CsvDataSource<T, TLinkInfo>(SimpleDB db, string name, int fieldsCount)
   : CsvDataSource(db, name, fieldsCount) {
 
   protected virtual void _parseLine(string line) => throw new NotImplementedException();
-  protected virtual T _fromCsv(ReadOnlySpan<char> csv) => throw new NotImplementedException();
+  protected virtual (T item, TLinkInfo linkInfo) _fromCsv(ReadOnlySpan<char> csv) => throw new NotImplementedException();
   protected virtual string _toCsv(T item) => throw new NotImplementedException();
   protected virtual IEnumerable<T> _getAll() => throw new NotImplementedException();
   protected virtual Dictionary<string, IEnumerable<T>> _getAsDriveRelated() => throw new NotImplementedException();

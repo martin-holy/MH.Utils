@@ -8,11 +8,15 @@
 	- [N] FlatTreeTests
 	- [N] DB DataSource
 	- [N] DB CsvDataSource
+	- [N] DB CsvOneToOneDataSource
+	- [N] DB CsvOneToManyDataSource
+	- [N] SimpleDB for CsvDataSources
 	- [N] DB Repository
 	- [N] DB TreeRepository
 	- [N] DB Relation
 	- [N] DB OneToOneRelation
 	- [N] DB DbTrackable
+	- [N] DB IdParser
 
 4.0.0:
 	- [U] Tasks: RunOnUiThread

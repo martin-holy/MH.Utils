@@ -6,23 +6,33 @@ using System.Linq;
 namespace MH.Utils.DB.DataSources;
 
 public interface ICsvDataSource : IDataSource {
-  public SimpleDB DB { get; }
+  SimpleDB DB { get; }
+
+  void LinkProps();
+  bool HaveProps();
+  void Clear();
 }
+
+public interface ICsvRelationDataSource : ICsvDataSource, IRelationDataSource;
 
 public readonly struct NoLinkInfo;
 
 public abstract class CsvDataSource(SimpleDB db, string name, int fieldsCount) : DataSource(name), ICsvDataSource {
   protected string? _currentVolumeSerialNumber;
-  // TODO try to extract props to be optional
+
   protected string _propsFilePath = Path.Combine(db.DbDir, $"{name}_props.csv");
   protected Dictionary<string, string>? _props = null;
 
   public SimpleDB DB { get; } = db;
-  public string FilePath { get; } = db.GetDBFilePath(name);
+  public string FilePath => DB.GetDBFilePath(Name);
   public int FieldsCount { get; } = fieldsCount;
   public bool IsDriveRelated { get; set; }
 
-  protected virtual void _propsToCsv() { }
+  protected virtual Dictionary<string, string>? _propsToCsv() => null;
+
+  public virtual void LinkProps() { }
+
+  public bool HaveProps() => _props != null;
 
   public override void LoadProps() =>
     SimpleDB.LoadFromFile(
@@ -34,9 +44,13 @@ public abstract class CsvDataSource(SimpleDB db, string name, int fieldsCount) :
       }, _propsFilePath);
 
   public override bool SaveProps() {
-    _propsToCsv();
-    if (_props?.Count > 0 != true) return true;
-    return SimpleDB.SaveToFile(_props.Select(x => $"{x.Key}|{x.Value}"), x => x, _propsFilePath);
+    var props = _propsToCsv();
+    if (props?.Count > 0 != true) return true;
+    return SimpleDB.SaveToFile(props.Select(x => $"{x.Key}|{x.Value}"), x => x, _propsFilePath);
+  }
+
+  public virtual void Clear() {
+    _props = null;
   }
 
   protected void _validateFieldsCount(int fieldsCount, ReadOnlySpan<char> csv) {

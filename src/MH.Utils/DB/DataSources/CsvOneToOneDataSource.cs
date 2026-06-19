@@ -6,7 +6,7 @@ namespace MH.Utils.DB.DataSources;
 
 public class CsvOneToOneDataSource<TA, TB>(
   SimpleDB db, string name, ICsvRepositoryDataSource<TA> dsA, ICsvRepositoryDataSource<TB> dsB, IRelation relation)
-  : CsvDataSource<KeyValuePair<TA, TB>, NoLinkInfo>(db, name, 2), IRelationDataSource
+  : CsvDataSource<KeyValuePair<TA, TB>, NoLinkInfo>(db, name, 2), ICsvRelationDataSource
   where TA : class where TB : class {
 
   public ICsvRepositoryDataSource<TA> DataSourceA { get; } = dsA;
@@ -41,7 +41,7 @@ public class CsvOneToOneDataSource<TA, TB>(
 
     _validateFieldsCount(field, csv);
 
-    return (new KeyValuePair<TA, TB>(key!, value!), new NoLinkInfo());
+    return (new KeyValuePair<TA, TB>(key!, value!), default);
   }
 
   protected override string _toCsv(KeyValuePair<TA, TB> item) =>

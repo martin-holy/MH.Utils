@@ -11,7 +11,7 @@ namespace MH.Utils.DB;
 
 public class SimpleDB : ObservableObject {
   private readonly List<ICsvRepositoryDataSource> _repositories = [];
-  private readonly List<IRelationDataSource> _relations = [];
+  private readonly List<ICsvRelationDataSource> _relations = [];
   private readonly string _isSequencesFilePath;
   private int _changes;
   private bool _needBackUp;
@@ -45,7 +45,7 @@ public class SimpleDB : ObservableObject {
     _repositories.Add(dataSource);
   }
 
-  public void AddRelationDataSource(IRelationDataSource rds) {
+  public void AddRelationDataSource(ICsvRelationDataSource rds) {
     _relations.Add(rds);
   }
 
@@ -75,13 +75,33 @@ public class SimpleDB : ObservableObject {
 
   public void LinkReferences(IProgress<string> progress) {
     foreach (var ds in _repositories) {
-      progress?.Report($"Loading data for {ds.Name}");
+      progress?.Report($"Linking references for {ds.Name}");
       try {
         ds.LinkReferences();
       }
       catch (Exception ex) {
         Log.Error(ex, ds.Name);
       }
+    }
+  }
+
+  public void LinkProps(IProgress<string> progress) {
+    foreach (var ds in _repositories)
+      _linkProps(progress, ds);
+
+    foreach (var rds in _relations)
+      _linkProps(progress, rds);
+  }
+
+  private static void _linkProps(IProgress<string> progress, ICsvDataSource ds) {
+    if (!ds.HaveProps()) return;
+
+    progress?.Report($"Linking properties for {ds.Name}");
+    try {
+      ds.LinkProps();
+    }
+    catch (Exception ex) {
+      Log.Error(ex, ds.Name);
     }
   }
 

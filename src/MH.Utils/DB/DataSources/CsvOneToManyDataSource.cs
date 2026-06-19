@@ -7,7 +7,7 @@ namespace MH.Utils.DB.DataSources;
 
 public abstract class CsvOneToManyDataSource<TA, TB>(
   SimpleDB db, string name, ICsvRepositoryDataSource<TA> keySource, IRelation relation)
-  : CsvDataSource<KeyValuePair<TA, List<TB>>, NoLinkInfo>(db, name, 2), IRelationDataSource
+  : CsvDataSource<KeyValuePair<TA, List<TB>>, NoLinkInfo>(db, name, 2), ICsvRelationDataSource
   where TA : class where TB : class {
 
   public ICsvRepositoryDataSource<TA> KeySource { get; } = keySource;
@@ -43,7 +43,7 @@ public abstract class CsvOneToManyDataSource<TA, TB>(
 
     _validateFieldsCount(field, csv);
 
-    return (new KeyValuePair<TA, List<TB>>(key!, _getByIds(valueIds)), new NoLinkInfo());
+    return (new KeyValuePair<TA, List<TB>>(key!, _getByIds(valueIds)), default);
   }
 
   protected override string _toCsv(KeyValuePair<TA, List<TB>> item) =>

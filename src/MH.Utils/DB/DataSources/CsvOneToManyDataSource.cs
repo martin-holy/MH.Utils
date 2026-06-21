@@ -32,7 +32,7 @@ public abstract class CsvOneToManyDataSource<TA, TB>(
         var slice = csv[start..i];
 
         switch (field) {
-          case 0: key = KeySource.GetById(IdParser.Parse(slice)); break;
+          case 0: key = KeySource.GetById(CsvParser.ParseInt(slice)); break;
           case 1: valueIds = slice; break;
         }
 
@@ -53,7 +53,7 @@ public abstract class CsvOneToManyDataSource<TA, TB>(
     if (ids.IsEmpty) return [];
     var result = new List<TB>();
 
-    IdParser.Parse(ids, (result, this), static (state, id) => {
+    CsvParser.ParseInts(ids, (result, this), static (state, id) => {
       if (state.Item2.GetValueById(id) is { } value)
         state.result.Add(value);
     });

@@ -30,8 +30,8 @@ public class CsvOneToOneDataSource<TA, TB>(
         var slice = csv[start..i];
 
         switch (field) {
-          case 0: key = DataSourceA.GetById(IdParser.Parse(slice)); break;
-          case 1: value = DataSourceB.GetById(IdParser.Parse(slice)); break;
+          case 0: key = DataSourceA.GetById(CsvParser.ParseInt(slice)); break;
+          case 1: value = DataSourceB.GetById(CsvParser.ParseInt(slice)); break;
         }
 
         field++;

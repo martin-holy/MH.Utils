@@ -64,7 +64,7 @@ public abstract class CsvRepositoryDataSource<T, TR, TLinkInfo>(SimpleDB db, str
 
     List<TI> result = [];
 
-    IdParser.Parse(csv, (source, resolveNotFound, result), static (state, id) => {
+    CsvParser.ParseInts(csv, (source, resolveNotFound, result), static (state, id) => {
       if (!state.source.TryGetValue(id, out var rec))
         rec = state.resolveNotFound(id);
 

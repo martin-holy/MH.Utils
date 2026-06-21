@@ -57,6 +57,9 @@ public static class StringExtensions {
   public static double? ToDouble(this string? value, IFormatProvider provider) =>
     string.IsNullOrEmpty(value) ? null : double.Parse(value, provider);
 
+  public static double? ToDouble(this ReadOnlySpan<char> value, IFormatProvider provider) =>
+    value.IsEmpty ? null : double.Parse(value, provider);
+
   /// <summary>
   /// Returns a copy of this string converted to snake_case.
   /// </summary>

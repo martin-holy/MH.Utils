@@ -8,6 +8,8 @@
 	- [N] FlatTreeTests
 	- [N] DB DataSource
 	- [N] DB CsvDataSource
+	- [N] DB CsvRepositoryDataSource
+	- [N] DB CsvTreeDataSource
 	- [N] DB CsvOneToOneDataSource
 	- [N] DB CsvOneToManyDataSource
 	- [N] SimpleDB for CsvDataSources
@@ -17,6 +19,8 @@
 	- [N] DB OneToOneRelation
 	- [N] DB DbTrackable
 	- [N] DB IdParser
+	- [U] BaseClasses.Repository obsolete
+	- [N] StringExtensions: ReadOnlySpan<char>.ToDouble
 
 4.0.0:
 	- [U] Tasks: RunOnUiThread

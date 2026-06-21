@@ -12,7 +12,7 @@
 	- [N] DB CsvTreeDataSource
 	- [N] DB CsvOneToOneDataSource
 	- [N] DB CsvOneToManyDataSource
-	- [N] SimpleDB for CsvDataSources
+	- [N] SimpleDB for CsvDataSources reducing ~50% memory allocation
 	- [N] DB Repository
 	- [N] DB TreeRepository
 	- [N] DB Relation

@@ -4,10 +4,12 @@ using System.Linq;
 
 namespace MH.Utils.DB.BaseClasses;
 
+[Obsolete("Use DB.Repositories.Repository")]
 public class Repository : Interfaces.IRepository {
   public bool IsModified { get; set; }
 }
 
+[Obsolete("Use DB.Repositories.Repository")]
 public class Repository<T> : Repository {
   public event EventHandler<T> ItemCreatedEvent = delegate { };
   public event EventHandler<T> ItemUpdatedEvent = delegate { };
@@ -57,6 +59,7 @@ public class Repository<T> : Repository {
   }
 }
 
+[Obsolete("Use DB.Repositories.Repository")]
 public class Repository<T, TI> : Repository<T>, Interfaces.IRepository<TI> {
   private event EventHandler<TI> ItemCreatedIEvent = delegate { };
   private event EventHandler<TI> ItemUpdatedIEvent = delegate { };

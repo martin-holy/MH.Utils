@@ -1,7 +1,9 @@
 ﻿using MH.Utils.BaseClasses;
 using MH.Utils.DB.DataSources;
+using MH.Utils.Extensions;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -43,10 +45,17 @@ public class SimpleDB : ObservableObject {
 
     dataSource.Repository.MaxId = maxId;
     _repositories.Add(dataSource);
+    dataSource.Repository.PropertyChanged += _onTrackableChanged;
   }
 
   public void AddRelationDataSource(ICsvRelationDataSource rds) {
     _relations.Add(rds);
+    rds.Relation.PropertyChanged += _onTrackableChanged;
+  }
+
+  private void _onTrackableChanged(object? sender, PropertyChangedEventArgs e) {
+    if (e.Is(nameof(IDbTrackable.IsModified)) && sender is IDbTrackable { IsModified: true })
+      AddChange();
   }
 
   public void FillRepositories() {

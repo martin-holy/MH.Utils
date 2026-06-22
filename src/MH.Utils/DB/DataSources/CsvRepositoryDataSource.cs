@@ -30,12 +30,6 @@ public abstract class CsvRepositoryDataSource<T, TR, TLinkInfo>(SimpleDB db, str
 
   public virtual void LinkReferences() { }
 
-  public override bool Save() {
-    var success = base.Save();
-    if (success) Repository.IsModified = false;
-    return success;
-  }
-
   protected override void _parseLine(string line) =>
     _addItem(_fromCsv(line.AsSpan()));
 

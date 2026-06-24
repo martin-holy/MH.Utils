@@ -9,6 +9,7 @@ using System.Text;
 
 namespace MH.Utils;
 
+[Obsolete("Use MH.Utils.DB.SimpleDB")]
 public class SimpleDB : ObservableObject {
   private readonly List<ITableDataAdapter> _tableDAs = new();
   private readonly List<IRelationDataAdapter> _relationDAs = new();

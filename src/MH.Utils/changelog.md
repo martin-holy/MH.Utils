@@ -21,6 +21,7 @@
 	- [N] DB IdParser
 	- [U] BaseClasses.Repository obsolete
 	- [N] StringExtensions: ReadOnlySpan<char>.ToDouble
+	- [U] Old SimpleDB obsolete
 
 4.0.0:
 	- [U] Tasks: RunOnUiThread

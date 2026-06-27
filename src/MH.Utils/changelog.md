@@ -1,5 +1,5 @@
 4.1.0 (not released):
-	- [U] ListItem: Icon and Name from Data if Data are IListItem
+	- [U] ListItem: Icon and Name from Data if Data is IListItem
 	- [N] CompositeObservableCollection
 	- [N] MenuItem: AddSource methods for composite MenuItems
 	- [U] Tree: ToFlatTreeItems: hidden items not included to result
@@ -22,6 +22,9 @@
 	- [U] BaseClasses.Repository obsolete
 	- [N] StringExtensions: ReadOnlySpan<char>.ToDouble
 	- [U] Old SimpleDB obsolete
+	- [N] TreeItemExtensions: HasVisibleChildren
+	- [N] FlatTreeItem: HasVisibleChildren prop
+	- [U] FlatTree: HasVisibleChildren
 
 4.0.0:
 	- [U] Tasks: RunOnUiThread

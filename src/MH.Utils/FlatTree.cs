@@ -38,6 +38,9 @@ public class FlatTree {
 
     _items = Tree.ToFlatTreeItems(_rootHolder);
 
+    foreach (var item in _items)
+      item.HasVisibleChildren = item.TreeItem.HasVisibleChildren();
+
     _rebuildIndex();
 
     ResetEvent?.Invoke();
@@ -55,14 +58,19 @@ public class FlatTree {
   public int IndexOf(ITreeItem item) =>
     _indexMap.TryGetValue(item, out var index) ? index : -1;
 
-  private void _insertItems(IEnumerable<ITreeItem> items, int startLevel, int index, bool notify = true) {
+  private void _insertItems(IEnumerable<ITreeItem> items, int startLevel, int index) {
     var newItems = Tree.ToFlatTreeItems(items, startLevel);
 
     if (newItems.Count == 0) return;
 
+    foreach (var item in newItems)
+      item.HasVisibleChildren = item.TreeItem.HasVisibleChildren();
+
     _items.InsertRange(index, newItems);
     _rebuildIndex();
-    if (notify) RangeInsertedEvent?.Invoke(index, newItems.Count);
+
+    _updateHasVisibleChildren(newItems[0].TreeItem.Parent);
+    RangeInsertedEvent?.Invoke(index, newItems.Count);
   }
 
   private void _removeSubtree(int index) {
@@ -79,9 +87,23 @@ public class FlatTree {
 
   private void _removeItems(int removeStart, int count) {
     if (count <= 0) return;
+    var parent = _items[removeStart].TreeItem.Parent;
     _items.RemoveRange(removeStart, count);
     _rebuildIndex();
+    _updateHasVisibleChildren(parent);
     RangeRemovedEvent?.Invoke(removeStart, count);
+  }
+
+  private void _updateHasVisibleChildren(ITreeItem? parent) {
+    if (parent == null) return;
+    int index = IndexOf(parent);
+    if (index < 0) return;
+
+    var hasVisibleChildren = parent.HasVisibleChildren();
+    var flatItem = _items[index];
+    if (flatItem.HasVisibleChildren == hasVisibleChildren) return;
+    flatItem.HasVisibleChildren = hasVisibleChildren;
+    IsExpandedVisibilityChangedEvent?.Invoke(index);
   }
 
   private int _findSubtreeEndIndex(int parentIndex) {
@@ -211,11 +233,6 @@ public class FlatTree {
 
   private void _onTreeItemsChanged(object? sender, NotifyCollectionChangedEventArgs e) {
     if (sender is not IHasOwner { Owner: ITreeItem parent }) return;
-
-    int parentIndex = IndexOf(parent);
-
-    if (parentIndex >= 0)
-      IsExpandedVisibilityChangedEvent?.Invoke(parentIndex);
 
     if (e.OldItems != null) {
       foreach (ITreeItem item in e.OldItems)

@@ -25,6 +25,7 @@
 	- [N] TreeItemExtensions: HasVisibleChildren
 	- [N] FlatTreeItem: HasVisibleChildren prop
 	- [U] FlatTree: HasVisibleChildren
+	- [N] TreeItemExtensions: ExpandToRoot
 
 4.0.0:
 	- [U] Tasks: RunOnUiThread

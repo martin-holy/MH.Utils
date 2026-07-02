@@ -9,37 +9,6 @@ using System.Linq;
 namespace MH.Utils;
 
 public static class Tree {
-  public static bool IsFullyExpanded(this ITreeItem self) =>
-    self.IsExpanded && (self.Parent == null || IsFullyExpanded(self.Parent));
-
-  public static bool IsVisible(this ITreeItem self) {
-    if (self.IsHidden) return false;
-
-    var parent = self.Parent;
-
-    while (parent != null) {
-      if (parent.IsHidden || !parent.IsExpanded)
-        return false;
-
-      parent = parent.Parent;
-    }
-
-    return true;
-  }
-
-  public static void ExpandTo(this ITreeItem self) {
-    var items = self.GetThisAndParents().ToList();
-
-    // don't expand this if Items are empty or it's just placeholder
-    if (self.Items.Count == 0 || self.Items[0].Parent == null)
-      items.Remove(self);
-
-    items.Reverse();
-
-    foreach (var item in items)
-      item.IsExpanded = true;
-  }
-
   public static T? FindItem<T>(IEnumerable<T> items, Func<T, bool> equals) where T : class, ITreeItem {
     foreach (var item in items) {
       if (equals(item))
@@ -50,29 +19,6 @@ public static class Tree {
     }
 
     return default;
-  }
-
-  public static List<T> GetBranch<T>(this T? item) where T : class, ITreeItem {
-    var items = new List<T>();
-
-    while (item != null) {
-      items.Add(item);
-      item = item.Parent as T ?? null;
-    }
-
-    items.Reverse();
-
-    return items;
-  }
-
-  /// <summary>
-  /// Returns index of the item in the expanded tree. Hidden items are not counted.
-  /// </summary>
-  public static int GetIndex(this ITreeItem item, ITreeItem parent) {
-    int index = 0;
-    bool found = false;
-    GetIndex(item, parent, ref index, ref found);
-    return found ? index : -1;
   }
 
   /// <summary>
@@ -95,27 +41,6 @@ public static class Tree {
       GetIndex(item, pItem, ref index, ref found);
       if (found) break;
     }
-  }
-
-  public static int GetLevel(this ITreeItem item) {
-    var level = 0;
-    var parent = item.Parent;
-
-    while (parent != null) {
-      level++;
-      parent = parent.Parent;
-    }
-
-    return level;
-  }
-
-  public static T? GetParentOf<T>(ITreeItem? item) where T : ITreeItem {
-    var i = item;
-    while (i != null) {
-      if (i is T t) return t;
-      i = i.Parent;
-    }
-    return default;
   }
 
   public static ITreeItem? GetRoot(ITreeItem item) {

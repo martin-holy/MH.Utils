@@ -1,10 +1,12 @@
-﻿using MH.Utils.Interfaces;
+﻿using MH.Utils.Extensions;
+using MH.Utils.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace MH.Utils.BaseClasses;
 
+// TODO mark all old SimpleDB stuff obsolete
 public class TreeDataAdapter<T>(SimpleDB db, string name, int propsCount)
   : TableDataAdapter<T>(db, name, propsCount), ITreeDataAdapter<T>
   where T : class, ITreeItem {
@@ -46,7 +48,7 @@ public class TreeDataAdapter<T>(SimpleDB db, string name, int propsCount)
         : null;
 
   public virtual void ItemMove(ITreeItem item, ITreeItem dest, bool aboveDest) {
-    if (Tree.ItemMove(item, dest, aboveDest)) {
+    if (item.Move(dest, aboveDest)) {
       IsModified = true;
       _raiseItemMoved((T)item);
     }

@@ -36,7 +36,7 @@ public class FlatTree {
     foreach (var root in _rootHolder)
       _subscribeSubtree(root);
 
-    _items = Tree.ToFlatTreeItems(_rootHolder);
+    _items = _rootHolder.ToFlatTreeItems();
 
     foreach (var item in _items)
       item.HasVisibleChildren = item.TreeItem.HasVisibleChildren();
@@ -59,7 +59,7 @@ public class FlatTree {
     _indexMap.TryGetValue(item, out var index) ? index : -1;
 
   private void _insertItems(IEnumerable<ITreeItem> items, int startLevel, int index) {
-    var newItems = Tree.ToFlatTreeItems(items, startLevel);
+    var newItems = items.ToFlatTreeItems(startLevel);
 
     if (newItems.Count == 0) return;
 

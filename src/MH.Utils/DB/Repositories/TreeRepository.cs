@@ -1,4 +1,5 @@
-﻿using MH.Utils.Interfaces;
+﻿using MH.Utils.Extensions;
+using MH.Utils.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -54,7 +55,7 @@ public class TreeRepository<T> : Repository<T>, ITreeRepository<T> where T : cla
         : null;
 
   public virtual void ItemMove(ITreeItem item, ITreeItem dest, bool aboveDest) {
-    if (Tree.ItemMove(item, dest, aboveDest)) {
+    if (item.Move(dest, aboveDest)) {
       IsModified = true;
       _raiseItemMoved((T)item);
     }

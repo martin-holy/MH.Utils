@@ -7,7 +7,7 @@ using System.Linq;
 
 namespace MH.Utils.BaseClasses;
 
-// TODO mark all old SimpleDB stuff obsolete
+[Obsolete("Use CsvTreeDataSource")]
 public class TreeDataAdapter<T>(SimpleDB db, string name, int propsCount)
   : TableDataAdapter<T>(db, name, propsCount), ITreeDataAdapter<T>
   where T : class, ITreeItem {

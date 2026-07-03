@@ -6,6 +6,7 @@ using System.Linq;
 
 namespace MH.Utils.BaseClasses;
 
+[Obsolete("Use CsvRepositoryDataSource")]
 public class TableDataAdapter<T>(SimpleDB db, string name, int propsCount)
   : DataAdapter<T>(db, name, propsCount), ITableDataAdapter where T : class {
   private bool _areTablePropsModified;

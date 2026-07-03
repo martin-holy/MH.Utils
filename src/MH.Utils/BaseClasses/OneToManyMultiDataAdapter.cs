@@ -6,6 +6,7 @@ using System.Linq;
 
 namespace MH.Utils.BaseClasses;
 
+[Obsolete("Use CsvOneToManyDataSource")]
 public class OneToManyMultiDataAdapter<TA, TB> : DataAdapter<KeyValuePair<TA, List<TB>>>, IRelationDataAdapter where TA : class where TB : class {
   public new Dictionary<TA, List<TB>> All { get; } = [];
 

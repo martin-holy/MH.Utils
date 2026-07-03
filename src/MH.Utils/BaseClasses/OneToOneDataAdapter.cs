@@ -1,8 +1,10 @@
 ﻿using MH.Utils.Interfaces;
+using System;
 using System.Collections.Generic;
 
 namespace MH.Utils.BaseClasses;
 
+[Obsolete("Use CsvOneToOneDataSource")]
 public class OneToOneDataAdapter<TA, TB>(SimpleDB db, string name, TableDataAdapter<TA> daA, TableDataAdapter<TB> daB)
   : DataAdapter<KeyValuePair<TA, TB>>(db, name, 2), IRelationDataAdapter
   where TA : class where TB : class {

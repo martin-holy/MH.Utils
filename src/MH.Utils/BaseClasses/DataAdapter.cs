@@ -6,6 +6,7 @@ using System.Linq;
 
 namespace MH.Utils.BaseClasses;
 
+[Obsolete("Use CsvDataSource")]
 public class DataAdapter(SimpleDB db, string name, int propsCount) : IDataAdapter {
   private bool _isModified;
   protected string? _currentVolumeSerialNumber;
@@ -30,6 +31,7 @@ public class DataAdapter(SimpleDB db, string name, int propsCount) : IDataAdapte
   public virtual int GetNextId() => ++MaxId;
 }
 
+[Obsolete("Use CsvDataSource")]
 public class DataAdapter<T>(SimpleDB db, string name, int propsCount) : DataAdapter(db, name, propsCount) {
   public HashSet<T> All { get; set; } = [];
 

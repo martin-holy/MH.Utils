@@ -24,7 +24,7 @@ public class TreeDataAdapter<T>(SimpleDB db, string name, int propsCount)
 
   public virtual T TreeItemCreate(T item) {
     if (item.Parent != null)
-      Tree.SetInOrder(item.Parent.Items, item, x => x.Name);
+      TreeU.SetInOrder(item.Parent.Items, item, x => x.Name);
 
     return ItemCreate(item);
   }
@@ -33,7 +33,7 @@ public class TreeDataAdapter<T>(SimpleDB db, string name, int propsCount)
     item.Name = name;
 
     if (item.Parent != null)
-      Tree.SetInOrder(item.Parent.Items, item, x => x.Name);
+      TreeU.SetInOrder(item.Parent.Items, item, x => x.Name);
     
     IsModified = true;
     _raiseItemRenamed((T)item);

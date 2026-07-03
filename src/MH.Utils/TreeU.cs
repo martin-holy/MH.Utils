@@ -7,7 +7,7 @@ using System.Linq;
 
 namespace MH.Utils;
 
-public static class Tree {
+public static class TreeU {
   public static T? FindItem<T>(IEnumerable<T> items, Func<T, bool> equals) where T : class, ITreeItem {
     foreach (var item in items) {
       if (equals(item))

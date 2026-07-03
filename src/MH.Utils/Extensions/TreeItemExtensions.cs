@@ -135,7 +135,7 @@ public static class TreeItemExtensions {
   public static int GetIndex(this ITreeItem item, ITreeItem parent) {
     int index = 0;
     bool found = false;
-    Tree.GetIndex(item, parent, ref index, ref found);
+    TreeU.GetIndex(item, parent, ref index, ref found);
     return found ? index : -1;
   }
 
@@ -246,7 +246,7 @@ public static class TreeItemExtensions {
     if (relative)
       newParent.Items.SetRelativeTo(item, dest, aboveDest);
     else
-      Tree.SetInOrder(newParent.Items, item, x => x.Name);
+      TreeU.SetInOrder(newParent.Items, item, x => x.Name);
 
     return true;
   }

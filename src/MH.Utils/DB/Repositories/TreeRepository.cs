@@ -31,7 +31,7 @@ public class TreeRepository<T> : Repository<T>, ITreeRepository<T> where T : cla
 
   public virtual T TreeItemCreate(T item) {
     if (item.Parent != null)
-      Tree.SetInOrder(item.Parent.Items, item, x => x.Name);
+      TreeU.SetInOrder(item.Parent.Items, item, x => x.Name);
 
     return ItemCreate(item);
   }
@@ -40,7 +40,7 @@ public class TreeRepository<T> : Repository<T>, ITreeRepository<T> where T : cla
     item.Name = name;
 
     if (item.Parent != null)
-      Tree.SetInOrder(item.Parent.Items, item, x => x.Name);
+      TreeU.SetInOrder(item.Parent.Items, item, x => x.Name);
 
     IsModified = true;
     _raiseItemRenamed((T)item);

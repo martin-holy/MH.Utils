@@ -31,6 +31,7 @@
 	- [U] Tree.GetParentOf changed to extension method
 	- [U] Tree.ToFlatTreeItems changed to extension method
 	- [U] Tree.ItemMove changed to extension method and renamed to Move
+	- [U] All Tree related classes moved to MH.Utils.Tree
 
 4.0.0:
 	- [U] Tasks: RunOnUiThread

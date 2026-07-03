@@ -1,7 +1,6 @@
-﻿using MH.Utils.Interfaces;
-using System;
+﻿using System;
 
-namespace MH.Utils.EventsArgs;
+namespace MH.Utils.Tree;
 
 public class TreeItemDroppedEventArgs(object data, ITreeItem dest, bool aboveDest, bool copy) : EventArgs {
   public object Data { get; } = data;

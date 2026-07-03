@@ -1,11 +1,9 @@
-﻿using MH.Utils.Extensions;
-using MH.Utils.Interfaces;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 
-namespace MH.Utils;
+namespace MH.Utils.Tree;
 
 public static class TreeU {
   public static T? FindItem<T>(IEnumerable<T> items, Func<T, bool> equals) where T : class, ITreeItem {

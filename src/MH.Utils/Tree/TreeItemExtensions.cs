@@ -1,10 +1,9 @@
-﻿using MH.Utils.BaseClasses;
-using MH.Utils.Interfaces;
+﻿using MH.Utils.Extensions;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace MH.Utils.Extensions;
+namespace MH.Utils.Tree;
 
 public static class TreeItemExtensions {
   public static IEnumerable<TItem> AsTree<TItem, TGroup, TSort>(this IEnumerable<TItem> items, Func<TGroup, TSort> orderBy)
@@ -112,7 +111,7 @@ public static class TreeItemExtensions {
 
     var parent = current.Parent;
     while (parent != null) {
-      int index = parent.Items.IndexOf(current!);
+      var index = parent.Items.IndexOf(current!);
       if (parent.Items.Skip(index + 1).OfType<T>().FirstOrDefault()?.GetBranchEndOfType() is { } next)
         return next;
 
@@ -133,8 +132,8 @@ public static class TreeItemExtensions {
   /// Returns index of the item in the expanded tree. Hidden items are not counted.
   /// </summary>
   public static int GetIndex(this ITreeItem item, ITreeItem parent) {
-    int index = 0;
-    bool found = false;
+    var index = 0;
+    var found = false;
     TreeU.GetIndex(item, parent, ref index, ref found);
     return found ? index : -1;
   }
@@ -202,7 +201,7 @@ public static class TreeItemExtensions {
   }
 
   public static bool IsFullyExpanded(this ITreeItem self) =>
-    self.IsExpanded && (self.Parent == null || IsFullyExpanded(self.Parent));
+    self.IsExpanded && (self.Parent == null || self.Parent.IsFullyExpanded());
 
   public static bool IsVisible(this ITreeItem self) {
     if (self.IsHidden) return false;

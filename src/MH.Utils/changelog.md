@@ -1,4 +1,4 @@
-4.1.0 (not released):
+5.0.0 (not released):
 	- [U] ListItem: Icon and Name from Data if Data is IListItem
 	- [N] CompositeObservableCollection
 	- [N] MenuItem: AddSource methods for composite MenuItems
@@ -26,6 +26,11 @@
 	- [N] FlatTreeItem: HasVisibleChildren prop
 	- [U] FlatTree: HasVisibleChildren
 	- [N] TreeItemExtensions: ExpandToRoot
+	- [U] TreeItem extension methods moved from MH.Utils.Tree to MH.Utils.Tree.TreeItemExtensions
+	- [U] MH.Utils.Tree methods moved to MH.Utils.Tree.TreeU
+	- [U] Tree.GetParentOf changed to extension method
+	- [U] Tree.ToFlatTreeItems changed to extension method
+	- [U] Tree.ItemMove changed to extension method and renamed to Move
 
 4.0.0:
 	- [U] Tasks: RunOnUiThread

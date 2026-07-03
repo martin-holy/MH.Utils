@@ -1,8 +1,15 @@
-﻿using MH.Utils.Interfaces;
+﻿using MH.Utils.BaseClasses;
+using MH.Utils.Interfaces;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace MH.Utils.BaseClasses;
+namespace MH.Utils.Tree;
+
+public interface ITreeItem : IListItem {
+  public ITreeItem? Parent { get; set; }
+  public ExtObservableCollection<ITreeItem> Items { get; }
+  public bool IsExpanded { get; set; }
+}
 
 public class TreeItem : ListItem, ITreeItem {
   private ITreeItem? _parent;

@@ -1,7 +1,7 @@
-using MH.Utils.Interfaces;
+using MH.Utils.BaseClasses;
 using System;
 
-namespace MH.Utils.BaseClasses;
+namespace MH.Utils.Tree;
 
 public class FlatTreeItem(ITreeItem treeItem, int level) : ObservableObject, IEquatable<FlatTreeItem> {
   private bool _hasVisibleChildren;

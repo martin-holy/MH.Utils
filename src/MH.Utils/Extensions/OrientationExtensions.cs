@@ -1,4 +1,4 @@
-﻿using Orientation = MH.Utils.Imaging.Orientation;
+﻿using static MH.Utils.Imaging.ImagingU;
 
 namespace MH.Utils.Extensions;
 

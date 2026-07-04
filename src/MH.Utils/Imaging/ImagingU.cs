@@ -2,9 +2,9 @@
 using System;
 using System.Linq;
 
-namespace MH.Utils;
+namespace MH.Utils.Imaging;
 
-public static class Imaging {
+public static class ImagingU {
   public enum Orientation { Normal = 1, FlipHorizontal = 2, Rotate180 = 3, FlipVertical = 4, Transpose = 5, Rotate270 = 6, Transverse = 7, Rotate90 = 8 }
 
   public delegate long ImageHashFunc(string srcPath);
@@ -71,7 +71,7 @@ public static class Imaging {
     var row = -1;
     for (var i = 0; i < 1024; i++) {
       if (i % 32 == 0) row++;
-      pixels2D[row, i - (row * 32)] = pixels[i];
+      pixels2D[row, i - row * 32] = pixels[i];
     }
 
     // compute DCT
@@ -84,18 +84,16 @@ public static class Imaging {
       total += pixelsDct[x, y];
 
     total -= pixelsDct[0, 0];
-    var avg = total / ((8 * 8) - 1);
+    var avg = total / (8 * 8 - 1);
 
     // compute bits
     long hash = 0;
     var bi = 0;
-    for (var x = 0; x < 8; x++) {
-      for (var y = 0; y < 8; y++) {
+    for (var x = 0; x < 8; x++)       for (var y = 0; y < 8; y++) {
         if (pixelsDct[x, y] > avg)
           hash |= (uint)(1 << bi);
         bi++;
       }
-    }
 
     return hash;
   }
@@ -108,8 +106,7 @@ public static class Imaging {
     // dct will store the discrete cosine transform 
     var dct = new double[m, n];
 
-    for (var i = 0; i < m; i++) {
-      for (var j = 0; j < n; j++) {
+    for (var i = 0; i < m; i++)       for (var j = 0; j < n; j++) {
         // ci and cj depends on frequency as well as 
         // number of row and columns of specified matrix 
         var ci = i == 0 ? 1 / Math.Sqrt(m) : Math.Sqrt(2) / Math.Sqrt(m);
@@ -118,17 +115,12 @@ public static class Imaging {
         // sum will temporarily store the sum of  
         // cosine signals 
         double sum = 0;
-        for (var k = 0; k < m; k++) {
-          for (var l = 0; l < n; l++) {
-            sum += input[k, l] *
-                   Math.Cos(((2 * k) + 1) * i * pi / (2 * m)) *
-                   Math.Cos(((2 * l) + 1) * j * pi / (2 * n));
-          }
-        }
+        for (var k = 0; k < m; k++)           for (var l = 0; l < n; l++)             sum += input[k, l] *
+                   Math.Cos((2 * k + 1) * i * pi / (2 * m)) *
+                   Math.Cos((2 * l + 1) * j * pi / (2 * n));
 
         dct[i, j] = ci * cj * sum;
       }
-    }
 
     return dct;
   }
@@ -174,7 +166,7 @@ public static class Imaging {
   public static int CompareHashes(long a, long b) {
     var diff = 0;
     for (var i = 0; i < 64; i++)
-      if ((a & (1 << i)) != (b & (1 << i)))
+      if ((a & 1 << i) != (b & 1 << i))
         diff++;
 
     return diff;
@@ -190,7 +182,7 @@ public static class Imaging {
     var delta = max - min;
 
     // Lightness
-    l = ((max + min) / 2.0) * 240;
+    l = (max + min) / 2.0 * 240;
 
     if (delta == 0) {
       // Grey, no chroma
@@ -212,17 +204,16 @@ public static class Imaging {
   }
 
   public static void HslToRgb(double h, double s, double l, out byte r, out byte g, out byte b) {
-    h = (h / 239.0) * 360;
+    h = h / 239.0 * 360;
     s /= 240.0;
     l /= 240.0;
 
     double dr, dg, db;
 
-    if (s == 0) {
-      dr = dg = db = l; // Achromatic
-    } else {
-      double q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-      double p = 2 * l - q;
+    if (s == 0)       dr = dg = db = l; // Achromatic
+else {
+      var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+      var p = 2 * l - q;
 
       dr = HueToRgb(p, q, h / 360 + 1 / 3.0);
       dg = HueToRgb(p, q, h / 360);

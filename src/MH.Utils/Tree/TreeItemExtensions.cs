@@ -174,6 +174,15 @@ public static class TreeItemExtensions {
     return default;
   }
 
+  public static IEnumerable<T> GetThisAndItems<T>(this ITreeItem root) where T : class {
+    if (root is T rootItem)
+      yield return rootItem;
+
+    foreach (var item in root.Items)
+      foreach (var subItem in item.GetThisAndItems<T>())
+        yield return subItem;
+  }
+
   public static IEnumerable<T> GetThisAndParents<T>(this T? item) where T : class, ITreeItem {
     while (item != null) {
       yield return item;

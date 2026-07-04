@@ -38,7 +38,7 @@ public class SimpleDBBenchmarks {
     new(int.Parse(csv[0]), csv[2]) {
       Width = csv[3].IntParseOrDefault(0),
       Height = csv[4].IntParseOrDefault(0),
-      Orientation = (ImagingU.Orientation)csv[5].IntParseOrDefault(1),
+      Orientation = (Orientation)csv[5].IntParseOrDefault(1),
       Rating = csv[6].IntParseOrDefault(0),
       Comment = string.IsNullOrEmpty(csv[7]) ? null : csv[7],
       IsOnlyInDb = csv[10] == "1"
@@ -100,7 +100,7 @@ public class SimpleDBBenchmarks {
     _imageM = new ImageM(id, fileName) {
       Width = width,
       Height = height,
-      Orientation = (ImagingU.Orientation)orientation,
+      Orientation = (Orientation)orientation,
       Rating = rating,
       Comment = comment,
       IsOnlyInDb = isOnlyInDb
@@ -117,7 +117,7 @@ public class SimpleDBBenchmarks {
     public string FileName { get; set; }
     public int Width { get; set; }
     public int Height { get; set; }
-    public ImagingU.Orientation Orientation { get; set; }
+    public Orientation Orientation { get; set; }
     public int Rating { get; set; }
     public string? Comment { get; set; }
     public bool IsOnlyInDb { get; set; }

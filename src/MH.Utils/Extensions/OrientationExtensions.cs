@@ -1,4 +1,4 @@
-﻿using static MH.Utils.Imaging.ImagingU;
+﻿using MH.Utils.Imaging;
 
 namespace MH.Utils.Extensions;
 

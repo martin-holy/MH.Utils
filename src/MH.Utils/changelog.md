@@ -35,6 +35,7 @@
 	- [U] Old SimpleDB DataAdapters set as obsolete
 	- [N] TreeItemExtensions: GetThisAndItems<T>
 	- [U] MH.Utils.Imaging moved to MH.Utils.Imaging.ImagingU
+	- [U] Orientation enum moved out of ImagingU class
 
 4.0.0:
 	- [U] Tasks: RunOnUiThread

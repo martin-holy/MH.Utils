@@ -1,4 +1,4 @@
-5.0.0 (not released):
+5.0.0:
 	- [U] ListItem: Icon and Name from Data if Data is IListItem
 	- [N] CompositeObservableCollection
 	- [N] MenuItem: AddSource methods for composite MenuItems

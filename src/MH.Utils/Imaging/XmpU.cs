@@ -4,7 +4,7 @@ using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace MH.Utils;
+namespace MH.Utils.Imaging;
 
 public static class XmpU {
   private static readonly byte[] _xmpHeader = Encoding.ASCII.GetBytes("http://ns.adobe.com/xap/1.0/\0");

@@ -1,3 +1,6 @@
+5.0.1:
+	- [B] FlatTree: Expander visibility
+
 5.0.0:
 	- [U] ListItem: Icon and Name from Data if Data is IListItem
 	- [N] CompositeObservableCollection

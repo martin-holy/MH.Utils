@@ -233,13 +233,20 @@ public class FlatTree {
   private void _onTreeItemsChanged(object? sender, NotifyCollectionChangedEventArgs e) {
     if (sender is not IHasOwner { Owner: ITreeItem parent }) return;
 
-    if (e.OldItems != null)       foreach (ITreeItem item in e.OldItems)
+    if (e.OldItems != null)
+      foreach (ITreeItem item in e.OldItems)
         _unsubscribeSubtree(item);
 
-    if (e.NewItems != null && parent.IsExpanded)       foreach (ITreeItem item in e.NewItems)
+    if (e.NewItems != null && parent.IsExpanded)
+      foreach (ITreeItem item in e.NewItems)
         _subscribeSubtree(item);
 
-    if (!parent.IsVisible() || !parent.IsExpanded) return;
+    if (!parent.IsVisible()) return;
+
+    if (!parent.IsExpanded) {
+      _updateHasVisibleChildren(parent);
+      return;
+    }
 
     if (e.Action == NotifyCollectionChangedAction.Add && e.NewItems != null) {
       var insertIndex = _getInsertIndex((ITreeItem)e.NewItems[0]!);

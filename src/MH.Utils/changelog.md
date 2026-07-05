@@ -36,6 +36,7 @@
 	- [N] TreeItemExtensions: GetThisAndItems<T>
 	- [U] MH.Utils.Imaging moved to MH.Utils.Imaging.ImagingU
 	- [U] Orientation enum moved out of ImagingU class
+	- [U] XmpU moved to Imaging namespace
 
 4.0.0:
 	- [U] Tasks: RunOnUiThread

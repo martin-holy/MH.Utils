@@ -3,6 +3,11 @@
 namespace MH.Utils;
 
 public static class ByteU {
+  public static void CheckBounds(byte[] buffer, uint offset, int length) {
+    if (offset > (uint)buffer.Length || (uint)length > (uint)(buffer.Length - offset))
+      throw new EndOfStreamException();
+  }
+
   public static int ReadBigEndianInt32(byte[] buffer, ref int offset) {
     int v =
       (buffer[offset] << 24) |

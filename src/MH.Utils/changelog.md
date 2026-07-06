@@ -1,3 +1,7 @@
+5.1.0 (not released):
+	- [N] ByteU: CheckBounds
+	- [N] ExifU: Read Orientation, Comment and GPS
+
 5.0.1:
 	- [B] FlatTree: Expander visibility
 

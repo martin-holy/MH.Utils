@@ -154,9 +154,10 @@ public static class XmpU {
   public static bool WriteToJpeg(string srcPath, string? xmp) {
     var tmpPath = srcPath + ".tmp";
     try {
-      using var input = File.OpenRead(srcPath);
-      using var output = File.Create(tmpPath);
-      WriteToJpeg(input, output, xmp);
+      using (var input = File.OpenRead(srcPath))
+      using (var output = File.Create(tmpPath))
+        WriteToJpeg(input, output, xmp);
+
       File.Delete(srcPath);
       File.Move(tmpPath, srcPath);
       return true;

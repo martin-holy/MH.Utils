@@ -1,6 +1,7 @@
 5.1.0 (not released):
 	- [N] ByteU: CheckBounds
 	- [N] ExifU: Read Orientation, Comment and GPS
+	- [B] XmpU: WriteToJpeg on windows
 
 5.0.1:
 	- [B] FlatTree: Expander visibility

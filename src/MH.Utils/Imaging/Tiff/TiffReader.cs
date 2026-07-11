@@ -3,7 +3,7 @@ using System.Buffers.Binary;
 using System.IO;
 using System.Text;
 
-namespace MH.Utils.Imaging;
+namespace MH.Utils.Imaging.Tiff;
 
 public sealed class TiffReader {
   private readonly byte[] _buffer;
@@ -11,7 +11,6 @@ public sealed class TiffReader {
   private ExifEntry[]? _ifd0;
   private ExifEntry[]? _exifIfd;
   private ExifEntry[]? _gpsIfd;
-  private ExifEntry[]? _ifd1;
 
   public bool IsLittleEndian { get; }
   public uint Ifd0Offset { get; }
@@ -39,7 +38,7 @@ public sealed class TiffReader {
       throw new InvalidDataException("Invalid IFD0 offset.");
   }
 
-  // TODO try to use GetNextIfdOffset in GetExifIfd, GetGpsIfd and GetIfd1
+  // TODO try to use GetNextIfdOffset in GetExifIfd, GetGpsIfd
   // TODO what this should return if there is not other ifd?
   public uint GetNextIfdOffset(uint ifdOffset) {
     ushort count = ReadUInt16(ifdOffset);
@@ -70,19 +69,6 @@ public sealed class TiffReader {
       _gpsIfd = [];
 
     return _gpsIfd;
-  }
-
-  public ExifEntry[] GetIfd1() {
-    if (_ifd1 != null) return _ifd1;
-
-    uint ifd1Offset = GetNextIfdOffset(Ifd0Offset);
-
-    if (ifd1Offset != 0)
-      _ifd1 = ReadIfd(ifd1Offset);
-    else
-      _ifd1 = [];
-
-    return _ifd1;
   }
 
   public static ExifEntry? FindEntry(ExifEntry[] entries, ExifTag tag) {
@@ -164,6 +150,7 @@ public sealed class TiffReader {
     return (char)GetSpan(valueOrOffset, 1)[0];
   }
 
+  // TODO not used
   public string ReadAscii(uint valueOrOffset, uint count) {
     if (count <= 4) {
       Span<byte> bytes = stackalloc byte[4];
@@ -190,7 +177,7 @@ public sealed class TiffReader {
   public ReadOnlySpan<byte> GetValueSpan(ExifEntry entry) {
     int size = _getValueSize(entry.Type, entry.Count);
 
-    if (_isInline(entry.Type, entry.Count))
+    if (IsInline(entry.Type, entry.Count))
       return _buffer.AsSpan((int)entry.EntryOffset + 8, size);
 
     return _buffer.AsSpan((int)entry.ValueOrOffset, size);
@@ -216,6 +203,6 @@ public sealed class TiffReader {
   private static int _getValueSize(ushort type, uint count) =>
     checked(_getTypeSize(type) * (int)count);
 
-  private static bool _isInline(ushort type, uint count) =>
+  public static bool IsInline(ushort type, uint count) =>
     _getValueSize(type, count) <= 4;
 }

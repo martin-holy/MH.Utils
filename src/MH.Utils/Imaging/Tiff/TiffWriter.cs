@@ -3,12 +3,14 @@ using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.IO;
 
-namespace MH.Utils.Imaging;
+namespace MH.Utils.Imaging.Tiff;
 
-internal sealed class TiffWriter {
+public sealed class TiffWriter {
   private readonly MemoryStream _stream;
   private readonly bool _littleEndian;
-  private readonly List<DeferredWrite> _deferred = [];
+  private readonly List<DeferredReference> _deferred = [];
+
+  public long Position => _stream.Position;
 
   public TiffWriter(MemoryStream stream, bool littleEndian = false) {
     _littleEndian = littleEndian;
@@ -29,40 +31,41 @@ internal sealed class TiffWriter {
     WriteUInt32(8);
   }
 
-  public void WriteEntry(ExifEntry entry, ReadOnlySpan<byte> data) {
-    WriteUInt16(entry.Tag);
-    WriteUInt16(entry.Type);
-    WriteUInt32(entry.Count);
-
-    if (data.Length <= 4) {
-      Span<byte> value = stackalloc byte[4];
-      data.CopyTo(value);
-      _stream.Write(value);
+  public void WriteReference(ITiffWritable target) {
+    if (target.WriteOffset != 0) {
+      WriteUInt32(target.WriteOffset);
       return;
     }
 
-    byte[] bytes = data.ToArray();
-
-    Defer(w => w.WriteBytes(bytes));
-  }
-
-  public void Defer(Action<TiffWriter> write) {
-    _deferred.Add(new(_stream.Position, write));
+    _deferred.Add(new(_stream.Position, target));
     WriteUInt32(0);
   }
 
   public void FlushDeferred() {
-    for (int i = 0; i < _deferred.Count; i++) {
-      var item = _deferred[i];
-      PatchUInt32((uint)item.PatchPosition, (uint)_stream.Position);
-      item.Write(this);
+    foreach (var item in _deferred) {
+      if (item.Target.WriteOffset == 0)
+        throw new InvalidOperationException(
+          $"Target '{item.Target.GetType().Name}' has not been written.");
+
+      PatchUInt32((uint)item.PatchPosition, item.Target.WriteOffset);
     }
 
     _deferred.Clear();
   }
 
+  public void WriteInlineValue(ReadOnlySpan<byte> data) {
+    Span<byte> value = stackalloc byte[4];
+    data.CopyTo(value);
+    WriteBytes(value);
+  }
+
   public void WriteBytes(ReadOnlySpan<byte> bytes) =>
     _stream.Write(bytes);
+
+  public void WriteZeros(int count) {
+    while (count-- > 0)
+      _stream.WriteByte(0);
+  }
 
   public void WriteUInt16(ushort value) {
     Span<byte> buffer = stackalloc byte[2];
@@ -95,8 +98,8 @@ internal sealed class TiffWriter {
     _stream.Position = current;
   }
 
-  private sealed class DeferredWrite(long patchPosition, Action<TiffWriter> write) {
-    public long PatchPosition = patchPosition;
-    public Action<TiffWriter> Write = write;
+  private sealed class DeferredReference(long patchPosition, ITiffWritable target) {
+    public long PatchPosition { get; } = patchPosition;
+    public ITiffWritable Target { get; } = target;
   }
 }

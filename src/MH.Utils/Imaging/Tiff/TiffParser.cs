@@ -1,17 +1,11 @@
 ﻿namespace MH.Utils.Imaging.Tiff;
 
 public static class TiffParser {
-  public static TiffFile Parse(TiffReader reader) {
-    return new() {
-      Ifd0 = _parseIfd(reader, reader.Ifd0Offset)
-    };
-  }
+  public static TiffFile Parse(TiffReader reader) =>
+    new(_parseIfd(reader, reader.Ifd0Offset));
 
   private static TiffIfd _parseIfd(TiffReader reader, uint ifdOffset) {
-    var ifd = new TiffIfd {
-      OriginalOffset = ifdOffset,
-      Entries = []
-    };
+    var ifd = new TiffIfd(ifdOffset, []);
 
     foreach (var entry in reader.ReadIfd(ifdOffset))
       ifd.Entries.Add(_parseEntry(reader, entry));
@@ -25,11 +19,7 @@ public static class TiffParser {
   }
 
   private static TiffEntry _parseEntry(TiffReader reader, ExifEntry entry) {
-    var result = new TiffEntry {
-      Tag = entry.Tag,
-      Type = entry.Type,
-      Count = entry.Count
-    };
+    var result = new TiffEntry(entry.Tag, entry.Type, entry.Count);
 
     if (_isSubIfd(entry.Tag)) {
       result.SubIfd = _parseIfd(reader, entry.ValueOrOffset);
@@ -38,14 +28,10 @@ public static class TiffParser {
 
     var data = reader.GetValueSpan(entry).ToArray();
 
-    if (TiffReader.IsInline(entry.Type, entry.Count)) result.Value = new InlineValue {
-      OriginalOffset = 0,
-      Data = data
-    };
-    else result.Value = new DataValue {
-      OriginalOffset = entry.ValueOrOffset,
-      Data = data
-    };
+    if (TiffReader.IsInline(entry.Type, entry.Count))
+      result.Value = new InlineValue(0, data);
+    else
+      result.Value = new DataValue(entry.ValueOrOffset, data);
 
     return result;
   }

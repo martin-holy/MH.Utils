@@ -9,7 +9,6 @@ public abstract class TiffObject(uint originalOffset) : ITiffWritable {
 
   public virtual int OriginalSize => 0;
   public virtual int CurrentSize => OriginalSize;
-  public virtual int ShrinkableBytes => 0;
 
   public abstract void Write(TiffWriter writer);
 }
@@ -18,6 +17,7 @@ public sealed class TiffIfd(uint originalOffset, List<TiffEntry> entries) : Tiff
   public List<TiffEntry> Entries { get; } = entries;
   public TiffIfd? NextIfd { get; set; }
 
+  // TODO maybe BUG if Entries change
   public override int OriginalSize =>
     2 + Entries.Count * 12 + 4;
 
@@ -51,14 +51,6 @@ public sealed class TiffIfd(uint originalOffset, List<TiffEntry> entries) : Tiff
   }
 }
 
-public sealed class InlineValue(uint originalOffset, byte[] data) : TiffObject(originalOffset) {
-  public byte[] Data { get; } = data;
-
-  public override void Write(TiffWriter writer) {
-    throw new InvalidOperationException("Inline values are written by TiffEntry.");
-  }
-}
-
 public class DataValue(uint originalOffset, byte[] data) : TiffObject(originalOffset) {
   public byte[] Data { get; set; } = data;
 
@@ -71,18 +63,18 @@ public class DataValue(uint originalOffset, byte[] data) : TiffObject(originalOf
   }
 }
 
-internal sealed class JpegValue(uint originalOffset, byte[] data) : DataValue(originalOffset, data) { }
+public sealed class InlineValue(uint originalOffset, byte[] data) : DataValue(originalOffset, data) {
+  public override void Write(TiffWriter writer) {
+    throw new InvalidOperationException("Inline values are written by TiffEntry.");
+  }
+}
 
-public abstract class ShrinkableValue(uint originalOffset, byte[] data) : DataValue(originalOffset, data) {
-  public override int ShrinkableBytes => Data.Length;
+public sealed class JpegValue(uint originalOffset, byte[] data) : DataValue(originalOffset, data) { }
 
+public sealed class PaddingValue(uint originalOffset, byte[] data) : DataValue(originalOffset, data) {
   public void Consume(int bytes) {
     byte[] data = Data;
     Array.Resize(ref data, data.Length - bytes);
     Data = data;
   }
 }
-
-public sealed class Hole(uint originalOffset, byte[] data) : ShrinkableValue(originalOffset, data) { }
-
-public sealed class PaddingValue(uint originalOffset, byte[] data) : ShrinkableValue(originalOffset, data) { }

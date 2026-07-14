@@ -1,12 +1,14 @@
-﻿using System;
-using System.Buffers.Binary;
+﻿using MH.Utils.Imaging.Tiff;
+using System;
 using System.IO;
 using System.Linq;
 using System.Text;
 
 namespace MH.Utils.Imaging;
 
-public readonly record struct ExifEntry(ushort Tag, ushort Type, uint Count, uint ValueOrOffset);
+public readonly record struct ExifEntry(uint EntryOffset, ushort Tag, ushort Type, uint Count, uint ValueOrOffset);
+
+public enum UserCommentEncoding { None, Ascii, Unicode, Jis, Undefined }
 
 public enum ExifTag : ushort {
   Orientation = 0x0112,
@@ -21,43 +23,49 @@ public enum ExifTag : ushort {
   GpsLatitude = 0x0002,
   GpsLongitudeRef = 0x0003,
   GpsLongitude = 0x0004,
+
+  ThumbnailOffset = 0x0201,
+  ThumbnailLength = 0x0202,
+
+  Padding = 0xEA1C
 }
 
 public sealed class ExifU {
-  private static ReadOnlySpan<byte> _exifHeader => "Exif\0\0"u8;
-  private static ReadOnlySpan<byte> _asciiHeader => "ASCII\0\0\0"u8;
-  private static ReadOnlySpan<byte> _unicodeHeader => "UNICODE"u8;
-  private static ReadOnlySpan<byte> _jisHeader => "JIS\0\0\0\0\0"u8;
+  public static ReadOnlySpan<byte> ExifHeader => "Exif\0\0"u8;
+  public static ReadOnlySpan<byte> AsciiHeader => "ASCII\0\0\0"u8;
+  public static ReadOnlySpan<byte> UnicodeHeader => "UNICODE"u8;
+  public static ReadOnlySpan<byte> JisHeader => "JIS\0\0\0\0\0"u8;
 
-  private readonly byte[] _tiff;
+  private readonly TiffReader _tiffReader;
 
-  private ExifEntry[]? _ifd0;
-  private ExifEntry[]? _exifIfd;
-  private ExifEntry[]? _gpsIfd;
+  public TiffReader Reader => _tiffReader;
 
-  private readonly bool _littleEndian;
-  private readonly uint _ifd0Offset;
+  public ushort? Orientation { get; set; }
+  public string? UserComment { get; set; }
+  public string? XpComment { get; set; }
+  public string? Comment {
+    get => XpComment ?? UserComment;
+    set {
+      XpComment = value;
+      UserComment = value;
+    }
+  }
+  public double? Latitude { get; set; }
+  public double? Longitude { get; set; }
+
+  public UserCommentEncoding UserCommentEncoding { get; private set; }
 
   private ExifU(byte[] tiff) {
-    _tiff = tiff;
+    _tiffReader = new(tiff);
 
-    if (_tiff.Length < 8)
-      throw new InvalidDataException("Invalid TIFF header.");
+    Orientation = _readOrientation();
+    UserComment = _readUserComment();
+    XpComment = _readXpComment();
 
-    if (_tiff[0] == 'I' && _tiff[1] == 'I')
-      _littleEndian = true;
-    else if (_tiff[0] == 'M' && _tiff[1] == 'M')
-      _littleEndian = false;
-    else
-      throw new InvalidDataException("Invalid TIFF byte order.");
-
-    if (_readUInt16(2) != 42)
-      throw new InvalidDataException("Invalid TIFF magic.");
-
-    _ifd0Offset = _readUInt32(4);
-
-    if (_ifd0Offset >= _tiff.Length)
-      throw new InvalidDataException("Invalid IFD0 offset.");
+    if (_tryReadLatLong(out var lat, out var lng)) {
+      Latitude = lat;
+      Longitude = lng;
+    }
   }
 
   public static ExifU? ReadFromJpeg(string path) {
@@ -74,7 +82,7 @@ public sealed class ExifU {
     if (br.ReadByte() != 0xFF || br.ReadByte() != 0xD8)
       return null;
 
-    Span<byte> header = stackalloc byte[_exifHeader.Length];
+    Span<byte> header = stackalloc byte[ExifHeader.Length];
 
     while (stream.Position + 4 <= stream.Length) {
       if (br.ReadByte() != 0xFF)
@@ -100,14 +108,14 @@ public sealed class ExifU {
         continue;
       }
 
-      if (payloadLen < _exifHeader.Length) {
+      if (payloadLen < ExifHeader.Length) {
         stream.Seek(payloadLen, SeekOrigin.Current);
         continue;
       }
 
       stream.ReadExactly(header);
 
-      if (!header.SequenceEqual(_exifHeader)) {
+      if (!header.SequenceEqual(ExifHeader)) {
         stream.Seek(payloadLen - header.Length, SeekOrigin.Current);
         continue;
       }
@@ -118,185 +126,209 @@ public sealed class ExifU {
     return null;
   }
 
-  public ushort? GetOrientation() {
-    if (_findEntry(_getIfd0(), ExifTag.Orientation) is not { } entry) return null;
-    return _getShortValue(entry);
+  public static bool WriteToJpeg(string srcPath, ExifU? exif) {
+    var tmpPath = srcPath + ".tmp";
+
+    try {
+      using (var input = File.OpenRead(srcPath))
+      using (var output = File.Create(tmpPath)) {
+        WriteToJpeg(input, output, exif);
+      }
+
+      File.Delete(srcPath);
+      File.Move(tmpPath, srcPath);
+
+      return true;
+    }
+    catch (Exception ex) {
+      Log.Error(ex, srcPath);
+
+      try {
+        if (File.Exists(tmpPath))
+          File.Delete(tmpPath);
+      }
+      catch { }
+
+      return false;
+    }
   }
 
-  public string? GetComment() =>
-    GetXpComment() ?? GetUserComment();
+  public static void WriteToJpeg(Stream input, Stream output, ExifU? exif) {
+    using var br = new BinaryReader(input, Encoding.ASCII, leaveOpen: true);
 
-  public string? GetXpComment() {
-    if (_findEntry(_getIfd0(), ExifTag.XpComment) is not { Type: 1 } entry) return null;
-    return _readUtf16Le(entry.ValueOrOffset, entry.Count);
+    // SOI
+    ByteU.CopyBytes(input, output, 2);
+
+    bool exifWritten = false;
+    bool injectHere = true;
+
+    while (input.Position + 4 <= input.Length) {
+      if (br.ReadByte() != 0xFF)
+        continue;
+
+      byte marker = br.ReadByte();
+
+      while (marker == 0xFF)
+        marker = br.ReadByte();
+
+      // Start of Scan
+      if (marker == 0xDA) {
+        if (!exifWritten) {
+          _writeExif(output, exif);
+          exifWritten = true;
+        }
+
+        output.WriteByte(0xFF);
+        output.WriteByte(0xDA);
+
+        input.CopyTo(output);
+        return;
+      }
+
+      ushort segLen = ByteU.ReadBigEndianUInt16(br);
+
+      if (segLen < 2)
+        throw new InvalidDataException("Invalid JPEG segment.");
+
+      int payloadLen = segLen - 2;
+
+      // Existing EXIF?
+      if (marker == 0xE1) {
+        Span<byte> header = stackalloc byte[ExifHeader.Length];
+
+        if (payloadLen >= header.Length) {
+          input.ReadExactly(header);
+
+          if (header.SequenceEqual(ExifHeader)) {
+            // Skip old EXIF
+            input.Seek(payloadLen - header.Length, SeekOrigin.Current);
+            continue;
+          }
+
+          // Not EXIF, restore consumed header
+          output.WriteByte(0xFF);
+          output.WriteByte(marker);
+          ByteU.WriteBigEndianUInt16(output, segLen);
+
+          output.Write(header);
+
+          ByteU.CopyBytes(input, output, payloadLen - header.Length);
+
+          injectHere = false;
+
+          continue;
+        }
+      }
+
+      if (!exifWritten && injectHere && marker != 0xE0 && marker != 0xE1) {
+        _writeExif(output, exif);
+        exifWritten = true;
+        injectHere = false;
+      }
+
+      output.WriteByte(0xFF);
+      output.WriteByte(marker);
+      ByteU.WriteBigEndianUInt16(output, segLen);
+
+      ByteU.CopyBytes(input, output, payloadLen);
+    }
+
+    if (!exifWritten)
+      throw new InvalidDataException("Failed to write EXIF.");
   }
 
-  public string? GetUserComment() {
-    if (_findEntry(_getIfd0(), ExifTag.ExifIfd) is not { } exifIfd)
+  private static void _writeExif(Stream stream, ExifU? exif) {
+    if (exif == null) return;
+
+    var file = TiffParser.Parse(exif.Reader);
+    TiffResolver.Resolve(exif.Reader, file);
+    TiffEditor.Apply(file, exif);
+    var layout = TiffLayoutBuilder.Build(file, exif.Reader);
+    TiffLayoutPlanner.Plan(layout);
+    byte[] tiff = TiffSerializer.Serialize(layout, exif.Reader.IsLittleEndian);
+
+    stream.WriteByte(0xFF);
+    stream.WriteByte(0xE1);
+
+    ushort len = (ushort)(ExifHeader.Length + tiff.Length + 2);
+
+    if (len > 65533)
+      throw new InvalidOperationException("EXIF is too large for a JPEG APP1 segment.");
+
+    ByteU.WriteBigEndianUInt16(stream, len);
+
+    stream.Write(ExifHeader);
+    stream.Write(tiff);
+  }
+
+  private ushort? _readOrientation() {
+    if (TiffReader.FindEntry(_tiffReader.GetIfd0(), ExifTag.Orientation) is not { } entry) return null;
+    return _tiffReader.GetShortValue(entry);
+  }
+
+  private string? _readXpComment() {
+    if (TiffReader.FindEntry(_tiffReader.GetIfd0(), ExifTag.XpComment) is not { Type: 1 } entry) return null;
+    return _tiffReader.ReadUtf16Le(entry.ValueOrOffset, entry.Count);
+  }
+
+  private string? _readUserComment() {
+    if (TiffReader.FindEntry(_tiffReader.GetExifIfd(), ExifTag.UserComment) is not { Type: 7 } comment)
       return null;
 
-    if (_findEntry(_getExifIfd(exifIfd.ValueOrOffset), ExifTag.UserComment) is not { Type: 7 } comment)
-      return null;
-
-    if (comment.Count < 8)
+    if (comment.Count < 8) {
+      UserCommentEncoding = UserCommentEncoding.Undefined;
       return string.Empty;
+    }
 
-    var span = _getSpan(comment.ValueOrOffset, (int)comment.Count);
+    var span = _tiffReader.GetSpan(comment.ValueOrOffset, (int)comment.Count);
 
-    if (span[..8].SequenceEqual(_asciiHeader))
+    if (span[..8].SequenceEqual(AsciiHeader)) {
+      UserCommentEncoding = UserCommentEncoding.Ascii;
       return Encoding.ASCII.GetString(span[8..]).TrimEnd('\0');
+    }
 
-    if (span[..8].SequenceEqual(_unicodeHeader))
+    if (span[..8].SequenceEqual(UnicodeHeader)) {
+      UserCommentEncoding = UserCommentEncoding.Unicode;
       return Encoding.BigEndianUnicode.GetString(span[8..]).TrimEnd('\0');
+    }
 
-    if (span[..8].SequenceEqual(_jisHeader))
+    if (span[..8].SequenceEqual(JisHeader)) {
+      UserCommentEncoding = UserCommentEncoding.Jis;
       return null; // Not implemented.
+    }
 
     return null;
   }
 
-  public bool TryGetLatLong(out double latitude, out double longitude) {
+  private bool _tryReadLatLong(out double latitude, out double longitude) {
     latitude = 0;
     longitude = 0;
 
-    if (_findEntry(_getIfd0(), ExifTag.GpsIfd) is not { } gpsIfd)
-      return false;
+    var gps = _tiffReader.GetGpsIfd();
 
-    var gps = _getGpsIfd(gpsIfd.ValueOrOffset);
-
-    if (_findEntry(gps, ExifTag.GpsLatitudeRef) is not { } latRef
-      || _findEntry(gps, ExifTag.GpsLatitude) is not { Type: 5, Count: 3 } lat
-      || _findEntry(gps, ExifTag.GpsLongitudeRef) is not { } lngRef
-      || _findEntry(gps, ExifTag.GpsLongitude) is not { Type: 5, Count: 3 } lng)
+    if (TiffReader.FindEntry(gps, ExifTag.GpsLatitudeRef) is not { } latRef
+      || TiffReader.FindEntry(gps, ExifTag.GpsLatitude) is not { Type: 5, Count: 3 } lat
+      || TiffReader.FindEntry(gps, ExifTag.GpsLongitudeRef) is not { } lngRef
+      || TiffReader.FindEntry(gps, ExifTag.GpsLongitude) is not { Type: 5, Count: 3 } lng)
       return false;
 
     latitude = _readGpsCoordinate(lat.ValueOrOffset);
     longitude = _readGpsCoordinate(lng.ValueOrOffset);
 
-    if (_readAsciiChar(latRef.ValueOrOffset, latRef.Count) == 'S')
+    if (_tiffReader.ReadAsciiChar(latRef.ValueOrOffset, latRef.Count) == 'S')
       latitude = -latitude;
 
-    if (_readAsciiChar(lngRef.ValueOrOffset, lngRef.Count) == 'W')
+    if (_tiffReader.ReadAsciiChar(lngRef.ValueOrOffset, lngRef.Count) == 'W')
       longitude = -longitude;
 
     return true;
   }
 
   private double _readGpsCoordinate(uint offset) {
-    double degrees = _readRational(offset);
-    double minutes = _readRational(offset + 8);
-    double seconds = _readRational(offset + 16);
+    double degrees = _tiffReader.ReadRational(offset);
+    double minutes = _tiffReader.ReadRational(offset + 8);
+    double seconds = _tiffReader.ReadRational(offset + 16);
 
     return degrees + minutes / 60.0 + seconds / 3600.0;
-  }
-
-  private double _readRational(uint offset) {
-    uint numerator = _readUInt32(offset);
-    uint denominator = _readUInt32(offset + 4);
-
-    if (denominator == 0) return 0;
-
-    return (double)numerator / denominator;
-  }
-
-  private ushort _getShortValue(ExifEntry entry) {
-    if (entry.Type != 3)
-      throw new InvalidDataException("Entry is not SHORT.");
-
-    if (entry.Count != 1)
-      throw new InvalidDataException("Entry is not a single SHORT.");
-
-    return _littleEndian
-      ? (ushort)(entry.ValueOrOffset & 0xFFFF)
-      : (ushort)(entry.ValueOrOffset >> 16);
-  }
-
-  private static ExifEntry? _findEntry(ExifEntry[] entries, ExifTag tag) {
-    foreach (var entry in entries)
-      if (entry.Tag == (ushort)tag)
-        return entry;
-
-    return null;
-  }
-
-  private ExifEntry[] _getIfd0() =>
-    _ifd0 ??= _readIfd(_ifd0Offset);
-
-  private ExifEntry[] _getExifIfd(uint offset) =>
-    _exifIfd ??= _readIfd(offset);
-
-  private ExifEntry[] _getGpsIfd(uint offset) =>
-    _gpsIfd ??= _readIfd(offset);
-
-  private ExifEntry[] _readIfd(uint offset) {
-    ushort count = _readUInt16(offset);
-    offset += 2;
-
-    var entries = new ExifEntry[count];
-
-    for (int i = 0; i < count; i++) {
-      entries[i] = new ExifEntry(
-        _readUInt16(offset),
-        _readUInt16(offset + 2),
-        _readUInt32(offset + 4),
-        _readUInt32(offset + 8));
-
-      offset += 12;
-    }
-
-    return entries;
-  }
-
-  private char _readAsciiChar(uint valueOrOffset, uint count) {
-    if (count <= 4)
-      return _littleEndian
-        ? (char)(valueOrOffset & 0xFF)
-        : (char)(valueOrOffset >> 24);
-
-    return (char)_getSpan(valueOrOffset, 1)[0];
-  }
-
-  private string _readAscii(uint valueOrOffset, uint count) {
-    if (count <= 4) {
-      Span<byte> bytes = stackalloc byte[4];
-
-      if (_littleEndian)
-        BinaryPrimitives.WriteUInt32LittleEndian(bytes, valueOrOffset);
-      else
-        BinaryPrimitives.WriteUInt32BigEndian(bytes, valueOrOffset);
-
-      return _readAscii(bytes[..(int)count]);
-    }
-
-    return _readAscii(_getSpan(valueOrOffset, (int)count));
-  }
-
-  private static string _readAscii(ReadOnlySpan<byte> span) =>
-    Encoding.ASCII.GetString(span).TrimEnd('\0');
-
-  private string _readUtf16Le(uint offset, uint count) {
-    var span = _getSpan(offset, (int)count);
-    return Encoding.Unicode.GetString(span).TrimEnd('\0');
-  }
-
-  private ushort _readUInt16(uint offset) {
-    var span = _getSpan(offset, 2);
-
-    return _littleEndian
-      ? BinaryPrimitives.ReadUInt16LittleEndian(span)
-      : BinaryPrimitives.ReadUInt16BigEndian(span);
-  }
-
-  private uint _readUInt32(uint offset) {
-    var span = _getSpan(offset, 4);
-
-    return _littleEndian
-      ? BinaryPrimitives.ReadUInt32LittleEndian(span)
-      : BinaryPrimitives.ReadUInt32BigEndian(span);
-  }
-
-  private ReadOnlySpan<byte> _getSpan(uint offset, int length) {
-    ByteU.CheckBounds(_tiff, offset, length);
-    return _tiff.AsSpan((int)offset, length);
   }
 }

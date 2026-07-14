@@ -14,16 +14,8 @@ public sealed class TiffSerializer {
 
       item.Write(writer);
 
-      if (i == layout.Items.Count - 1) continue;
-      
-      // TODO 2 byte zero gap
-      var next = layout.Items[i + 1];
-      var expected = item.OriginalOffset + item.CurrentSize;
-
-      if (next.OriginalOffset > expected) {
-        var hole = checked((int)(next.OriginalOffset - expected));
-        writer.WriteZeros(hole);
-      }
+      if (layout.FindHoleAfter(item) is { } hole)
+        writer.WriteZeros(hole.Size);
     }
 
     writer.FlushDeferred();

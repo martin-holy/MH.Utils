@@ -5,6 +5,6 @@ public interface ITiffWritable {
   uint WriteOffset { get; set; }
   int OriginalSize { get; }
   int CurrentSize { get; }
-  int ShrinkableBytes { get; }
+
   void Write(TiffWriter writer);
 }

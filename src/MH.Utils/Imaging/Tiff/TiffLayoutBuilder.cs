@@ -1,12 +1,11 @@
 ﻿namespace MH.Utils.Imaging.Tiff;
 
 public static class TiffLayoutBuilder {
-  public static TiffLayout Build(TiffFile file) {
+  public static TiffLayout Build(TiffFile file, TiffReader reader) {
     var layout = new TiffLayout();
-
     _collectIfd(layout, file.Ifd0);
-
     layout.Items.Sort(static (a, b) => a.OriginalOffset.CompareTo(b.OriginalOffset));
+    _findHoles(layout, reader);
 
     return layout;
   }
@@ -28,5 +27,18 @@ public static class TiffLayoutBuilder {
 
     if (ifd.NextIfd != null)
       _collectIfd(layout, ifd.NextIfd);
+  }
+
+  private static void _findHoles(TiffLayout layout, TiffReader reader) {
+    for (int i = 0; i < layout.Items.Count - 1; i++) {
+      var current = layout.Items[i];
+      var next = layout.Items[i + 1];
+      uint end = current.OriginalOffset + (uint)current.OriginalSize;
+
+      if (next.OriginalOffset > end) {
+        var length = checked((int)(next.OriginalOffset - end));
+        layout.Holes.Add(new TiffLayoutHole(end, reader.GetSpan(end, length).ToArray()));
+      }
+    }
   }
 }

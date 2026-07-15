@@ -6,11 +6,11 @@ using System.Text;
 namespace MH.Utils.Imaging.Tiff;
 
 internal static class TiffEditor {
-  public static void Apply(TiffFile file, ExifU exif) {
-    if (exif.Orientation is ushort orientation)
-      _setOrientation(file, exif.Reader.IsLittleEndian, orientation);
+  public static void Apply(TiffFile file, ImageMetadata metadata) {
+    if (metadata.Orientation is ushort orientation)
+      _setOrientation(file, metadata.Reader.IsLittleEndian, orientation);
 
-    _setUserComment(file, exif);
+    _setUserComment(file, metadata);
   }
 
   private static void _setOrientation(TiffFile file, bool littleEndian, ushort orientation) {
@@ -32,10 +32,11 @@ internal static class TiffEditor {
     value.Data = data.ToArray();
   }
 
-  private static void _setUserComment(TiffFile file, ExifU exif) {
-    if (exif.UserComment == null) return;
+  private static void _setUserComment(TiffFile file, ImageMetadata metadata) {
+    // TODO write both UserComment and XpComment?
+    if (metadata.UserComment == null) return;
 
-    var entry = file.Ifd0.FindEntry(ExifTag.UserComment);
+    var entry = file.ExifIfd?.FindEntry(ExifTag.UserComment);
 
     if (entry == null)
       throw new NotImplementedException("Creating UserComment tag is not implemented.");
@@ -43,14 +44,14 @@ internal static class TiffEditor {
     if (entry.Value is not DataValue value)
       throw new InvalidOperationException("UserComment is expected to be stored as DataValue.");
 
-    byte[] text = exif.UserCommentEncoding switch {
-      UserCommentEncoding.Ascii => Encoding.ASCII.GetBytes(exif.UserComment!),
-      UserCommentEncoding.Unicode => Encoding.BigEndianUnicode.GetBytes(exif.UserComment!),
-      UserCommentEncoding.Jis => _encodeJis(exif.UserComment!),
-      _ => Encoding.UTF8.GetBytes(exif.UserComment!)
+    byte[] text = metadata.UserCommentEncoding switch {
+      UserCommentEncoding.Ascii => Encoding.ASCII.GetBytes(metadata.UserComment!),
+      UserCommentEncoding.Unicode => Encoding.BigEndianUnicode.GetBytes(metadata.UserComment!),
+      UserCommentEncoding.Jis => _encodeJis(metadata.UserComment!),
+      _ => Encoding.UTF8.GetBytes(metadata.UserComment!)
     };
 
-    ReadOnlySpan<byte> header = exif.UserCommentEncoding switch {
+    ReadOnlySpan<byte> header = metadata.UserCommentEncoding switch {
       UserCommentEncoding.Ascii => ExifU.AsciiHeader,
       UserCommentEncoding.Unicode => ExifU.UnicodeHeader,
       UserCommentEncoding.Jis => ExifU.JisHeader,

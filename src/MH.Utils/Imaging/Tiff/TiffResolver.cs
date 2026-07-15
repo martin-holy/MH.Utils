@@ -5,16 +5,16 @@ namespace MH.Utils.Imaging.Tiff;
 
 public static class TiffResolver {
   public static void Resolve(TiffReader reader, TiffFile file) {
-    _resolveIfd(reader, file.Ifd0, false);
+    _resolveIfd(reader, file, file.Ifd0, false);
   }
 
-  private static void _resolveIfd(TiffReader reader, TiffIfd ifd, bool isIfd1) {
+  private static void _resolveIfd(TiffReader reader, TiffFile file, TiffIfd ifd, bool isIfd1) {
     TiffEntry? offsetEntry = null;
     TiffEntry? lengthEntry = null;
 
     foreach (var entry in ifd.Entries) {
       if (entry.SubIfd != null)
-        _resolveIfd(reader, entry.SubIfd, false);
+        _resolveIfd(reader, file, entry.SubIfd, false);
 
       switch ((ExifTag)entry.Tag) {
         case ExifTag.ThumbnailOffset:
@@ -29,6 +29,10 @@ public static class TiffResolver {
           if (entry.Value is DataValue padding)
             entry.Value = new PaddingValue(padding.OriginalOffset, padding.Data);
           break;
+
+        case ExifTag.ExifIfd:
+          file.ExifIfd = entry.SubIfd;
+          break;
       }
     }
 
@@ -36,7 +40,7 @@ public static class TiffResolver {
       _resolveJpeg(reader, offsetEntry, lengthEntry);
 
     if (ifd.NextIfd != null)
-      _resolveIfd(reader, ifd.NextIfd, true);
+      _resolveIfd(reader, file, ifd.NextIfd, true);
   }
 
   private static void _resolveJpeg(TiffReader reader, TiffEntry offsetEntry, TiffEntry lengthEntry) {

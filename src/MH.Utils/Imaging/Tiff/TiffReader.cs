@@ -8,9 +8,9 @@ namespace MH.Utils.Imaging.Tiff;
 public sealed class TiffReader {
   private readonly byte[] _buffer;
 
-  private ExifEntry[]? _ifd0;
-  private ExifEntry[]? _exifIfd;
-  private ExifEntry[]? _gpsIfd;
+  private TiffEntryData[]? _ifd0;
+  private TiffEntryData[]? _exifIfd;
+  private TiffEntryData[]? _gpsIfd;
 
   public bool IsLittleEndian { get; }
   public uint Ifd0Offset { get; }
@@ -38,46 +38,27 @@ public sealed class TiffReader {
       throw new InvalidDataException("Invalid IFD0 offset.");
   }
 
-  // TODO try to use GetNextIfdOffset in GetExifIfd, GetGpsIfd
-  // TODO what this should return if there is not other ifd?
   public uint GetNextIfdOffset(uint ifdOffset) {
     ushort count = ReadUInt16(ifdOffset);
     uint offset = ifdOffset + 2 + (uint)(count * 12);
     return ReadUInt32(offset);
   }
 
-  public ExifEntry[] GetIfd0() =>
+  public TiffEntryData[] GetIfd0() =>
     _ifd0 ??= ReadIfd(Ifd0Offset);
 
-  public ExifEntry[] GetExifIfd() {
-    if (_exifIfd != null) return _exifIfd;
-
-    if (FindEntry(GetIfd0(), ExifTag.ExifIfd) is { } exifIfd)
-      _exifIfd = ReadIfd(exifIfd.ValueOrOffset);
-    else
-      _exifIfd = [];
-
+  public TiffEntryData[] GetExifIfd() {
+    _exifIfd ??= _getIfd(GetIfd0(), ExifTag.ExifIfd);
     return _exifIfd;
   }
 
-  public ExifEntry[] GetGpsIfd() {
-    if (_gpsIfd != null) return _gpsIfd;
-
-    if (FindEntry(GetIfd0(), ExifTag.GpsIfd) is { } gpsIfd)
-      _gpsIfd = ReadIfd(gpsIfd.ValueOrOffset);
-    else
-      _gpsIfd = [];
-
+  public TiffEntryData[] GetGpsIfd() {
+    _gpsIfd ??= _getIfd(GetIfd0(), ExifTag.GpsIfd);
     return _gpsIfd;
   }
 
-  public static ExifEntry? FindEntry(ExifEntry[] entries, ExifTag tag) {
-    foreach (var entry in entries)
-      if (entry.Tag == (ushort)tag)
-        return entry;
-
-    return null;
-  }
+  private TiffEntryData[] _getIfd(TiffEntryData[] entries, ExifTag tag) =>
+    entries.FindEntry(tag) is { } ifd ? ReadIfd(ifd.ValueOrOffset) : [];
 
   public ushort ReadUInt16(uint offset) {
     var span = GetSpan(offset, 2);
@@ -109,14 +90,14 @@ public sealed class TiffReader {
     return _buffer.AsSpan((int)offset, length);
   }
 
-  public ExifEntry[] ReadIfd(uint offset) {
+  public TiffEntryData[] ReadIfd(uint offset) {
     ushort count = ReadUInt16(offset);
     offset += 2;
 
-    var entries = new ExifEntry[count];
+    var entries = new TiffEntryData[count];
 
     for (int i = 0; i < count; i++) {
-      entries[i] = new ExifEntry(
+      entries[i] = new TiffEntryData(
         offset,
         ReadUInt16(offset),
         ReadUInt16(offset + 2),
@@ -129,7 +110,7 @@ public sealed class TiffReader {
     return entries;
   }
 
-  public ushort GetShortValue(ExifEntry entry) {
+  public ushort GetShortValue(TiffEntryData entry) {
     if (entry.Type != 3)
       throw new InvalidDataException("Entry is not SHORT.");
 
@@ -174,7 +155,7 @@ public sealed class TiffReader {
     return Encoding.Unicode.GetString(span).TrimEnd('\0');
   }
 
-  public ReadOnlySpan<byte> GetValueSpan(ExifEntry entry) {
+  public ReadOnlySpan<byte> GetValueSpan(TiffEntryData entry) {
     int size = _getValueSize(entry.Type, entry.Count);
 
     if (IsInline(entry.Type, entry.Count))

@@ -18,7 +18,7 @@ public static class TiffParser {
     return ifd;
   }
 
-  private static TiffEntry _parseEntry(TiffReader reader, ExifEntry entry) {
+  private static TiffEntry _parseEntry(TiffReader reader, TiffEntryData entry) {
     var result = new TiffEntry(entry.Tag, entry.Type, entry.Count);
 
     if (_isSubIfd(entry.Tag)) {

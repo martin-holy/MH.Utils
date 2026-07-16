@@ -38,17 +38,17 @@ public class ImageMetadata {
   }
 
   private ushort? _readOrientation() {
-    if (TiffReader.FindEntry(_tiffReader.GetIfd0(), ExifTag.Orientation) is not { } entry) return null;
+    if (_tiffReader.GetIfd0().FindEntry(ExifTag.Orientation) is not { } entry) return null;
     return _tiffReader.GetShortValue(entry);
   }
 
   private string? _readXpComment() {
-    if (TiffReader.FindEntry(_tiffReader.GetIfd0(), ExifTag.XpComment) is not { Type: 1 } entry) return null;
+    if (_tiffReader.GetIfd0().FindEntry(ExifTag.XpComment) is not { Type: 1 } entry) return null;
     return _tiffReader.ReadUtf16Le(entry.ValueOrOffset, entry.Count);
   }
 
   private string? _readUserComment() {
-    if (TiffReader.FindEntry(_tiffReader.GetExifIfd(), ExifTag.UserComment) is not { Type: 7 } comment)
+    if (_tiffReader.GetExifIfd().FindEntry(ExifTag.UserComment) is not { Type: 7 } comment)
       return null;
 
     if (comment.Count < 8) {
@@ -82,10 +82,10 @@ public class ImageMetadata {
 
     var gps = _tiffReader.GetGpsIfd();
 
-    if (TiffReader.FindEntry(gps, ExifTag.GpsLatitudeRef) is not { } latRef
-      || TiffReader.FindEntry(gps, ExifTag.GpsLatitude) is not { Type: 5, Count: 3 } lat
-      || TiffReader.FindEntry(gps, ExifTag.GpsLongitudeRef) is not { } lngRef
-      || TiffReader.FindEntry(gps, ExifTag.GpsLongitude) is not { Type: 5, Count: 3 } lng)
+    if (gps.FindEntry(ExifTag.GpsLatitudeRef) is not { } latRef
+      || gps.FindEntry(ExifTag.GpsLatitude) is not { Type: 5, Count: 3 } lat
+      || gps.FindEntry(ExifTag.GpsLongitudeRef) is not { } lngRef
+      || gps.FindEntry(ExifTag.GpsLongitude) is not { Type: 5, Count: 3 } lng)
       return false;
 
     latitude = _readGpsCoordinate(lat.ValueOrOffset);

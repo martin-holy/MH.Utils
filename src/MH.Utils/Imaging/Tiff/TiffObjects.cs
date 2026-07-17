@@ -3,8 +3,8 @@ using System.Collections.Generic;
 
 namespace MH.Utils.Imaging.Tiff;
 
-public abstract class TiffObject(uint originalOffset) : ITiffWritable {
-  public uint OriginalOffset { get; } = originalOffset;
+public abstract class TiffObject(uint? originalOffset) : ITiffWritable {
+  public uint? OriginalOffset { get; } = originalOffset;
   public uint WriteOffset { get; set; }
 
   public virtual int OriginalSize => 0;
@@ -13,7 +13,7 @@ public abstract class TiffObject(uint originalOffset) : ITiffWritable {
   public abstract void Write(TiffWriter writer);
 }
 
-public sealed class TiffIfd(uint originalOffset, List<TiffEntry> entries) : TiffObject(originalOffset) {
+public sealed class TiffIfd(uint? originalOffset, List<TiffEntry> entries) : TiffObject(originalOffset) {
   public List<TiffEntry> Entries { get; } = entries;
   public TiffIfd? NextIfd { get; set; }
 
@@ -51,10 +51,10 @@ public sealed class TiffIfd(uint originalOffset, List<TiffEntry> entries) : Tiff
   }
 }
 
-public class DataValue(uint originalOffset, byte[] data) : TiffObject(originalOffset) {
+public class DataValue(uint? originalOffset, byte[] data) : TiffObject(originalOffset) {
   public byte[] Data { get; set; } = data;
 
-  public override int OriginalSize { get; } = data.Length;
+  public override int OriginalSize { get; } = originalOffset != null ? data.Length : 0;
   public override int CurrentSize => Data.Length;
 
   public override void Write(TiffWriter writer) {
@@ -63,7 +63,7 @@ public class DataValue(uint originalOffset, byte[] data) : TiffObject(originalOf
   }
 }
 
-public sealed class InlineValue(uint originalOffset, byte[] data) : DataValue(originalOffset, data) {
+public sealed class InlineValue(uint? originalOffset, byte[] data) : DataValue(originalOffset, data) {
   public override void Write(TiffWriter writer) {
     throw new InvalidOperationException("Inline values are written by TiffEntry.");
   }
@@ -71,7 +71,7 @@ public sealed class InlineValue(uint originalOffset, byte[] data) : DataValue(or
 
 public sealed class JpegValue(uint originalOffset, byte[] data) : DataValue(originalOffset, data) { }
 
-public sealed class PaddingValue(uint originalOffset, byte[] data) : DataValue(originalOffset, data) {
+public sealed class PaddingValue(uint? originalOffset, byte[] data) : DataValue(originalOffset, data) {
   public void Consume(int bytes) {
     byte[] data = Data;
     Array.Resize(ref data, data.Length - bytes);

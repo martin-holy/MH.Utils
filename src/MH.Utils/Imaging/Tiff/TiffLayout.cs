@@ -7,7 +7,9 @@ public sealed class TiffLayout {
   public List<TiffLayoutHole> Holes { get; } = [];
 
   public TiffLayoutHole? FindHoleAfter(ITiffWritable item) {
-    uint end = item.OriginalOffset + (uint)item.OriginalSize;
+    if (item.OriginalOffset == null) return null;
+
+    uint end = (uint)item.OriginalOffset + (uint)item.OriginalSize;
 
     foreach (var hole in Holes)
       if (hole.OriginalOffset == end)

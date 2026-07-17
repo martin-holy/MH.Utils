@@ -5,9 +5,9 @@ using System.Text;
 namespace MH.Utils.Imaging;
 
 public class ImageMetadata {
-  private readonly TiffReader _tiffReader;
+  private readonly TiffReader? _tiffReader;
 
-  public TiffReader Reader => _tiffReader;
+  public TiffReader? Reader => _tiffReader;
 
   public ushort? Orientation { get; set; }
   public string? UserComment { get; set; }
@@ -24,7 +24,7 @@ public class ImageMetadata {
 
   public UserCommentEncoding UserCommentEncoding { get; private set; }
 
-  public ImageMetadata(TiffReader reader) {
+  public ImageMetadata(TiffReader? reader) {
     _tiffReader = reader;
 
     Orientation = _readOrientation();
@@ -38,17 +38,17 @@ public class ImageMetadata {
   }
 
   private ushort? _readOrientation() {
-    if (_tiffReader.GetIfd0().FindEntry(ExifTag.Orientation) is not { } entry) return null;
+    if (_tiffReader?.GetIfd0().FindEntry(ExifTag.Orientation) is not { } entry) return null;
     return _tiffReader.GetShortValue(entry);
   }
 
   private string? _readXpComment() {
-    if (_tiffReader.GetIfd0().FindEntry(ExifTag.XpComment) is not { Type: 1 } entry) return null;
+    if (_tiffReader?.GetIfd0().FindEntry(ExifTag.XpComment) is not { Type: 1 } entry) return null;
     return _tiffReader.ReadUtf16Le(entry.ValueOrOffset, entry.Count);
   }
 
   private string? _readUserComment() {
-    if (_tiffReader.GetExifIfd().FindEntry(ExifTag.UserComment) is not { Type: 7 } comment)
+    if (_tiffReader?.GetExifIfd().FindEntry(ExifTag.UserComment) is not { Type: 7 } comment)
       return null;
 
     if (comment.Count < 8) {
@@ -79,6 +79,8 @@ public class ImageMetadata {
   private bool _tryReadLatLong(out double latitude, out double longitude) {
     latitude = 0;
     longitude = 0;
+    
+    if (_tiffReader == null) return false;
 
     var gps = _tiffReader.GetGpsIfd();
 
@@ -101,7 +103,7 @@ public class ImageMetadata {
   }
 
   private double _readGpsCoordinate(uint offset) {
-    double degrees = _tiffReader.ReadRational(offset);
+    double degrees = _tiffReader!.ReadRational(offset);
     double minutes = _tiffReader.ReadRational(offset + 8);
     double seconds = _tiffReader.ReadRational(offset + 16);
 

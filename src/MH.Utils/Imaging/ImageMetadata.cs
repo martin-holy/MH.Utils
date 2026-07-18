@@ -5,9 +5,7 @@ using System.Text;
 namespace MH.Utils.Imaging;
 
 public class ImageMetadata {
-  private readonly TiffReader? _tiffReader;
-
-  public TiffReader? Reader => _tiffReader;
+  public TiffReader? Reader { get; }
 
   public ushort? Orientation { get; set; }
   public string? UserComment { get; set; }
@@ -25,7 +23,7 @@ public class ImageMetadata {
   public UserCommentEncoding UserCommentEncoding { get; private set; }
 
   public ImageMetadata(TiffReader? reader) {
-    _tiffReader = reader;
+    Reader = reader;
 
     Orientation = _readOrientation();
     UserComment = _readUserComment();
@@ -38,17 +36,17 @@ public class ImageMetadata {
   }
 
   private ushort? _readOrientation() {
-    if (_tiffReader?.GetIfd0().FindEntry(ExifTag.Orientation) is not { } entry) return null;
-    return _tiffReader.GetShortValue(entry);
+    if (Reader?.GetIfd0().FindEntry(ExifTag.Orientation) is not { } entry) return null;
+    return Reader.GetShortValue(entry);
   }
 
   private string? _readXpComment() {
-    if (_tiffReader?.GetIfd0().FindEntry(ExifTag.XpComment) is not { Type: 1 } entry) return null;
-    return _tiffReader.ReadUtf16Le(entry.ValueOrOffset, entry.Count);
+    if (Reader?.GetIfd0().FindEntry(ExifTag.XpComment) is not { Type: 1 } entry) return null;
+    return Reader.ReadUtf16Le(entry.ValueOrOffset, entry.Count);
   }
 
   private string? _readUserComment() {
-    if (_tiffReader?.GetExifIfd().FindEntry(ExifTag.UserComment) is not { Type: 7 } comment)
+    if (Reader?.GetExifIfd().FindEntry(ExifTag.UserComment) is not { Type: 7 } comment)
       return null;
 
     if (comment.Count < 8) {
@@ -56,7 +54,7 @@ public class ImageMetadata {
       return string.Empty;
     }
 
-    var span = _tiffReader.GetSpan(comment.ValueOrOffset, (int)comment.Count);
+    var span = Reader.GetSpan(comment.ValueOrOffset, (int)comment.Count);
 
     if (span[..8].SequenceEqual(ExifU.AsciiHeader)) {
       UserCommentEncoding = UserCommentEncoding.Ascii;
@@ -80,9 +78,9 @@ public class ImageMetadata {
     latitude = 0;
     longitude = 0;
     
-    if (_tiffReader == null) return false;
+    if (Reader == null) return false;
 
-    var gps = _tiffReader.GetGpsIfd();
+    var gps = Reader.GetGpsIfd();
 
     if (gps.FindEntry(ExifTag.GpsLatitudeRef) is not { } latRef
       || gps.FindEntry(ExifTag.GpsLatitude) is not { Type: 5, Count: 3 } lat
@@ -93,19 +91,19 @@ public class ImageMetadata {
     latitude = _readGpsCoordinate(lat.ValueOrOffset);
     longitude = _readGpsCoordinate(lng.ValueOrOffset);
 
-    if (_tiffReader.ReadAsciiChar(latRef.ValueOrOffset, latRef.Count) == 'S')
+    if (Reader.ReadAsciiChar(latRef.ValueOrOffset, latRef.Count) == 'S')
       latitude = -latitude;
 
-    if (_tiffReader.ReadAsciiChar(lngRef.ValueOrOffset, lngRef.Count) == 'W')
+    if (Reader.ReadAsciiChar(lngRef.ValueOrOffset, lngRef.Count) == 'W')
       longitude = -longitude;
 
     return true;
   }
 
   private double _readGpsCoordinate(uint offset) {
-    double degrees = _tiffReader!.ReadRational(offset);
-    double minutes = _tiffReader.ReadRational(offset + 8);
-    double seconds = _tiffReader.ReadRational(offset + 16);
+    double degrees = Reader!.ReadRational(offset);
+    double minutes = Reader.ReadRational(offset + 8);
+    double seconds = Reader.ReadRational(offset + 16);
 
     return degrees + minutes / 60.0 + seconds / 3600.0;
   }

@@ -29,6 +29,13 @@ public sealed class TiffIfd(uint? originalOffset, List<TiffEntry> entries) : Tif
     Entries.Sort(static (a, b) => a.Tag.CompareTo(b.Tag));
   }
 
+  public TiffIfd CreateIfd(ExifTag tag) {
+    var ifd = new TiffIfd(null, []);
+    var entry = new TiffEntry(tag, TiffType.Long, 1) { SubIfd = ifd };
+    AddEntry(entry);
+    return ifd;
+  }
+
   public TiffEntry? FindEntry(ExifTag tag) {
     foreach (var entry in Entries) {
       if (entry.Tag == (ushort)tag)

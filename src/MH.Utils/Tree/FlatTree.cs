@@ -169,8 +169,8 @@ public class FlatTree {
       foreach (var child in item.Items)
         _subscribeSubtree(child);
 
-      if (!_hasInsertedChildren(item, index))
-        _insertItems(item.Items, _items[index].Level + 1, index + 1);
+      _removeChildren(index);
+      _insertItems(item.Items, _items[index].Level + 1, index + 1);
     }
     else {
       foreach (var child in item.Items)
@@ -191,11 +191,6 @@ public class FlatTree {
     if (index >= 0) return;
     if (!item.IsVisible()) return;
     _insertItems([item], item.GetLevel(), _getInsertIndex(item));
-  }
-
-  private bool _hasInsertedChildren(ITreeItem parent, int parentIndex) {
-    var next = parentIndex + 1;
-    return next < _items.Count && _items[next].TreeItem.Parent == parent;
   }
 
   private int _getInsertIndex(ITreeItem item) {

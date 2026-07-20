@@ -12,7 +12,7 @@ public sealed class TiffEntry(ushort tag, ushort type, uint count) {
   public void Write(TiffWriter writer) {
     writer.WriteUInt16(Tag);
     writer.WriteUInt16(Type);
-    writer.WriteUInt32(Count);
+    writer.WriteUInt32(_getWriteCount());
 
     if (SubIfd != null)
       writer.WriteReference(SubIfd);
@@ -21,4 +21,9 @@ public sealed class TiffEntry(ushort tag, ushort type, uint count) {
     else
       writer.WriteReference(Value!);
   }
+
+  private uint _getWriteCount() =>
+    Value is PaddingValue padding
+      ? (uint)padding.Data.Length
+      : Count;
 }

@@ -3,12 +3,14 @@
 namespace MH.Utils.Imaging.Tiff;
 
 public sealed class TiffIfd(uint? originalOffset, List<TiffEntry> entries) : TiffObject(originalOffset) {
+  private readonly int _originalEntryCount = entries.Count;
+
   public List<TiffEntry> Entries { get; } = entries;
   public TiffIfd? NextIfd { get; set; }
+  public PaddingValue? Padding { get; set; }
 
-  // TODO maybe BUG if Entries change
-  public override int OriginalSize =>
-    2 + Entries.Count * 12 + 4;
+  public override int OriginalSize => 2 + _originalEntryCount * 12 + 4;
+  public override int CurrentSize => 2 + Entries.Count * 12 + 4;
 
   public override void Write(TiffWriter writer) {
     WriteOffset = (uint)writer.Position;

@@ -3,6 +3,7 @@ using System;
 
 namespace MH.Utils.Interfaces;
 
+[Obsolete("Use MH.Utils.DB.SimpleDB")]
 public interface IDataAdapter {
   public SimpleDB DB { get; }
   public string Name { get; }
@@ -12,6 +13,7 @@ public interface IDataAdapter {
   public void Save();
 }
 
+[Obsolete("Use MH.Utils.DB.SimpleDB")]
 public interface ITableDataAdapter : IDataAdapter {
   public int MaxId { get; set; }
   public bool AreTablePropsModified { get; set; }
@@ -22,8 +24,10 @@ public interface ITableDataAdapter : IDataAdapter {
   public void Clear();
 }
 
+[Obsolete("Use MH.Utils.DB.SimpleDB")]
 public interface IRelationDataAdapter : IDataAdapter;
 
+[Obsolete("Use MH.Utils.DB.SimpleDB")]
 public interface ITreeDataAdapter<T> : ITableDataAdapter where T : class, ITreeItem {
   public event EventHandler<T> ItemCreatedEvent;
   public T ItemCreate(ITreeItem parent, string name);

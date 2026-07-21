@@ -2,6 +2,7 @@
 	- [N] ByteU: CheckBounds
 	- [N] ExifU: Read Orientation, Comment and GPS
 	- [B] XmpU: WriteToJpeg on windows
+	- [B] FlatTree: Insert items on expand
 
 5.0.1:
 	- [B] FlatTree: Expander visibility

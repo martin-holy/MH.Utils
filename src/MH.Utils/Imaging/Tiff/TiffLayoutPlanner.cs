@@ -1,38 +1,21 @@
-﻿using System;
-
-namespace MH.Utils.Imaging.Tiff;
+﻿namespace MH.Utils.Imaging.Tiff;
 
 public static class TiffLayoutPlanner {
   public static void Plan(TiffLayout layout) {
-    var pending = 0;
-    var holeIndex = 0;
+    int pending = 0;
 
     foreach (var item in layout.Items) {
-      var delta = item.CurrentSize - item.OriginalSize;
+      pending += item.CurrentSize - item.OriginalSize;
 
-      if (delta > 0)
-        pending += delta;
+      if (pending <= 0) continue;
 
-      while (holeIndex < layout.Holes.Count) {
-        var hole = layout.Holes[holeIndex];
+      if (item.HoleAfter != null)
+        pending -= item.HoleAfter.Consume(pending);
 
-        if (hole.OriginalOffset != item.OriginalOffset + item.OriginalSize)
-          break;
+      if (pending <= 0) continue;
 
-        var consume = Math.Min(hole.Size, pending);
-        hole.Consume(consume);
-        pending -= consume;
-        holeIndex++;
-      }
-
-      if (pending == 0)
-        continue;
-
-      if (item is PaddingValue padding) {
-        var consume = Math.Min(padding.Data.Length, pending);
-        padding.Consume(consume);
-        pending -= consume;
-      }
+      if (item is PaddingValue padding)
+        pending -= padding.Consume(pending);
     }
   }
 }

@@ -1,15 +1,18 @@
-﻿namespace MH.Utils.Imaging.Tiff;
+﻿using System.Collections.Generic;
+
+namespace MH.Utils.Imaging.Tiff;
 
 public static class TiffParser {
   public static TiffFile Parse(TiffReader reader) =>
     new(_parseIfd(reader, reader.Ifd0Offset));
 
   private static TiffIfd _parseIfd(TiffReader reader, uint ifdOffset) {
-    var ifd = new TiffIfd(ifdOffset, []);
+    List<TiffEntry> entries = [];
 
     foreach (var entry in reader.ReadIfd(ifdOffset))
-      ifd.Entries.Add(_parseEntry(reader, entry));
+      entries.Add(_parseEntry(reader, entry));
 
+    var ifd = new TiffIfd(ifdOffset, entries);
     var next = reader.GetNextIfdOffset(ifdOffset);
 
     if (next != 0)

@@ -23,8 +23,7 @@ public static class TiffLayoutBuilder {
         continue;
       }
 
-      if (entry.Value is InlineValue)
-        continue;
+      if (entry.Value is InlineValue) continue;
 
       layout.Items.Add(entry.Value!);
     }
@@ -36,24 +35,25 @@ public static class TiffLayoutBuilder {
   private static void _findHoles(TiffLayout layout, TiffReader reader) {
     var items = new List<TiffObject>(layout.Items.Count);
 
-    foreach (var item in layout.Items)
-      if (item.OriginalOffset != null)
-        items.Add((TiffObject)item);
+    foreach (var item in layout.Items) {
+      if (item.OriginalOffset != null) {
+        item.HoleAfter = null;
+        items.Add(item);
+      }
+    }
 
-    items.Sort(static (a, b) =>
-      a.OriginalOffset!.Value.CompareTo(b.OriginalOffset!.Value));
+    items.Sort(static (a, b) => a.OriginalOffset!.Value.CompareTo(b.OriginalOffset!.Value));
 
     for (int i = 0; i < items.Count - 1; i++) {
       var current = items[i];
       var next = items[i + 1];
       uint end = current.OriginalOffset!.Value + (uint)current.OriginalSize;
 
-      if (next.OriginalOffset!.Value <= end)
-        continue;
+      if (next.OriginalOffset!.Value <= end) continue;
 
       int length = checked((int)(next.OriginalOffset!.Value - end));
 
-      layout.Holes.Add(new TiffLayoutHole(end, reader.GetSpan(end, length).ToArray()));
+      current.HoleAfter = new TiffLayoutHole(reader.GetSpan(end, length).ToArray());
     }
   }
 }

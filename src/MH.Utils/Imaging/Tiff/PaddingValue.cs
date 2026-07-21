@@ -2,11 +2,7 @@
 
 namespace MH.Utils.Imaging.Tiff;
 
-public sealed class TiffLayoutHole(byte[] data) {
-  public byte[] Data { get; private set; } = data;
-
-  public int Size => Data.Length;
-
+public sealed class PaddingValue(uint? originalOffset, byte[] data) : DataValue(originalOffset, data) {
   public int Consume(int requested) {
     int consumed = Math.Min(requested, Data.Length);
 

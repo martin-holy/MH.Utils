@@ -4,6 +4,8 @@ using System.Text;
 
 namespace MH.Utils.Imaging;
 
+public enum UserCommentEncoding { None, Ascii, Unicode, Jis, Undefined }
+
 public class ImageMetadata {
   public TiffReader? Reader { get; }
 

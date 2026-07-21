@@ -7,7 +7,6 @@ public sealed class TiffIfd(uint? originalOffset, List<TiffEntry> entries) : Tif
 
   public List<TiffEntry> Entries { get; } = entries;
   public TiffIfd? NextIfd { get; set; }
-  public PaddingValue? Padding { get; set; }
 
   public override int OriginalSize => 2 + _originalEntryCount * 12 + 4;
   public override int CurrentSize => 2 + Entries.Count * 12 + 4;

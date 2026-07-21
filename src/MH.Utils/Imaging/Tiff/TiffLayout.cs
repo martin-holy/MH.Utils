@@ -3,18 +3,5 @@
 namespace MH.Utils.Imaging.Tiff;
 
 public sealed class TiffLayout {
-  public List<ITiffWritable> Items { get; } = [];
-  public List<TiffLayoutHole> Holes { get; } = [];
-
-  public TiffLayoutHole? FindHoleAfter(ITiffWritable item) {
-    if (item.OriginalOffset == null) return null;
-
-    uint end = (uint)item.OriginalOffset + (uint)item.OriginalSize;
-
-    foreach (var hole in Holes)
-      if (hole.OriginalOffset == end)
-        return hole;
-
-    return null;
-  }
+  public List<TiffObject> Items { get; } = [];
 }

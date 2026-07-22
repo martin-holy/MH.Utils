@@ -42,6 +42,6 @@ public static class TiffParser {
   private static bool _isSubIfd(ushort tag) =>
     tag is
       (ushort)ExifTag.ExifIfd or
-      (ushort)ExifTag.GpsIfd;/* or
-      (ushort)ExifTag.InteropIfd;*/ // TODO add the rest
+      (ushort)ExifTag.GpsIfd or
+      (ushort)ExifTag.InteropIfd;
 }

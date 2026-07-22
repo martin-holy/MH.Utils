@@ -14,4 +14,12 @@ public sealed class PaddingValue(uint? originalOffset, byte[] data) : DataValue(
 
     return consumed;
   }
+
+  public void Extend(int bytes) {
+    if (bytes <= 0) return;
+
+    byte[] data = Data;
+    Array.Resize(ref data, data.Length + bytes);
+    Data = data;
+  }
 }

@@ -5,6 +5,7 @@ public enum ExifTag : ushort {
 
   ExifIfd = 0x8769,
   GpsIfd = 0x8825,
+  InteropIfd = 0xA005,
 
   UserComment = 0x9286,
   XpComment = 0x9C9C,

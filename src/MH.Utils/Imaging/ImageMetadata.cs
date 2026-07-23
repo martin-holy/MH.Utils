@@ -7,26 +7,25 @@ namespace MH.Utils.Imaging;
 public enum UserCommentEncoding { None, Ascii, Unicode, Jis, Undefined }
 
 public class ImageMetadata {
-  public TiffReader? Reader { get; }
+  private TiffFile? _tiffFile;
 
-  public ushort? Orientation { get; set; }
-  public string? UserComment { get; set; }
-  public string? XpComment { get; set; }
-  public string? Comment {
-    get => XpComment ?? UserComment;
-    set {
-      XpComment = value;
-      UserComment = value;
-    }
-  }
-  public double? Latitude { get; set; }
-  public double? Longitude { get; set; }
+  public TiffReader? Reader { get; }
+  public TiffFile TiffFile => _getTiffFile();
+  public bool IsExifModified { get; private set; }
+
+  public ushort? Orientation { get; private set; }
+  public string? UserComment { get; private set; }
+  public string? XpComment { get; private set; }
+  public string? Comment => XpComment ?? UserComment;
+  public double? Latitude { get; private set; }
+  public double? Longitude { get; private set; }
 
   public UserCommentEncoding UserCommentEncoding { get; private set; }
 
   public ImageMetadata(string filePath) {
     Reader = TiffReader.FromJpeg(filePath);
 
+    // TODO lazy-load using GetXyz methods instead of props
     Orientation = _readOrientation();
     UserComment = _readUserComment();
     XpComment = _readXpComment();
@@ -108,5 +107,42 @@ public class ImageMetadata {
     double seconds = Reader.ReadRational(offset + 16);
 
     return degrees + minutes / 60.0 + seconds / 3600.0;
+  }
+
+  public void SetOrientation(ushort orientation) {
+    if (orientation == Orientation) return;
+    IsExifModified = true;
+    TiffEditor.SetOrientation(TiffFile, Reader?.IsLittleEndian ?? true, orientation);
+  }
+
+  public void SetComment(string? comment) {
+    SetXpComment(comment);
+    SetUserComment(comment);
+  }
+
+  public void SetXpComment(string? comment) {
+    if (comment == XpComment) return;
+    IsExifModified = true;
+    TiffEditor.SetXpComment(TiffFile, comment);
+  }
+
+  public void SetUserComment(string? comment) {
+    if (comment == UserComment) return;
+    IsExifModified = true;
+    TiffEditor.SetUserComment(TiffFile, Reader?.IsLittleEndian ?? true, comment, UserCommentEncoding);
+  }
+
+  private TiffFile _getTiffFile() {
+    if (_tiffFile != null) return _tiffFile;
+
+    if (Reader == null) {
+      _tiffFile = TiffFile.CreateEmpty();
+    }
+    else {
+      _tiffFile = TiffParser.Parse(Reader);
+      TiffResolver.Resolve(Reader, _tiffFile);
+    }
+
+    return _tiffFile;
   }
 }

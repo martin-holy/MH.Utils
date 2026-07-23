@@ -19,6 +19,9 @@ public static class ExifU {
         TiffWriter.WriteExifToJpeg(input, output, MetadataToTiff(metadata));
       }
 
+      File.Delete(srcPath);
+      File.Move(tmpPath, srcPath);
+
       return true;
     }
     catch (Exception ex) {
@@ -35,19 +38,9 @@ public static class ExifU {
   }
 
   public static byte[] MetadataToTiff(ImageMetadata metadata) {
-    TiffFile? file;
-    if (metadata.Reader == null) {
-      file = TiffFile.CreateEmpty();
-    }
-    else {
-      file = TiffParser.Parse(metadata.Reader);
-      TiffResolver.Resolve(metadata.Reader, file);
-    }
-      
-    TiffEditor.Apply(file, metadata);
-    var layout = TiffLayoutBuilder.Build(file, metadata.Reader);
+    var layout = TiffLayoutBuilder.Build(metadata.TiffFile, metadata.Reader);
     TiffLayoutPlanner.Plan(layout);
-    var tiff = TiffSerializer.Serialize(file, metadata.Reader?.IsLittleEndian ?? true);
+    var tiff = TiffSerializer.Serialize(metadata.TiffFile, metadata.Reader?.IsLittleEndian ?? true);
 
     return tiff;
   }

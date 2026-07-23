@@ -6,15 +6,7 @@ using System.Text;
 namespace MH.Utils.Imaging.Tiff;
 
 internal static class TiffEditor {
-  public static void Apply(TiffFile file, ImageMetadata metadata) {
-    if (metadata.Orientation is ushort orientation)
-      _setOrientation(file, metadata.Reader?.IsLittleEndian ?? true, orientation);
-
-    _setXpComment(file, metadata);
-    _setUserComment(file, metadata);
-  }
-
-  private static void _setOrientation(TiffFile file, bool littleEndian, ushort orientation) {
+  public static void SetOrientation(TiffFile file, bool littleEndian, ushort orientation) {
     Span<byte> data = stackalloc byte[2];
 
     if (littleEndian)
@@ -38,10 +30,10 @@ internal static class TiffEditor {
     value.Data = data.ToArray();
   }
 
-  private static void _setXpComment(TiffFile file, ImageMetadata metadata) {
-    if (metadata.XpComment == null) return;
+  public static void SetXpComment(TiffFile file, string? comment) {
+    if (string.IsNullOrEmpty(comment)) return; // TODO remove entry
 
-    byte[] data = Encoding.Unicode.GetBytes(metadata.XpComment + '\0');
+    byte[] data = Encoding.Unicode.GetBytes(comment + '\0');
 
     if (file.Ifd0.FindEntry(ExifTag.XpComment) is not { } entry) {
       entry = new TiffEntry(ExifTag.XpComment, TiffType.Byte, data.Length) {
@@ -63,23 +55,23 @@ internal static class TiffEditor {
     value.Data = data;
   }
 
-  private static void _setUserComment(TiffFile file, ImageMetadata metadata) {
-    if (metadata.UserComment == null) return;
+  public static void SetUserComment(TiffFile file, bool littleEndian, string? comment, UserCommentEncoding encoding) {
+    if (string.IsNullOrEmpty(comment)) return; // TODO remove entry
 
-    var encoding = metadata.UserCommentEncoding == UserCommentEncoding.None
+    encoding = encoding == UserCommentEncoding.None
       ? UserCommentEncoding.Ascii
-      : metadata.UserCommentEncoding;
+      : encoding;
 
-    if (encoding == UserCommentEncoding.Ascii && !_isAscii(metadata.UserComment))
+    if (encoding == UserCommentEncoding.Ascii && !_isAscii(comment))
       encoding = UserCommentEncoding.Unicode;
 
     byte[] text = encoding switch {
-      UserCommentEncoding.Ascii => Encoding.ASCII.GetBytes(metadata.UserComment),
-      UserCommentEncoding.Unicode => metadata.Reader?.IsLittleEndian == false
-        ? Encoding.BigEndianUnicode.GetBytes(metadata.UserComment)
-        : Encoding.Unicode.GetBytes(metadata.UserComment),
-      UserCommentEncoding.Jis => _encodeJis(metadata.UserComment),
-      _ => Encoding.UTF8.GetBytes(metadata.UserComment)
+      UserCommentEncoding.Ascii => Encoding.ASCII.GetBytes(comment),
+      UserCommentEncoding.Unicode => littleEndian
+        ? Encoding.BigEndianUnicode.GetBytes(comment)
+        : Encoding.Unicode.GetBytes(comment),
+      UserCommentEncoding.Jis => _encodeJis(comment),
+      _ => Encoding.UTF8.GetBytes(comment)
     };
 
     ReadOnlySpan<byte> header = encoding switch {

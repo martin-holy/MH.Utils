@@ -24,8 +24,8 @@ public class ImageMetadata {
 
   public UserCommentEncoding UserCommentEncoding { get; private set; }
 
-  public ImageMetadata(TiffReader? reader) {
-    Reader = reader;
+  public ImageMetadata(string filePath) {
+    Reader = TiffReader.FromJpeg(filePath);
 
     Orientation = _readOrientation();
     UserComment = _readUserComment();

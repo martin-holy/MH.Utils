@@ -4,6 +4,7 @@
 	- [B] XmpU: WriteToJpeg on windows
 	- [B] FlatTree: Insert items on expand
 	- [N] GpsU: ToDms and FromDms methods
+	- [N] Rational record struct
 
 5.0.1:
 	- [B] FlatTree: Expander visibility

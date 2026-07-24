@@ -1,8 +1,9 @@
 5.1.0 (not released):
 	- [N] ByteU: CheckBounds
-	- [N] ExifU: Read Orientation, Comment and GPS
+	- [N] ImageMetadata: Read and lossless Write of Orientation, Comment and GPS from/to Exif
 	- [B] XmpU: WriteToJpeg on windows
 	- [B] FlatTree: Insert items on expand
+	- [N] GpsU: ToDms and FromDms methods
 
 5.0.1:
 	- [B] FlatTree: Expander visibility

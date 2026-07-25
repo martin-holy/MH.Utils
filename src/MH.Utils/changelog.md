@@ -5,6 +5,7 @@
 	- [B] FlatTree: Insert items on expand
 	- [N] GpsU: ToDms and FromDms methods
 	- [N] Rational record struct
+	- [N] BinarySpanReader
 
 5.0.1:
 	- [B] FlatTree: Expander visibility

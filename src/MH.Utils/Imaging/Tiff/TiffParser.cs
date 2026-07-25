@@ -4,7 +4,7 @@ namespace MH.Utils.Imaging.Tiff;
 
 public static class TiffParser {
   public static TiffFile Parse(TiffReader reader) =>
-    new(_parseIfd(reader, reader.Ifd0Offset));
+    new(_parseIfd(reader, reader.Ifd0Offset), reader.IsLittleEndian);
 
   private static TiffIfd _parseIfd(TiffReader reader, uint ifdOffset) {
     List<TiffEntry> entries = [];

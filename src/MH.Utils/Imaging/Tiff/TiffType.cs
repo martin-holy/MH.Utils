@@ -1,4 +1,6 @@
-﻿namespace MH.Utils.Imaging.Tiff;
+﻿using System;
+
+namespace MH.Utils.Imaging.Tiff;
 
 public enum TiffType : ushort {
   Byte = 1,          // 8-bit unsigned integer
@@ -15,4 +17,23 @@ public enum TiffType : ushort {
 
   Float = 11,        // IEEE single precision
   Double = 12        // IEEE double precision
+}
+
+public static class TiffTypeExtensions {
+  public static int GetSize(this TiffType type) =>
+    type switch {
+      TiffType.Byte => 1,
+      TiffType.Ascii => 1,
+      TiffType.Short => 2,
+      TiffType.Long => 4,
+      TiffType.Rational => 8,
+      TiffType.SByte => 1,
+      TiffType.Undefined => 1,
+      TiffType.SShort => 2,
+      TiffType.SLong => 4,
+      TiffType.SRational => 8,
+      TiffType.Float => 4,
+      TiffType.Double => 8,
+      _ => throw new NotSupportedException($"Unsupported TIFF type: {type}")
+    };
 }

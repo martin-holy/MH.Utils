@@ -1,4 +1,8 @@
-﻿using System.Collections.Generic;
+﻿using MH.Utils.Primitives;
+using System;
+using System.Buffers.Binary;
+using System.Collections.Generic;
+using System.Text;
 
 namespace MH.Utils.Imaging.Tiff;
 
@@ -30,7 +34,14 @@ public sealed class TiffIfd(uint? originalOffset, List<TiffEntry> entries) : Tif
     Entries.Sort(static (a, b) => a.Tag.CompareTo(b.Tag));
   }
 
-  public TiffIfd CreateIfd(ExifTag tag) {
+  public bool RemoveEntry(ExifTag tag) {
+    if (FindEntry(tag) is { } entry)
+      return Entries.Remove(entry);
+
+    return false;
+  }
+
+  internal TiffIfd CreateSubIfd(ExifTag tag) {
     var ifd = new TiffIfd(null, []);
     var entry = new TiffEntry(tag, TiffType.Long, 1) { SubIfd = ifd };
     AddEntry(entry);
@@ -38,17 +49,80 @@ public sealed class TiffIfd(uint? originalOffset, List<TiffEntry> entries) : Tif
   }
 
   public TiffEntry? FindEntry(ExifTag tag) {
-    foreach (var entry in Entries) {
+    foreach (var entry in Entries)
       if (entry.Tag == (ushort)tag)
         return entry;
 
-      if (entry.SubIfd != null) {
-        var found = entry.SubIfd.FindEntry(tag);
-        if (found != null)
-          return found;
-      }
+    return null;
+  }
+
+  public void SetDataEntry(ExifTag tag, TiffType type, byte[] data, int count = 0) {
+    count = count != 0 ? count : _getCountFromData(type, data);
+
+    if (FindEntry(tag) is not { } entry) {
+      entry = new TiffEntry(tag, type, count) {
+        Value = new DataValue(null, data)
+      };
+
+      AddEntry(entry);
+      return;
     }
 
-    return NextIfd?.FindEntry(tag);
+    if (entry.Value is not DataValue value)
+      throw new InvalidOperationException(
+        $"Tag {tag} is expected to be stored as DataValue.");
+
+    entry.Count = (uint)count;
+    value.Data = data;
+  }
+
+  public void SetRationalArray(ExifTag tag, bool littleEndian, params Rational[] values) {
+    byte[] data = new byte[values.Length * 8];
+
+    if (littleEndian)
+      for (int i = 0; i < values.Length; i++) {
+        BinaryPrimitives.WriteUInt32LittleEndian(data.AsSpan(i * 8), values[i].Numerator);
+        BinaryPrimitives.WriteUInt32LittleEndian(data.AsSpan(i * 8 + 4), values[i].Denominator);
+      }
+    else
+      for (int i = 0; i < values.Length; i++) {
+        BinaryPrimitives.WriteUInt32BigEndian(data.AsSpan(i * 8), values[i].Numerator);
+        BinaryPrimitives.WriteUInt32BigEndian(data.AsSpan(i * 8 + 4), values[i].Denominator);
+      }
+
+    SetDataEntry(tag, TiffType.Rational, data, values.Length);
+  }
+
+  public void SetInlineEntry(ExifTag tag, TiffType type, byte[] data, int count = 0) {
+    count = count != 0 ? count : _getCountFromData(type, data);
+
+    if (FindEntry(tag) is not { } entry) {
+      entry = new TiffEntry(tag, type, count) {
+        Value = new InlineValue(null, data)
+      };
+
+      AddEntry(entry);
+      return;
+    }
+
+    if (entry.Value is not InlineValue value)
+      throw new InvalidOperationException(
+        $"Tag {tag} is expected to be stored as InlineValue.");
+
+    entry.Count = (uint)count;
+    value.Data = data;
+  }
+
+  public void SetAscii(ExifTag tag, string value) =>
+    SetDataEntry(tag, TiffType.Ascii, Encoding.ASCII.GetBytes(value + '\0'));
+
+  private static int _getCountFromData(TiffType type, byte[] data) {
+    int size = TiffReader.GetTypeSize(type);
+
+    if (data.Length % size != 0)
+      throw new InvalidOperationException(
+        $"Data length ({data.Length}) is not a multiple of TIFF type '{type}' size ({size}).");
+
+    return data.Length / size;
   }
 }

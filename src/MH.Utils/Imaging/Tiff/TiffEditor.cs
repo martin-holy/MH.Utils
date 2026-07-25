@@ -37,8 +37,8 @@ internal static class TiffEditor {
     byte[] text = encoding switch {
       UserCommentEncoding.Ascii => Encoding.ASCII.GetBytes(comment),
       UserCommentEncoding.Unicode => file.IsLittleEndian
-        ? Encoding.BigEndianUnicode.GetBytes(comment)
-        : Encoding.Unicode.GetBytes(comment),
+        ? Encoding.Unicode.GetBytes(comment)
+        : Encoding.BigEndianUnicode.GetBytes(comment),
       UserCommentEncoding.Jis => _encodeJis(comment),
       _ => Encoding.UTF8.GetBytes(comment)
     };

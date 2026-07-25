@@ -164,84 +164,26 @@ public sealed class TiffReader {
     return _buffer.AsSpan((int)entry.ValueOrOffset, size);
   }
 
-  private static int _getTypeSize(ushort type) =>
+  public static int GetTypeSize(TiffType type) =>
     type switch {
-      1 => 1, // BYTE
-      2 => 1, // ASCII
-      3 => 2, // SHORT
-      4 => 4, // LONG
-      5 => 8, // RATIONAL
-      6 => 1, // SBYTE
-      7 => 1, // UNDEFINED
-      8 => 2, // SSHORT
-      9 => 4, // SLONG
-      10 => 8, // SRATIONAL
-      11 => 4, // FLOAT
-      12 => 8, // DOUBLE
+      TiffType.Byte => 1,
+      TiffType.Ascii => 1,
+      TiffType.Short => 2,
+      TiffType.Long => 4,
+      TiffType.Rational => 8,
+      TiffType.SByte => 1,
+      TiffType.Undefined => 1,
+      TiffType.SShort => 2,
+      TiffType.SLong => 4,
+      TiffType.SRational => 8,
+      TiffType.Float => 4,
+      TiffType.Double => 8,
       _ => throw new NotSupportedException($"Unsupported TIFF type: {type}")
     };
 
   private static int _getValueSize(ushort type, uint count) =>
-    checked(_getTypeSize(type) * (int)count);
+    checked(GetTypeSize((TiffType)type) * (int)count);
 
   public static bool IsInline(ushort type, uint count) =>
     _getValueSize(type, count) <= 4;
-
-  public static TiffReader? FromJpeg(string path) {
-    using var fs = File.OpenRead(path);
-    return FromJpeg(fs);
-  }
-
-  public static TiffReader? FromJpeg(Stream stream) {
-    using var br = new BinaryReader(stream, Encoding.ASCII, leaveOpen: true);
-
-    if (stream.Length < 4)
-      return null;
-
-    if (br.ReadByte() != 0xFF || br.ReadByte() != 0xD8)
-      return null;
-
-    Span<byte> header = stackalloc byte[ExifU.ExifHeader.Length];
-
-    while (stream.Position + 4 <= stream.Length) {
-      if (br.ReadByte() != 0xFF)
-        continue;
-
-      byte marker = br.ReadByte();
-
-      while (marker == 0xFF)
-        marker = br.ReadByte();
-
-      if (marker == 0xDA || marker == 0xD9)
-        break;
-
-      ushort segLen = ByteU.ReadBigEndianUInt16(br);
-
-      if (segLen < 2)
-        throw new InvalidDataException("Invalid JPEG segment.");
-
-      int payloadLen = segLen - 2;
-
-      if (marker != 0xE1) {
-        stream.Seek(payloadLen, SeekOrigin.Current);
-        continue;
-      }
-
-      if (payloadLen < ExifU.ExifHeader.Length) {
-        stream.Seek(payloadLen, SeekOrigin.Current);
-        continue;
-      }
-
-      stream.ReadExactly(header);
-
-      if (!header.SequenceEqual(ExifU.ExifHeader)) {
-        stream.Seek(payloadLen - header.Length, SeekOrigin.Current);
-        continue;
-      }
-
-      return new TiffReader(br.ReadBytes(payloadLen - header.Length));
-    }
-
-    return null;
-  }
 }

@@ -117,7 +117,7 @@ public sealed class TiffIfd(uint? originalOffset, List<TiffEntry> entries) : Tif
     SetDataEntry(tag, TiffType.Ascii, Encoding.ASCII.GetBytes(value + '\0'));
 
   private static int _getCountFromData(TiffType type, byte[] data) {
-    int size = TiffReader.GetTypeSize(type);
+    int size = type.GetSize();
 
     if (data.Length % size != 0)
       throw new InvalidOperationException(

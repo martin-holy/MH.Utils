@@ -43,7 +43,8 @@ public class ImageMetadata {
 
   private string? _readXpComment() {
     if (Reader?.GetIfd0().FindEntry(ExifTag.XpComment) is not { Type: 1 } entry) return null;
-    return Reader.ReadUtf16Le(entry.ValueOrOffset, entry.Count);
+    var span = Reader.GetSpan(entry.ValueOrOffset, (int)entry.Count);
+    return Encoding.Unicode.GetString(span).TrimEnd('\0');
   }
 
   private string? _readUserComment() {
@@ -64,7 +65,7 @@ public class ImageMetadata {
 
     if (span[..8].SequenceEqual(ExifU.UnicodeHeader)) {
       UserCommentEncoding = UserCommentEncoding.Unicode;
-      return Encoding.BigEndianUnicode.GetString(span[8..]).TrimEnd('\0');
+      return Reader.ReadUtf16(span[8..]).TrimEnd('\0');
     }
 
     if (span[..8].SequenceEqual(ExifU.JisHeader)) {
@@ -103,9 +104,9 @@ public class ImageMetadata {
   }
 
   private double _readGpsCoordinate(uint offset) {
-    double degrees = Reader!.ReadRational(offset);
-    double minutes = Reader.ReadRational(offset + 8);
-    double seconds = Reader.ReadRational(offset + 16);
+    var degrees = Reader!.ReadRational(offset);
+    var minutes = Reader.ReadRational(offset + 8);
+    var seconds = Reader.ReadRational(offset + 16);
 
     return GpsU.FromDms(degrees, minutes, seconds);
   }

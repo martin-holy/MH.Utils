@@ -23,7 +23,7 @@ public class ImageMetadata {
   public UserCommentEncoding UserCommentEncoding { get; private set; }
 
   public ImageMetadata(string filePath) {
-    Reader = TiffReader.FromJpeg(filePath);
+    Reader = JpegTiffReader.ReadFrom(filePath);
 
     // TODO lazy-load using GetXyz methods instead of props
     Orientation = _readOrientation();
@@ -69,7 +69,8 @@ public class ImageMetadata {
 
     if (span[..8].SequenceEqual(ExifU.JisHeader)) {
       UserCommentEncoding = UserCommentEncoding.Jis;
-      return null; // Not implemented.
+      Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+      return Encoding.GetEncoding("shift_jis").GetString(span[8..]).TrimEnd('\0');
     }
 
     return null;
@@ -106,13 +107,14 @@ public class ImageMetadata {
     double minutes = Reader.ReadRational(offset + 8);
     double seconds = Reader.ReadRational(offset + 16);
 
-    return degrees + minutes / 60.0 + seconds / 3600.0;
+    return GpsU.FromDms(degrees, minutes, seconds);
   }
 
   public void SetOrientation(ushort orientation) {
     if (orientation == Orientation) return;
     IsExifModified = true;
-    TiffEditor.SetOrientation(TiffFile, Reader?.IsLittleEndian ?? true, orientation);
+    TiffEditor.SetOrientation(TiffFile, orientation);
+    Orientation = orientation;
   }
 
   public void SetComment(string? comment) {
@@ -124,12 +126,27 @@ public class ImageMetadata {
     if (comment == XpComment) return;
     IsExifModified = true;
     TiffEditor.SetXpComment(TiffFile, comment);
+    XpComment = comment;
   }
 
   public void SetUserComment(string? comment) {
     if (comment == UserComment) return;
     IsExifModified = true;
-    TiffEditor.SetUserComment(TiffFile, Reader?.IsLittleEndian ?? true, comment, UserCommentEncoding);
+    TiffEditor.SetUserComment(TiffFile, comment, UserCommentEncoding);
+    UserComment = comment;
+  }
+
+  public void SetLatLong(double? lat, double? lng) {
+    if (_almostEqual(Latitude, lat) && _almostEqual(Longitude, lng)) return;
+    IsExifModified = true;
+    TiffEditor.SetLatLong(TiffFile, lat, lng);
+    Latitude = lat;
+    Longitude = lng;
+  }
+
+  private static bool _almostEqual(double? a, double? b, double eps = 1e-6) {
+    if (a == null || b == null) return a == b;
+    return Math.Abs(a.Value - b.Value) < eps;
   }
 
   private TiffFile _getTiffFile() {
@@ -144,5 +161,21 @@ public class ImageMetadata {
     }
 
     return _tiffFile;
+  }
+
+  public bool Write(string srcPath) =>
+    JpegTiffWriter.Write(srcPath, _exifToTiff());
+
+  public bool WriteIfModified(string srcPath) {
+    if (!IsExifModified) return false;
+    return Write(srcPath);
+  }
+
+  private byte[] _exifToTiff() {
+    var layout = TiffLayoutBuilder.Build(TiffFile, Reader);
+    TiffLayoutPlanner.Plan(layout);
+    var tiff = TiffSerializer.Serialize(TiffFile, Reader?.IsLittleEndian ?? true);
+
+    return tiff;
   }
 }

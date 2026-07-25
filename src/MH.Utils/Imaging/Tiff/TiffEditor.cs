@@ -6,68 +6,37 @@ using System.Text;
 namespace MH.Utils.Imaging.Tiff;
 
 internal static class TiffEditor {
-  public static void SetOrientation(TiffFile file, bool littleEndian, ushort orientation) {
+  public static void SetOrientation(TiffFile file, ushort orientation) {
     Span<byte> data = stackalloc byte[2];
 
-    if (littleEndian)
+    if (file.IsLittleEndian)
       BinaryPrimitives.WriteUInt16LittleEndian(data, orientation);
     else
       BinaryPrimitives.WriteUInt16BigEndian(data, orientation);
 
-    if (file.Ifd0.FindEntry(ExifTag.Orientation) is not { } entry) {
-      entry = new TiffEntry(ExifTag.Orientation, TiffType.Short, 1) {
-        Value = new InlineValue(null, data.ToArray())
-      };
-
-      file.Ifd0.AddEntry(entry);
-
-      return;
-    }
-
-    if (entry.Value is not InlineValue value)
-      throw new InvalidOperationException("Orientation is expected to be stored as InlineValue.");
-
-    value.Data = data.ToArray();
+    file.Ifd0.SetInlineEntry(ExifTag.Orientation, TiffType.Short, data.ToArray());
   }
 
   public static void SetXpComment(TiffFile file, string? comment) {
-    if (string.IsNullOrEmpty(comment)) return; // TODO remove entry
-
-    byte[] data = Encoding.Unicode.GetBytes(comment + '\0');
-
-    if (file.Ifd0.FindEntry(ExifTag.XpComment) is not { } entry) {
-      entry = new TiffEntry(ExifTag.XpComment, TiffType.Byte, data.Length) {
-        Value = new DataValue(null, data)
-      };
-
-      file.Ifd0.AddEntry(entry);
-
+    if (string.IsNullOrEmpty(comment)) {
+      file.Ifd0.RemoveEntry(ExifTag.XpComment);
       return;
     }
 
-    if (entry.Type != (ushort)TiffType.Byte)
-      throw new InvalidOperationException("XPComment is expected to have type BYTE.");
-
-    if (entry.Value is not DataValue value)
-      throw new InvalidOperationException("XPComment is expected to be stored as DataValue.");
-
-    entry.Count = (uint)data.Length;
-    value.Data = data;
+    file.Ifd0.SetDataEntry(ExifTag.XpComment, TiffType.Byte, Encoding.Unicode.GetBytes(comment + '\0'));
   }
 
-  public static void SetUserComment(TiffFile file, bool littleEndian, string? comment, UserCommentEncoding encoding) {
-    if (string.IsNullOrEmpty(comment)) return; // TODO remove entry
+  public static void SetUserComment(TiffFile file, string? comment, UserCommentEncoding encoding) {
+    if (string.IsNullOrEmpty(comment)) {
+      file.ExifIfd?.RemoveEntry(ExifTag.UserComment);
+      return;
+    }
 
-    encoding = encoding == UserCommentEncoding.None
-      ? UserCommentEncoding.Ascii
-      : encoding;
-
-    if (encoding == UserCommentEncoding.Ascii && !_isAscii(comment))
-      encoding = UserCommentEncoding.Unicode;
+    encoding = _normalizeEncoding(comment, encoding);
 
     byte[] text = encoding switch {
       UserCommentEncoding.Ascii => Encoding.ASCII.GetBytes(comment),
-      UserCommentEncoding.Unicode => littleEndian
+      UserCommentEncoding.Unicode => file.IsLittleEndian
         ? Encoding.BigEndianUnicode.GetBytes(comment)
         : Encoding.Unicode.GetBytes(comment),
       UserCommentEncoding.Jis => _encodeJis(comment),
@@ -86,23 +55,19 @@ internal static class TiffEditor {
     header.CopyTo(data);
     text.CopyTo(data.AsSpan(header.Length));
 
-    var exifIfd = _getOrCreateExifIfd(file);
+    var exifIfd = file.GetOrCreateExifIfd();
+    exifIfd.SetDataEntry(ExifTag.UserComment, TiffType.Undefined, data);
+  }
 
-    if (exifIfd.FindEntry(ExifTag.UserComment) is not { } entry) {
-      entry = new TiffEntry(ExifTag.UserComment, TiffType.Undefined, data.Length) {
-        Value = new DataValue(null, data)
-      };
+  private static UserCommentEncoding _normalizeEncoding(string text, UserCommentEncoding encoding) {
+    encoding = encoding == UserCommentEncoding.None
+      ? UserCommentEncoding.Ascii
+      : encoding;
 
-      exifIfd.AddEntry(entry);
+    if (encoding == UserCommentEncoding.Ascii && !_isAscii(text))
+      encoding = UserCommentEncoding.Unicode;
 
-      return;
-    }
-
-    if (entry.Value is not DataValue value)
-      throw new InvalidOperationException("UserComment is expected to be stored as DataValue.");
-
-    entry.Count = (uint)data.Length;
-    value.Data = data;
+    return encoding;
   }
 
   private static bool _isAscii(string text) {
@@ -118,13 +83,20 @@ internal static class TiffEditor {
     return Encoding.GetEncoding("shift_jis").GetBytes(text);
   }
 
-  private static TiffIfd _getOrCreateExifIfd(TiffFile file) {
-    file.ExifIfd ??= file.Ifd0.CreateIfd(ExifTag.ExifIfd);
-    return file.ExifIfd;
-  }
+  public static void SetLatLong(TiffFile file, double? lat, double? lng) {
+    if (lat == null || lng == null) {
+      if (file.GpsIfd == null) return;
 
-  private static TiffIfd _getOrCreateGpsIfd(TiffFile file) {
-    file.GpsIfd ??= file.Ifd0.CreateIfd(ExifTag.GpsIfd);
-    return file.GpsIfd;
+      file.Ifd0.RemoveEntry(ExifTag.GpsIfd);
+      file.GpsIfd = null;
+
+      return;
+    }
+
+    var gps = file.GetOrCreateGpsIfd();
+    gps.SetAscii(ExifTag.GpsLatitudeRef, lat >= 0 ? "N" : "S");
+    gps.SetRationalArray(ExifTag.GpsLatitude, file.IsLittleEndian, GpsU.ToDms(Math.Abs(lat.Value)));
+    gps.SetAscii(ExifTag.GpsLongitudeRef, lng >= 0 ? "E" : "W");
+    gps.SetRationalArray(ExifTag.GpsLongitude, file.IsLittleEndian, GpsU.ToDms(Math.Abs(lng.Value)));
   }
 }

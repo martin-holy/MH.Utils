@@ -1,24 +1,17 @@
-﻿using System;
-using System.Buffers.Binary;
+﻿using MH.Utils.IO;
+using System;
 using System.IO;
-using System.Text;
 
 namespace MH.Utils.Imaging.Tiff;
 
-public sealed class TiffReader {
-  private readonly byte[] _buffer;
-
+public sealed class TiffReader : BinarySpanReader {
   private TiffEntryData[]? _ifd0;
   private TiffEntryData[]? _exifIfd;
   private TiffEntryData[]? _gpsIfd;
 
-  public bool IsLittleEndian { get; }
   public uint Ifd0Offset { get; }
-  public byte[] GetBytes() => _buffer;
 
-  public TiffReader(byte[] buffer) {
-    _buffer = buffer;
-
+  public TiffReader(byte[] buffer) : base(buffer) {
     if (_buffer.Length < 8)
       throw new InvalidDataException("Invalid TIFF header.");
 
@@ -59,36 +52,6 @@ public sealed class TiffReader {
 
   private TiffEntryData[] _getIfd(TiffEntryData[] entries, ExifTag tag) =>
     entries.FindEntry(tag) is { } ifd ? ReadIfd(ifd.ValueOrOffset) : [];
-
-  public ushort ReadUInt16(uint offset) {
-    var span = GetSpan(offset, 2);
-
-    return IsLittleEndian
-      ? BinaryPrimitives.ReadUInt16LittleEndian(span)
-      : BinaryPrimitives.ReadUInt16BigEndian(span);
-  }
-
-  public uint ReadUInt32(uint offset) {
-    var span = GetSpan(offset, 4);
-
-    return IsLittleEndian
-      ? BinaryPrimitives.ReadUInt32LittleEndian(span)
-      : BinaryPrimitives.ReadUInt32BigEndian(span);
-  }
-
-  public double ReadRational(uint offset) {
-    uint numerator = ReadUInt32(offset);
-    uint denominator = ReadUInt32(offset + 4);
-
-    if (denominator == 0) return 0;
-
-    return (double)numerator / denominator;
-  }
-
-  public Span<byte> GetSpan(uint offset, int length) {
-    ByteU.CheckBounds(_buffer, offset, length); //TODO do I need the check?
-    return _buffer.AsSpan((int)offset, length);
-  }
 
   public TiffEntryData[] ReadIfd(uint offset) {
     ushort count = ReadUInt16(offset);
@@ -131,30 +94,6 @@ public sealed class TiffReader {
     return (char)GetSpan(valueOrOffset, 1)[0];
   }
 
-  // TODO not used
-  public string ReadAscii(uint valueOrOffset, uint count) {
-    if (count <= 4) {
-      Span<byte> bytes = stackalloc byte[4];
-
-      if (IsLittleEndian)
-        BinaryPrimitives.WriteUInt32LittleEndian(bytes, valueOrOffset);
-      else
-        BinaryPrimitives.WriteUInt32BigEndian(bytes, valueOrOffset);
-
-      return ReadAscii(bytes[..(int)count]);
-    }
-
-    return ReadAscii(GetSpan(valueOrOffset, (int)count));
-  }
-
-  public static string ReadAscii(ReadOnlySpan<byte> span) =>
-    Encoding.ASCII.GetString(span).TrimEnd('\0');
-
-  public string ReadUtf16Le(uint offset, uint count) {
-    var span = GetSpan(offset, (int)count);
-    return Encoding.Unicode.GetString(span).TrimEnd('\0');
-  }
-
   public ReadOnlySpan<byte> GetValueSpan(TiffEntryData entry) {
     int size = _getValueSize(entry.Type, entry.Count);
 
@@ -164,25 +103,8 @@ public sealed class TiffReader {
     return _buffer.AsSpan((int)entry.ValueOrOffset, size);
   }
 
-  public static int GetTypeSize(TiffType type) =>
-    type switch {
-      TiffType.Byte => 1,
-      TiffType.Ascii => 1,
-      TiffType.Short => 2,
-      TiffType.Long => 4,
-      TiffType.Rational => 8,
-      TiffType.SByte => 1,
-      TiffType.Undefined => 1,
-      TiffType.SShort => 2,
-      TiffType.SLong => 4,
-      TiffType.SRational => 8,
-      TiffType.Float => 4,
-      TiffType.Double => 8,
-      _ => throw new NotSupportedException($"Unsupported TIFF type: {type}")
-    };
-
   private static int _getValueSize(ushort type, uint count) =>
-    checked(GetTypeSize((TiffType)type) * (int)count);
+    checked(((TiffType)type).GetSize() * (int)count);
 
   public static bool IsInline(ushort type, uint count) =>
     _getValueSize(type, count) <= 4;

@@ -36,4 +36,7 @@ public static class GpsU {
 
   public static double FromDms(double degrees, double minutes, double seconds) =>
     degrees + minutes / 60.0 + seconds / 3600.0;
+
+  public static double FromDms(Rational degrees, Rational minutes, Rational seconds) =>
+    FromDms(degrees.ToDouble(), minutes.ToDouble(), seconds.ToDouble());
 }

@@ -1,25 +1,21 @@
-﻿using System;
-using System.Buffers.Binary;
+﻿using MH.Utils.IO;
+using System;
 using System.Collections.Generic;
 using System.IO;
 
 namespace MH.Utils.Imaging.Tiff;
 
-public sealed class TiffWriter(MemoryStream stream, bool littleEndian = false) {
-  private readonly MemoryStream _stream = stream;
-  private readonly bool _littleEndian = littleEndian;
+public sealed class TiffWriter(Stream stream, bool littleEndian = false) : BinaryStreamWriter(stream, littleEndian) {
   private readonly List<DeferredReference> _deferred = [];
 
-  public long Position => _stream.Position;
-
   public void WriteHeader() {
-    if (_littleEndian) {
-      _stream.WriteByte((byte)'I');
-      _stream.WriteByte((byte)'I');
+    if (IsLittleEndian) {
+      WriteByte((byte)'I');
+      WriteByte((byte)'I');
     }
     else {
-      _stream.WriteByte((byte)'M');
-      _stream.WriteByte((byte)'M');
+      WriteByte((byte)'M');
+      WriteByte((byte)'M');
     }
 
     WriteUInt16(42);
@@ -32,7 +28,7 @@ public sealed class TiffWriter(MemoryStream stream, bool littleEndian = false) {
       return;
     }
 
-    _deferred.Add(new(_stream.Position, target));
+    _deferred.Add(new(Position, target));
     WriteUInt32(0);
   }
 
@@ -52,45 +48,6 @@ public sealed class TiffWriter(MemoryStream stream, bool littleEndian = false) {
     Span<byte> value = stackalloc byte[4];
     data.CopyTo(value);
     WriteBytes(value);
-  }
-
-  public void WriteBytes(ReadOnlySpan<byte> bytes) =>
-    _stream.Write(bytes);
-
-  public void WriteZeros(int count) {
-    while (count-- > 0)
-      _stream.WriteByte(0);
-  }
-
-  public void WriteUInt16(ushort value) {
-    Span<byte> buffer = stackalloc byte[2];
-
-    if (_littleEndian)
-      BinaryPrimitives.WriteUInt16LittleEndian(buffer, value);
-    else
-      BinaryPrimitives.WriteUInt16BigEndian(buffer, value);
-
-    _stream.Write(buffer);
-  }
-
-  public void WriteUInt32(uint value) {
-    Span<byte> buffer = stackalloc byte[4];
-
-    if (_littleEndian)
-      BinaryPrimitives.WriteUInt32LittleEndian(buffer, value);
-    else
-      BinaryPrimitives.WriteUInt32BigEndian(buffer, value);
-
-    _stream.Write(buffer);
-  }
-
-  public void PatchUInt32(uint position, uint value) {
-    long current = _stream.Position;
-
-    _stream.Position = position;
-    WriteUInt32(value);
-
-    _stream.Position = current;
   }
 
   private sealed class DeferredReference(long patchPosition, ITiffWritable target) {

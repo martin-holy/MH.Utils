@@ -54,7 +54,7 @@ public sealed class TiffIfd(uint? originalOffset, List<TiffEntry> entries) : Tif
   }
 
   public void SetDataEntry(ExifTag tag, TiffType type, byte[] data, int count = 0) {
-    count = count != 0 ? count : _getCountFromData(type, data);
+    count = count != 0 ? count : type.GetCount(data.Length);
 
     if (FindEntry(tag) is not { } entry) {
       entry = new TiffEntry(tag, type, count) {
@@ -74,7 +74,7 @@ public sealed class TiffIfd(uint? originalOffset, List<TiffEntry> entries) : Tif
   }
 
   public void SetInlineEntry(ExifTag tag, TiffType type, byte[] data, int count = 0) {
-    count = count != 0 ? count : _getCountFromData(type, data);
+    count = count != 0 ? count : type.GetCount(data.Length);
 
     if (FindEntry(tag) is not { } entry) {
       entry = new TiffEntry(tag, type, count) {
@@ -91,15 +91,5 @@ public sealed class TiffIfd(uint? originalOffset, List<TiffEntry> entries) : Tif
 
     entry.Count = (uint)count;
     value.Data = data;
-  }
-
-  private static int _getCountFromData(TiffType type, byte[] data) {
-    int size = type.GetSize();
-
-    if (data.Length % size != 0)
-      throw new InvalidOperationException(
-        $"Data length ({data.Length}) is not a multiple of TIFF type '{type}' size ({size}).");
-
-    return data.Length / size;
   }
 }

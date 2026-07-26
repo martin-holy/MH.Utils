@@ -15,7 +15,7 @@ internal static class TiffEditor {
     else
       BinaryPrimitives.WriteUInt16BigEndian(data, orientation);
 
-    file.Ifd0.SetInlineEntry(ExifTag.Orientation, TiffType.Short, data.ToArray());
+    file.Ifd0.SetEntry(ExifTag.Orientation, TiffType.Short, data.ToArray());
   }
 
   public static void SetXpComment(TiffFile file, string? comment) {
@@ -24,7 +24,7 @@ internal static class TiffEditor {
       return;
     }
 
-    file.Ifd0.SetDataEntry(ExifTag.XpComment, TiffType.Byte, Encoding.Unicode.GetBytes(comment + '\0'));
+    file.Ifd0.SetEntry(ExifTag.XpComment, TiffType.Byte, Encoding.Unicode.GetBytes(comment + '\0'));
   }
 
   public static void SetUserComment(TiffFile file, string? comment, UserCommentEncoding encoding) {
@@ -57,7 +57,7 @@ internal static class TiffEditor {
     text.CopyTo(data.AsSpan(header.Length));
 
     var exifIfd = file.GetOrCreateExifIfd();
-    exifIfd.SetDataEntry(ExifTag.UserComment, TiffType.Undefined, data);
+    exifIfd.SetEntry(ExifTag.UserComment, TiffType.Undefined, data);
   }
 
   private static UserCommentEncoding _normalizeEncoding(string text, UserCommentEncoding encoding) {

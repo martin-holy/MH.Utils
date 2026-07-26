@@ -30,6 +30,9 @@ public static class TiffTypeExtensions {
     return dataLength / size;
   }
 
+  public static int GetDataLength(this TiffType type, int count) =>
+    checked(type.GetSize() * count);
+
   public static int GetSize(this TiffType type) =>
     type switch {
       TiffType.Byte => 1,
@@ -46,4 +49,7 @@ public static class TiffTypeExtensions {
       TiffType.Double => 8,
       _ => throw new NotSupportedException($"Unsupported TIFF type: {type}")
     };
+
+  public static bool IsInline(this TiffType type, int count) =>
+     type.GetDataLength(count) <= 4;
 }

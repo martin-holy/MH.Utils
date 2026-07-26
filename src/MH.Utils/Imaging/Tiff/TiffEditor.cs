@@ -1,6 +1,6 @@
 ﻿using MH.Utils.Imaging.Tiff.Extensions;
+using MH.Utils.IO;
 using System;
-using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Text;
 
@@ -8,14 +8,8 @@ namespace MH.Utils.Imaging.Tiff;
 
 internal static class TiffEditor {
   public static void SetOrientation(TiffFile file, ushort orientation) {
-    Span<byte> data = stackalloc byte[2];
-
-    if (file.IsLittleEndian)
-      BinaryPrimitives.WriteUInt16LittleEndian(data, orientation);
-    else
-      BinaryPrimitives.WriteUInt16BigEndian(data, orientation);
-
-    file.Ifd0.SetEntry(ExifTag.Orientation, TiffType.Short, data.ToArray());
+    var data = BinarySpanWriter.GetBytes(orientation, file.IsLittleEndian);
+    file.Ifd0.SetEntry(ExifTag.Orientation, TiffType.Short, data);
   }
 
   public static void SetXpComment(TiffFile file, string? comment) {

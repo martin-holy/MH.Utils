@@ -6,6 +6,8 @@
 	- [N] GpsU: ToDms and FromDms methods
 	- [N] Rational record struct
 	- [N] BinarySpanReader
+	- [N] BinarySpanWriter
+	- [N] BinaryStreamWriter
 
 5.0.1:
 	- [B] FlatTree: Expander visibility

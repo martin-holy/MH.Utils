@@ -33,6 +33,14 @@ public class BinarySpanReader(byte[] buffer) {
       : BinaryPrimitives.ReadUInt32BigEndian(span);
   }
 
+  public uint ReadUInt32(byte[] bytes) {
+    ReadOnlySpan<byte> span = bytes;
+
+    return IsLittleEndian
+      ? BinaryPrimitives.ReadUInt32LittleEndian(span)
+      : BinaryPrimitives.ReadUInt32BigEndian(span);
+  }
+
   public Rational ReadRational(uint offset) =>
     new(ReadUInt32(offset), ReadUInt32(offset + 4));
 

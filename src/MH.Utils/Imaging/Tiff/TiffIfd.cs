@@ -53,7 +53,7 @@ public sealed class TiffIfd(uint? originalOffset, List<TiffEntry> entries) : Tif
     return null;
   }
 
-  public void SetDataEntry(ExifTag tag, TiffType type, byte[] data, int count = 0) {
+  public void SetEntry(ExifTag tag, TiffType type, byte[] data, int count = 0) {
     count = count != 0 ? count : type.GetCount(data.Length);
 
     if (FindEntry(tag) is not { } entry) {
@@ -67,27 +67,7 @@ public sealed class TiffIfd(uint? originalOffset, List<TiffEntry> entries) : Tif
 
     if (entry.Value is not DataValue value)
       throw new InvalidOperationException(
-        $"Tag {tag} is expected to be stored as DataValue.");
-
-    entry.Count = (uint)count;
-    value.Data = data;
-  }
-
-  public void SetInlineEntry(ExifTag tag, TiffType type, byte[] data, int count = 0) {
-    count = count != 0 ? count : type.GetCount(data.Length);
-
-    if (FindEntry(tag) is not { } entry) {
-      entry = new TiffEntry(tag, type, count) {
-        Value = new InlineValue(null, data)
-      };
-
-      AddEntry(entry);
-      return;
-    }
-
-    if (entry.Value is not InlineValue value)
-      throw new InvalidOperationException(
-        $"Tag {tag} is expected to be stored as InlineValue.");
+        $"Tag {tag} is expected to contain binary data.");
 
     entry.Count = (uint)count;
     value.Data = data;

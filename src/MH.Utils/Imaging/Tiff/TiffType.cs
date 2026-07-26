@@ -20,6 +20,16 @@ public enum TiffType : ushort {
 }
 
 public static class TiffTypeExtensions {
+  public static int GetCount(this TiffType type, int dataLength) {
+    int size = type.GetSize();
+
+    if (dataLength % size != 0)
+      throw new InvalidOperationException(
+        $"Data length ({dataLength}) is not a multiple of TIFF type '{type}' size ({size}).");
+
+    return dataLength / size;
+  }
+
   public static int GetSize(this TiffType type) =>
     type switch {
       TiffType.Byte => 1,

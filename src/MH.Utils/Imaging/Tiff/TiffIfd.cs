@@ -1,8 +1,5 @@
-﻿using MH.Utils.Primitives;
-using System;
-using System.Buffers.Binary;
+﻿using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace MH.Utils.Imaging.Tiff;
 
@@ -76,23 +73,6 @@ public sealed class TiffIfd(uint? originalOffset, List<TiffEntry> entries) : Tif
     value.Data = data;
   }
 
-  public void SetRationalArray(ExifTag tag, bool littleEndian, params Rational[] values) {
-    byte[] data = new byte[values.Length * 8];
-
-    if (littleEndian)
-      for (int i = 0; i < values.Length; i++) {
-        BinaryPrimitives.WriteUInt32LittleEndian(data.AsSpan(i * 8), values[i].Numerator);
-        BinaryPrimitives.WriteUInt32LittleEndian(data.AsSpan(i * 8 + 4), values[i].Denominator);
-      }
-    else
-      for (int i = 0; i < values.Length; i++) {
-        BinaryPrimitives.WriteUInt32BigEndian(data.AsSpan(i * 8), values[i].Numerator);
-        BinaryPrimitives.WriteUInt32BigEndian(data.AsSpan(i * 8 + 4), values[i].Denominator);
-      }
-
-    SetDataEntry(tag, TiffType.Rational, data, values.Length);
-  }
-
   public void SetInlineEntry(ExifTag tag, TiffType type, byte[] data, int count = 0) {
     count = count != 0 ? count : _getCountFromData(type, data);
 
@@ -112,9 +92,6 @@ public sealed class TiffIfd(uint? originalOffset, List<TiffEntry> entries) : Tif
     entry.Count = (uint)count;
     value.Data = data;
   }
-
-  public void SetAscii(ExifTag tag, string value) =>
-    SetDataEntry(tag, TiffType.Ascii, Encoding.ASCII.GetBytes(value + '\0'));
 
   private static int _getCountFromData(TiffType type, byte[] data) {
     int size = type.GetSize();

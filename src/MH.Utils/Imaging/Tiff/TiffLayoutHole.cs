@@ -18,4 +18,7 @@ public sealed class TiffLayoutHole(byte[] data) {
 
     return consumed;
   }
+
+  public void Write(TiffWriter writer) =>
+    writer.WriteBytes(Data);
 }

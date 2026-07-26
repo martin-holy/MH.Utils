@@ -39,8 +39,6 @@ public sealed class TiffSerializer {
 
   private static void _writeObject(TiffWriter writer, TiffObject obj) {
     obj.Write(writer);
-
-    if (obj.HoleAfter != null)
-      writer.WriteZeros(obj.HoleAfter.Size);
+    obj.HoleAfter?.Write(writer);
   }
 }

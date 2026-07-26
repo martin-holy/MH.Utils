@@ -30,11 +30,8 @@ public static class TiffParser {
     }
 
     var data = reader.GetValueSpan(entry).ToArray();
-
-    if (TiffReader.IsInline(entry.Type, entry.Count))
-      result.Value = new InlineValue(0, data);
-    else
-      result.Value = new DataValue(entry.ValueOrOffset, data);
+    var offset = result.IsInline ? 0 : entry.ValueOrOffset;
+    result.Value = new DataValue(offset, data);
 
     return result;
   }

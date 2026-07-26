@@ -1,7 +1,4 @@
-﻿using System;
-using System.Buffers.Binary;
-
-namespace MH.Utils.Imaging.Tiff;
+﻿namespace MH.Utils.Imaging.Tiff;
 
 public static class TiffResolver {
   public static void Resolve(TiffReader reader, TiffFile file) {
@@ -44,20 +41,12 @@ public static class TiffResolver {
   }
 
   private static void _resolveJpeg(TiffReader reader, TiffEntry offsetEntry, TiffEntry lengthEntry) {
-    if (offsetEntry.Value is not InlineValue offsetValue) return;
-    if (lengthEntry.Value is not InlineValue lengthValue) return;
+    if (offsetEntry.Value is not DataValue offsetValue) return;
+    if (lengthEntry.Value is not DataValue lengthValue) return;
 
-    uint offset = _readUInt32(reader.IsLittleEndian, offsetValue.Data);
-    uint length = _readUInt32(reader.IsLittleEndian, lengthValue.Data);
+    uint offset = reader.ReadUInt32(offsetValue.Data);
+    uint length = reader.ReadUInt32(lengthValue.Data);
 
     offsetEntry.Value = new JpegValue(offset, reader.GetSpan(offset, checked((int)length)).ToArray());
-  }
-
-  private static uint _readUInt32(bool littleEndian, byte[] bytes) {
-    ReadOnlySpan<byte> span = bytes;
-
-    return littleEndian
-      ? BinaryPrimitives.ReadUInt32LittleEndian(span)
-      : BinaryPrimitives.ReadUInt32BigEndian(span);
   }
 }

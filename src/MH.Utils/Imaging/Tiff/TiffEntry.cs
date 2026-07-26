@@ -6,6 +6,7 @@ public sealed class TiffEntry(ushort tag, ushort type, uint count) {
   public uint Count { get; set; } = count;
   public TiffObject? Value { get; set; }
   public TiffIfd? SubIfd { get; set; }
+  public bool IsInline => Value is not JpegValue && ((TiffType)Type).IsInline((int)Count);
 
   public TiffEntry(ExifTag tag, TiffType type, int count) : this((ushort)tag, (ushort)type, (uint)count) { }
 
@@ -16,8 +17,8 @@ public sealed class TiffEntry(ushort tag, ushort type, uint count) {
 
     if (SubIfd != null)
       writer.WriteReference(SubIfd);
-    else if (Value is InlineValue inline)
-      writer.WriteInlineValue(inline.Data);
+    else if (IsInline)
+      writer.WriteInlineValue(((DataValue)Value!).Data);
     else
       writer.WriteReference(Value!);
   }

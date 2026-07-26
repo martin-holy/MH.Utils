@@ -19,12 +19,9 @@ public sealed class TiffSerializer {
   private static void _writeIfd(TiffWriter writer, TiffIfd ifd) {
     ifd.Write(writer);
 
-    foreach (var entry in ifd.Entries) {
-      if (entry.Value is InlineValue || entry.Value == null)
-        continue;
-
-      _writeObject(writer, entry.Value);
-    }
+    foreach (var entry in ifd.Entries)
+      if (entry.Value is { } value && !entry.IsInline)
+        _writeObject(writer, value);
 
     foreach (var entry in ifd.Entries) {
       if (entry.SubIfd == null)

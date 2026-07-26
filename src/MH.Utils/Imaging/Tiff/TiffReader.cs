@@ -95,17 +95,13 @@ public sealed class TiffReader : BinarySpanReader {
   }
 
   public ReadOnlySpan<byte> GetValueSpan(TiffEntryData entry) {
-    int size = _getValueSize(entry.Type, entry.Count);
+    var type = (TiffType)entry.Type;
+    var count = (int)entry.Count;
+    int size = type.GetDataLength(count);
 
-    if (IsInline(entry.Type, entry.Count))
+    if (type.IsInline(count))
       return _buffer.AsSpan((int)entry.EntryOffset + 8, size);
 
     return _buffer.AsSpan((int)entry.ValueOrOffset, size);
   }
-
-  private static int _getValueSize(ushort type, uint count) =>
-    checked(((TiffType)type).GetSize() * (int)count);
-
-  public static bool IsInline(ushort type, uint count) =>
-    _getValueSize(type, count) <= 4;
 }

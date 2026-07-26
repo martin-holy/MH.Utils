@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MH.Utils.Imaging.Tiff.Extensions;
+using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Text;
@@ -93,10 +94,11 @@ internal static class TiffEditor {
       return;
     }
 
-    var gps = file.GetOrCreateGpsIfd();
-    gps.SetAscii(ExifTag.GpsLatitudeRef, lat >= 0 ? "N" : "S");
-    gps.SetRationalArray(ExifTag.GpsLatitude, file.IsLittleEndian, GpsU.ToDms(Math.Abs(lat.Value)));
-    gps.SetAscii(ExifTag.GpsLongitudeRef, lng >= 0 ? "E" : "W");
-    gps.SetRationalArray(ExifTag.GpsLongitude, file.IsLittleEndian, GpsU.ToDms(Math.Abs(lng.Value)));
+    file
+      .GetOrCreateGpsIfd()
+      .SetAscii(ExifTag.GpsLatitudeRef, lat >= 0 ? "N" : "S")
+      .SetRationals(ExifTag.GpsLatitude, GpsU.ToDms(Math.Abs(lat.Value)), file.IsLittleEndian)
+      .SetAscii(ExifTag.GpsLongitudeRef, lng >= 0 ? "E" : "W")
+      .SetRationals(ExifTag.GpsLongitude, GpsU.ToDms(Math.Abs(lng.Value)), file.IsLittleEndian);
   }
 }

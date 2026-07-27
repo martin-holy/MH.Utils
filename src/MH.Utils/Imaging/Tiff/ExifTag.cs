@@ -1,6 +1,8 @@
 ﻿namespace MH.Utils.Imaging.Tiff;
 
 public enum ExifTag : ushort {
+  ImageWidth = 0x0100,
+  ImageHeight = 0x0101,
   Orientation = 0x0112,
 
   ExifIfd = 0x8769,

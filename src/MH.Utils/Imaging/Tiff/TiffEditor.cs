@@ -7,15 +7,6 @@ using System.Text;
 namespace MH.Utils.Imaging.Tiff;
 
 internal static class TiffEditor {
-  public static void SetImageWidth(TiffFile file, ushort? value) =>
-    SetUShort(file.Ifd0, ExifTag.ImageWidth, value, file.IsLittleEndian);
-
-  public static void SetImageHeight(TiffFile file, ushort? value) =>
-    SetUShort(file.Ifd0, ExifTag.ImageHeight, value, file.IsLittleEndian);
-
-  public static void SetOrientation(TiffFile file, ushort? value) =>
-    SetUShort(file.Ifd0, ExifTag.Orientation, value, file.IsLittleEndian);
-
   public static void SetXpComment(TiffFile file, string? comment) {
     if (string.IsNullOrEmpty(comment)) {
       file.Ifd0.RemoveEntry(ExifTag.XpComment);

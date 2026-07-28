@@ -9,8 +9,11 @@ public enum ExifTag : ushort {
   GpsIfd = 0x8825,
   InteropIfd = 0xA005,
 
+  Rating = 0x4746,
   UserComment = 0x9286,
   XpComment = 0x9C9C,
+  PixelXDimension = 0xA002,
+  PixelYDimension = 0xA003,
 
   GpsLatitudeRef = 0x0001,
   GpsLatitude = 0x0002,

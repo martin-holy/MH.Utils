@@ -1,4 +1,5 @@
 ﻿using MH.Utils.Imaging.Tiff;
+using MH.Utils.Imaging.Xmp;
 using System;
 using System.Text;
 
@@ -7,28 +8,31 @@ namespace MH.Utils.Imaging;
 public enum UserCommentEncoding { None, Ascii, Unicode, Jis, Undefined }
 
 public class ImageMetadata {
+  private readonly string _filePath;
   private TiffFile? _tiffFile;
+  private XmpMetadata? _xmp;
 
   public TiffReader? Reader { get; }
   public TiffFile TiffFile => _getTiffFile();
   public bool IsExifModified { get; private set; }
+  public bool IsXmpModified { get; private set; }
 
-  public ushort? Orientation { get; private set; }
-  public string? UserComment { get; private set; }
-  public string? XpComment { get; private set; }
-  public string? Comment => XpComment ?? UserComment;
+  public XmpMetadata Xmp => _xmp ??= new(XmpU.ReadFromJpeg(_filePath));
+
+  public ushort? Width { get => _getWidth(); set => _setWidth(value); }
+  public ushort? Height { get => _getHeight(); set => _setHeight(value); }
+  public ushort? Orientation { get => _getOrientation(); set => _setOrientation(value); }
+  public string? Comment { get => _getComment(); set => _setComment(value); }
   public double? Latitude { get; private set; }
   public double? Longitude { get; private set; }
+  public int? Rating { get => _getRating(); set => _setRating(value); }
+  public string[]? Keywords => Xmp.GetArray(XmpNs.Dc, "subject");
 
   public UserCommentEncoding UserCommentEncoding { get; private set; }
 
   public ImageMetadata(string filePath) {
+    _filePath = filePath;
     Reader = JpegTiffReader.ReadFrom(filePath);
-
-    // TODO lazy-load using GetXyz methods instead of props
-    Orientation = _readOrientation();
-    UserComment = _readUserComment();
-    XpComment = _readXpComment();
 
     if (_tryReadLatLong(out var lat, out var lng)) {
       Latitude = lat;
@@ -36,9 +40,65 @@ public class ImageMetadata {
     }
   }
 
-  private ushort? _readOrientation() {
-    if (Reader?.GetIfd0().FindEntry(ExifTag.Orientation) is not { } entry) return null;
-    return Reader.GetShortValue(entry);
+  private ushort? _getWidth() =>
+    Reader?.GetIfd0().GetUShort(ExifTag.ImageWidth, Reader.IsLittleEndian);
+
+  private void _setWidth(ushort? value) {
+    if (value == Width) return;
+
+    TiffEditor.SetUShort(TiffFile.Ifd0, ExifTag.ImageWidth, value, TiffFile.IsLittleEndian);
+
+    if (TiffFile.ExifIfd != null || value != null)
+      TiffEditor.SetUShort(TiffFile.GetOrCreateExifIfd(), ExifTag.PixelXDimension, value, TiffFile.IsLittleEndian);
+
+    Xmp.SetValue(XmpNs.Tiff, "ImageWidth", value?.ToString());
+    Xmp.SetValue(XmpNs.Exif, "PixelXDimension", value?.ToString());
+
+    IsExifModified = true;
+    IsXmpModified = true;
+  }
+
+  private ushort? _getHeight() =>
+    Reader?.GetIfd0().GetUShort(ExifTag.ImageHeight, Reader.IsLittleEndian);
+
+  private void _setHeight(ushort? value) {
+    if (value == Height) return;
+    
+    TiffEditor.SetUShort(TiffFile.Ifd0, ExifTag.ImageHeight, value, TiffFile.IsLittleEndian);
+
+    if (TiffFile.ExifIfd != null || value != null)
+      TiffEditor.SetUShort(TiffFile.GetOrCreateExifIfd(), ExifTag.PixelYDimension, value, TiffFile.IsLittleEndian);
+
+    Xmp.SetValue(XmpNs.Tiff, "ImageLength", value?.ToString());
+    Xmp.SetValue(XmpNs.Exif, "PixelYDimension", value?.ToString());
+
+    IsExifModified = true;
+    IsXmpModified = true;
+  }
+
+  private ushort? _getOrientation() =>
+    Reader?.GetIfd0().GetUShort(ExifTag.Orientation, Reader.IsLittleEndian);
+
+  private void _setOrientation(ushort? value) {
+    if (value == Orientation) return;
+    IsExifModified = true;
+    TiffEditor.SetUShort(TiffFile.Ifd0, ExifTag.Orientation, value, TiffFile.IsLittleEndian);
+  }
+
+  private string? _getComment() =>
+    _readUserComment() ??
+    _readXpComment() ??
+    Xmp.GetLangAlt(XmpNs.Dc, "description");
+
+  private void _setComment(string? comment) {
+    if (comment == Comment) return;
+
+    IsExifModified = true;
+    IsXmpModified = true;
+
+    TiffEditor.SetXpComment(TiffFile, comment);
+    TiffEditor.SetUserComment(TiffFile, comment, UserCommentEncoding);
+    Xmp.SetLangAlt(XmpNs.Dc, "description", comment);
   }
 
   private string? _readXpComment() {
@@ -111,30 +171,20 @@ public class ImageMetadata {
     return GpsU.FromDms(degrees, minutes, seconds);
   }
 
-  public void SetOrientation(ushort orientation) {
-    if (orientation == Orientation) return;
-    IsExifModified = true;
-    TiffEditor.SetOrientation(TiffFile, orientation);
-    Orientation = orientation;
+  private int? _getRating() {
+    if (Xmp.GetInt(XmpNs.Xmp, "Rating") is { } rating) return rating;
+
+    return Reader?.GetIfd0().GetUShort(ExifTag.Rating, Reader.IsLittleEndian);
   }
 
-  public void SetComment(string? comment) {
-    SetXpComment(comment);
-    SetUserComment(comment);
-  }
+  private void _setRating(int? value) {
+    if (value == Rating) return;
 
-  public void SetXpComment(string? comment) {
-    if (comment == XpComment) return;
+    IsXmpModified = true;
     IsExifModified = true;
-    TiffEditor.SetXpComment(TiffFile, comment);
-    XpComment = comment;
-  }
-
-  public void SetUserComment(string? comment) {
-    if (comment == UserComment) return;
-    IsExifModified = true;
-    TiffEditor.SetUserComment(TiffFile, comment, UserCommentEncoding);
-    UserComment = comment;
+    
+    Xmp.SetValue(XmpNs.Xmp, "Rating", value.ToString());
+    TiffEditor.SetUShort(TiffFile.Ifd0, ExifTag.Rating, (ushort?)value, TiffFile.IsLittleEndian);
   }
 
   public void SetLatLong(double? lat, double? lng) {
@@ -176,6 +226,11 @@ public class ImageMetadata {
     var layout = TiffLayoutBuilder.Build(TiffFile, Reader);
     TiffLayoutPlanner.Plan(layout);
     var tiff = TiffSerializer.Serialize(TiffFile, Reader?.IsLittleEndian ?? true);
+
+    // TODO just for test
+    if (Reader != null)
+      System.IO.File.WriteAllBytes(@"c:\Programs\-=Graphics\ExifTool\_original.tiff", Reader.Buffer.ToArray());
+    System.IO.File.WriteAllBytes(@"c:\Programs\-=Graphics\ExifTool\_output.tiff", tiff);
 
     return tiff;
   }

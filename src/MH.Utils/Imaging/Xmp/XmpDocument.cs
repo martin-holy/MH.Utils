@@ -6,7 +6,7 @@ namespace MH.Utils.Imaging.Xmp;
 
 public enum XmpValueStyle { Auto, Attribute, Element }
 
-public sealed class XmpMetadata(string? xml) {
+public sealed class XmpDocument(string? xml) {
   private readonly string? _xml = xml;
   private XDocument? _document;
   private XElement? _rootDesc;

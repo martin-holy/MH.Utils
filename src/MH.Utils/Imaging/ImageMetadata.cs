@@ -26,7 +26,7 @@ public class ImageMetadata {
   public string? Comment { get => _getComment(); set => _setComment(value); }
   public GpsCoordinate? GpsCoordinate { get => _getGpsCoordinate(); set => _setGpsCoordinate(value); }
   public int? Rating { get => _getRating(); set => _setRating(value); }
-  public string[]? Keywords => Xmp.GetArray(XmpNs.Dc, "subject"); // TODO
+  public string[]? Keywords => Xmp.GetKeywords(); // TODO
 
   public UserCommentEncoding UserCommentEncoding { get; private set; }
 
@@ -46,8 +46,7 @@ public class ImageMetadata {
     if (TiffFile.ExifIfd != null || value != null)
       TiffEditor.SetUShort(TiffFile.GetOrCreateExifIfd(), ExifTag.PixelXDimension, value, TiffFile.IsLittleEndian);
 
-    Xmp.SetValue(XmpNs.Tiff, "ImageWidth", value?.ToString());
-    Xmp.SetValue(XmpNs.Exif, "PixelXDimension", value?.ToString());
+    Xmp.SetWidth(value);
 
     IsExifModified = true;
     IsXmpModified = true;
@@ -64,8 +63,7 @@ public class ImageMetadata {
     if (TiffFile.ExifIfd != null || value != null)
       TiffEditor.SetUShort(TiffFile.GetOrCreateExifIfd(), ExifTag.PixelYDimension, value, TiffFile.IsLittleEndian);
 
-    Xmp.SetValue(XmpNs.Tiff, "ImageLength", value?.ToString());
-    Xmp.SetValue(XmpNs.Exif, "PixelYDimension", value?.ToString());
+    Xmp.SetHeight(value);
 
     IsExifModified = true;
     IsXmpModified = true;
@@ -83,17 +81,17 @@ public class ImageMetadata {
   private string? _getComment() =>
     _readUserComment() ??
     _readXpComment() ??
-    Xmp.GetLangAlt(XmpNs.Dc, "description");
+    Xmp.GetComment();
 
   private void _setComment(string? comment) {
     if (comment == Comment) return;
 
-    IsExifModified = true;
-    IsXmpModified = true;
-
     TiffEditor.SetXpComment(TiffFile, comment);
     TiffEditor.SetUserComment(TiffFile, comment, UserCommentEncoding);
-    Xmp.SetLangAlt(XmpNs.Dc, "description", comment);
+    Xmp.SetComment(comment);
+
+    IsExifModified = true;
+    IsXmpModified = true;
   }
 
   private string? _readXpComment() {
@@ -181,19 +179,17 @@ public class ImageMetadata {
     return GpsU.FromDms(degrees, minutes, seconds);
   }
 
-  private int? _getRating() {
-    if (Xmp.GetInt(XmpNs.Xmp, "Rating") is { } rating) return rating;
-
-    return Reader?.GetIfd0().GetUShort(ExifTag.Rating, Reader.IsLittleEndian);
-  }
+  private int? _getRating() =>
+    Xmp.GetRating() ??
+    Reader?.GetIfd0().GetUShort(ExifTag.Rating, Reader.IsLittleEndian);
 
   private void _setRating(int? value) {
     if (value == Rating) return;
 
     IsXmpModified = true;
     IsExifModified = true;
-    
-    Xmp.SetValue(XmpNs.Xmp, "Rating", value.ToString());
+
+    Xmp.SetRating(value);
     TiffEditor.SetUShort(TiffFile.Ifd0, ExifTag.Rating, (ushort?)value, TiffFile.IsLittleEndian);
   }
 

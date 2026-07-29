@@ -1,4 +1,5 @@
-﻿using MH.Utils.Imaging.Tiff.Extensions;
+﻿using MH.Utils.Imaging.Exif;
+using MH.Utils.Imaging.Tiff.Extensions;
 using MH.Utils.IO;
 using System;
 using System.Collections.Generic;
@@ -73,8 +74,8 @@ internal static class TiffEditor {
     return Encoding.GetEncoding("shift_jis").GetBytes(text);
   }
 
-  public static void SetLatLong(TiffFile file, double? lat, double? lng) {
-    if (lat == null || lng == null) {
+  public static void SetGpsCoordinate(TiffFile file, GpsCoordinate? gps) {
+    if (gps == null) {
       if (file.GpsIfd == null) return;
 
       file.Ifd0.RemoveEntry(ExifTag.GpsIfd);
@@ -83,12 +84,15 @@ internal static class TiffEditor {
       return;
     }
 
+    var lat = gps.Value.Latitude;
+    var lng = gps.Value.Longitude;
+
     file
       .GetOrCreateGpsIfd()
       .SetAscii(ExifTag.GpsLatitudeRef, lat >= 0 ? "N" : "S")
-      .SetRationals(ExifTag.GpsLatitude, GpsU.ToDms(Math.Abs(lat.Value)), file.IsLittleEndian)
+      .SetRationals(ExifTag.GpsLatitude, GpsU.ToDms(Math.Abs(lat)), file.IsLittleEndian)
       .SetAscii(ExifTag.GpsLongitudeRef, lng >= 0 ? "E" : "W")
-      .SetRationals(ExifTag.GpsLongitude, GpsU.ToDms(Math.Abs(lng.Value)), file.IsLittleEndian);
+      .SetRationals(ExifTag.GpsLongitude, GpsU.ToDms(Math.Abs(lng)), file.IsLittleEndian);
   }
 
   public static void SetUShort(TiffIfd ifd, ExifTag tag, ushort? value, bool littleEndian) {

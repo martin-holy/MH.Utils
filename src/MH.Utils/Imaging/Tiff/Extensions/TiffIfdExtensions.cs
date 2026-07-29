@@ -1,4 +1,5 @@
-﻿using MH.Utils.IO;
+﻿using MH.Utils.Imaging.Exif;
+using MH.Utils.IO;
 using MH.Utils.Primitives;
 using System.Text;
 

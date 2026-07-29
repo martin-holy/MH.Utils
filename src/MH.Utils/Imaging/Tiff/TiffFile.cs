@@ -1,4 +1,6 @@
-﻿namespace MH.Utils.Imaging.Tiff;
+﻿using MH.Utils.Imaging.Exif;
+
+namespace MH.Utils.Imaging.Tiff;
 
 public sealed class TiffFile(TiffIfd ifd0, bool isLittleEndian) {
   public bool IsLittleEndian { get; } = isLittleEndian;

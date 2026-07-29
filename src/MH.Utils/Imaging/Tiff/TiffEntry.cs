@@ -1,4 +1,6 @@
-﻿namespace MH.Utils.Imaging.Tiff;
+﻿using MH.Utils.Imaging.Exif;
+
+namespace MH.Utils.Imaging.Tiff;
 
 public sealed class TiffEntry(ushort tag, ushort type, uint count) {
   public ushort Tag { get; } = tag;

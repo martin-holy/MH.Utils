@@ -1,4 +1,5 @@
-﻿using MH.Utils.Imaging.Tiff;
+﻿using MH.Utils.Imaging.Exif;
+using MH.Utils.Imaging.Tiff;
 using MH.Utils.Imaging.Xmp;
 using System;
 using System.Text;
@@ -23,21 +24,15 @@ public class ImageMetadata {
   public ushort? Height { get => _getHeight(); set => _setHeight(value); }
   public ushort? Orientation { get => _getOrientation(); set => _setOrientation(value); }
   public string? Comment { get => _getComment(); set => _setComment(value); }
-  public double? Latitude { get; private set; }
-  public double? Longitude { get; private set; }
+  public GpsCoordinate? GpsCoordinate { get => _getGpsCoordinate(); set => _setGpsCoordinate(value); }
   public int? Rating { get => _getRating(); set => _setRating(value); }
-  public string[]? Keywords => Xmp.GetArray(XmpNs.Dc, "subject");
+  public string[]? Keywords => Xmp.GetArray(XmpNs.Dc, "subject"); // TODO
 
   public UserCommentEncoding UserCommentEncoding { get; private set; }
 
   public ImageMetadata(string filePath) {
     _filePath = filePath;
     Reader = JpegTiffReader.ReadFrom(filePath);
-
-    if (_tryReadLatLong(out var lat, out var lng)) {
-      Latitude = lat;
-      Longitude = lng;
-    }
   }
 
   private ushort? _getWidth() =>
@@ -137,30 +132,45 @@ public class ImageMetadata {
     return null;
   }
 
-  private bool _tryReadLatLong(out double latitude, out double longitude) {
-    latitude = 0;
-    longitude = 0;
-    
-    if (Reader == null) return false;
+  private GpsCoordinate? _getGpsCoordinate() {
+    var lat = _readGpsCoordinate(ExifTag.GpsLatitude, ExifTag.GpsLatitudeRef, 'S');
+    var lng = _readGpsCoordinate(ExifTag.GpsLongitude, ExifTag.GpsLongitudeRef, 'W');
 
-    var gps = Reader.GetGpsIfd();
+    if (lat.HasValue && lng.HasValue)
+      return new(lat.Value, lng.Value);
 
-    if (gps.FindEntry(ExifTag.GpsLatitudeRef) is not { } latRef
-      || gps.FindEntry(ExifTag.GpsLatitude) is not { Type: 5, Count: 3 } lat
-      || gps.FindEntry(ExifTag.GpsLongitudeRef) is not { } lngRef
-      || gps.FindEntry(ExifTag.GpsLongitude) is not { Type: 5, Count: 3 } lng)
-      return false;
+    return null;
+  }
 
-    latitude = _readGpsCoordinate(lat.ValueOrOffset);
-    longitude = _readGpsCoordinate(lng.ValueOrOffset);
+  public void _setGpsCoordinate(GpsCoordinate? gps) {
+    var lat = _readGpsCoordinate(ExifTag.GpsLatitude, ExifTag.GpsLatitudeRef, 'S');
+    var lng = _readGpsCoordinate(ExifTag.GpsLongitude, ExifTag.GpsLongitudeRef, 'W');
 
-    if (Reader.ReadAsciiChar(latRef.ValueOrOffset, latRef.Count) == 'S')
-      latitude = -latitude;
+    if (_almostEqual(gps?.Latitude, lat) && _almostEqual(gps?.Longitude, lng)) return;
 
-    if (Reader.ReadAsciiChar(lngRef.ValueOrOffset, lngRef.Count) == 'W')
-      longitude = -longitude;
+    IsExifModified = true;
 
-    return true;
+    TiffEditor.SetGpsCoordinate(TiffFile, gps);
+  }
+
+  private static bool _almostEqual(double? a, double? b, double eps = 1e-6) {
+    if (a == null || b == null) return a == b;
+    return Math.Abs(a.Value - b.Value) < eps;
+  }
+
+  private double? _readGpsCoordinate(ExifTag tag, ExifTag refTag, char negRef) {
+    if (Reader?.GetGpsIfd() is not { } gps) return null;
+
+    if (gps.FindEntry(refTag) is not { } latRef
+      || gps.FindEntry(tag) is not { Type: 5, Count: 3 } lat)
+      return null;
+
+    var coordinate = _readGpsCoordinate(lat.ValueOrOffset);
+
+    if (Reader.ReadAsciiChar(latRef.ValueOrOffset, latRef.Count) == negRef)
+      coordinate = -coordinate;
+
+    return coordinate;
   }
 
   private double _readGpsCoordinate(uint offset) {
@@ -185,19 +195,6 @@ public class ImageMetadata {
     
     Xmp.SetValue(XmpNs.Xmp, "Rating", value.ToString());
     TiffEditor.SetUShort(TiffFile.Ifd0, ExifTag.Rating, (ushort?)value, TiffFile.IsLittleEndian);
-  }
-
-  public void SetLatLong(double? lat, double? lng) {
-    if (_almostEqual(Latitude, lat) && _almostEqual(Longitude, lng)) return;
-    IsExifModified = true;
-    TiffEditor.SetLatLong(TiffFile, lat, lng);
-    Latitude = lat;
-    Longitude = lng;
-  }
-
-  private static bool _almostEqual(double? a, double? b, double eps = 1e-6) {
-    if (a == null || b == null) return a == b;
-    return Math.Abs(a.Value - b.Value) < eps;
   }
 
   private TiffFile _getTiffFile() {
@@ -226,11 +223,6 @@ public class ImageMetadata {
     var layout = TiffLayoutBuilder.Build(TiffFile, Reader);
     TiffLayoutPlanner.Plan(layout);
     var tiff = TiffSerializer.Serialize(TiffFile, Reader?.IsLittleEndian ?? true);
-
-    // TODO just for test
-    if (Reader != null)
-      System.IO.File.WriteAllBytes(@"c:\Programs\-=Graphics\ExifTool\_original.tiff", Reader.Buffer.ToArray());
-    System.IO.File.WriteAllBytes(@"c:\Programs\-=Graphics\ExifTool\_output.tiff", tiff);
 
     return tiff;
   }

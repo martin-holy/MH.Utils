@@ -1,4 +1,4 @@
-﻿namespace MH.Utils.Imaging.Tiff;
+﻿namespace MH.Utils.Imaging.Exif;
 
 public enum ExifTag : ushort {
   ImageWidth = 0x0100,

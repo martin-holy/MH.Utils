@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using MH.Utils.Imaging.Exif;
+using System.IO;
 
 namespace MH.Utils.Imaging.Tiff;
 

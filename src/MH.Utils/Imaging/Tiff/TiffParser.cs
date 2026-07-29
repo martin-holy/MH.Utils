@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using MH.Utils.Imaging.Exif;
+using System.Collections.Generic;
 
 namespace MH.Utils.Imaging.Tiff;
 

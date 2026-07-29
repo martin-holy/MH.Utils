@@ -1,4 +1,6 @@
-﻿namespace MH.Utils.Imaging.Tiff;
+﻿using MH.Utils.Imaging.Exif;
+
+namespace MH.Utils.Imaging.Tiff;
 
 public static class TiffResolver {
   public static void Resolve(TiffReader reader, TiffFile file) {

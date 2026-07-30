@@ -17,8 +17,50 @@ public sealed class XmpDocument(string? xml) {
       : XDocument.Parse(_xml);
 
   private static XDocument _createDocument() {
-    throw new NotImplementedException();
+    throw new NotImplementedException(); //TODO
   }
+
+  public string[]? GetArray(XNamespace ns, string name) {
+    var items = Document
+      .Descendants()
+      .Where(e => e.Name == ns + name)
+      .Descendants()
+      .Where(e => e.Name.LocalName == "li")
+      .Select(e => e.Value.Trim())
+      .Where(x => x.Length > 0)
+      .Distinct(StringComparer.OrdinalIgnoreCase)
+      .ToArray();
+
+    return items.Length == 0 ? null : items;
+  }
+
+  public void SetArray(XNamespace ns, string name, string[]? values) {
+    var bag = _findArray(ns, name);
+
+    if (values == null || values.Length == 0) {
+      bag?.Parent?.Remove();
+      return;
+    }
+
+    if (bag == null) {
+      var description = _getDescription();
+      var element = new XElement(ns + name, new XElement(XmpNs.Rdf + "Bag"));
+
+      description.Add(element);
+      bag = element.Element(XmpNs.Rdf + "Bag")!;
+    }
+
+    bag.RemoveNodes();
+
+    foreach (var value in values)
+      bag.Add(new XElement(XmpNs.Rdf + "li", value));
+  }
+
+  private XElement? _findArray(XNamespace ns, string name) =>
+    Document
+      .Descendants(ns + name)
+      .Elements(XmpNs.Rdf + "Bag")
+      .FirstOrDefault();
 
   public int? GetInt(XNamespace ns, string name) {
     var value = GetValue(ns, name);
@@ -39,20 +81,6 @@ public sealed class XmpDocument(string? xml) {
         .Descendants()
         .FirstOrDefault(e => e.Name == ns + name)
         ?.Value;
-  }
-
-  public string[]? GetArray(XNamespace ns, string name) {
-    var items = Document
-      .Descendants()
-      .Where(e => e.Name == ns + name)
-      .Descendants()
-      .Where(e => e.Name.LocalName == "li")
-      .Select(e => e.Value.Trim())
-      .Where(x => x.Length > 0)
-      .Distinct(StringComparer.OrdinalIgnoreCase)
-      .ToArray();
-
-    return items.Length == 0 ? null : items;
   }
 
   public void SetValue(XNamespace ns, string name, string? value,

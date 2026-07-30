@@ -2,6 +2,7 @@
 using MH.Utils.Imaging.Tiff;
 using MH.Utils.Imaging.Xmp;
 using System;
+using System.Linq;
 
 namespace MH.Utils.Imaging;
 
@@ -21,13 +22,13 @@ public class ImageMetadata(string filePath) {
   public string? Comment { get => _getComment(); set => _setComment(value); }
   public GpsCoordinate? GpsCoordinate { get => _getGpsCoordinate(); set => _setGpsCoordinate(value); }
   public int? Rating { get => _getRating(); set => _setRating(value); }
-  public string[]? Keywords => Xmp.GetKeywords(); // TODO
+  public string[]? Keywords { get => _getKeywords(); set => _setKeywords(value); }
 
   private ushort? _getWidth() =>
     Exif.GetWidth();
 
   private void _setWidth(ushort? value) {
-    if (value == Width) return;
+    if (Width == value) return;
 
     Exif.SetWidth(value);
     Xmp.SetWidth(value);
@@ -40,7 +41,7 @@ public class ImageMetadata(string filePath) {
     Exif.GetHeight();
 
   private void _setHeight(ushort? value) {
-    if (value == Height) return;
+    if (Height == value) return;
     
     Exif.SetHeight(value);
     Xmp.SetHeight(value);
@@ -53,7 +54,7 @@ public class ImageMetadata(string filePath) {
     Exif.GetOrientation();
 
   private void _setOrientation(ushort? value) {
-    if (value == Orientation) return;
+    if (Orientation == value) return;
 
     Exif.SetOrientation(value);
 
@@ -61,13 +62,13 @@ public class ImageMetadata(string filePath) {
   }
 
   private string? _getComment() =>
-    Exif.GetComment() ?? Xmp.GetComment();
+    Xmp.GetComment() ?? Exif.GetComment();
 
-  private void _setComment(string? comment) {
-    if (comment == Comment) return;
+  private void _setComment(string? value) {
+    if (Comment == value) return;
 
-    Exif.SetComment(comment);
-    Xmp.SetComment(comment);
+    Exif.SetComment(value);
+    Xmp.SetComment(value);
 
     IsExifModified = true;
     IsXmpModified = true;
@@ -77,32 +78,35 @@ public class ImageMetadata(string filePath) {
     Exif.GetGpsCoordinate();
 
   public void _setGpsCoordinate(GpsCoordinate? gps) {
-    var current = GpsCoordinate;
-
-    if (_almostEqual(gps?.Latitude, current?.Latitude) &&
-      _almostEqual(gps?.Longitude, current?.Longitude)) return;
+    if (gps.AlmostEquals(GpsCoordinate)) return;
 
     Exif.SetGpsCoordinate(gps);
 
     IsExifModified = true;
   }
 
-  private static bool _almostEqual(double? a, double? b, double eps = 1e-6) {
-    if (a == null || b == null) return a == b;
-    return Math.Abs(a.Value - b.Value) < eps;
-  }
-
   private int? _getRating() =>
     Xmp.GetRating() ?? Exif.GetRating();
 
   private void _setRating(int? value) {
-    if (value == Rating) return;
+    if (Rating == value) return;
 
     IsXmpModified = true;
     IsExifModified = true;
 
     Xmp.SetRating(value);
     Exif.SetRating(value);
+  }
+
+  private string[]? _getKeywords() =>
+    Xmp.GetKeywords();
+
+  private void _setKeywords(string[]? value) {
+    if ((Keywords ?? []).SequenceEqual(value ?? [])) return;
+
+    IsXmpModified = true;
+
+    Xmp.SetKeywords(value);
   }
 
   public bool Write(string srcPath) =>

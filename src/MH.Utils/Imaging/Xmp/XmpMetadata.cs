@@ -27,4 +27,7 @@ public class XmpMetadata(string? xml) {
 
   public string[]? GetKeywords() =>
     Doc.GetArray(XmpNs.Dc, "subject");
+
+  public void SetKeywords(string[]? values) =>
+    Doc.SetArray(XmpNs.Dc, "subject", values);
 }

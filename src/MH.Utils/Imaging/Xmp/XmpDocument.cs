@@ -9,12 +9,11 @@ public enum XmpValueStyle { Auto, Attribute, Element }
 public sealed class XmpDocument(string? xml) {
   private readonly string? _xml = xml;
   private XDocument? _document;
-  private XElement? _rootDesc;
 
   public XDocument Document =>
     _document ??= string.IsNullOrWhiteSpace(_xml)
       ? _createDocument()
-      : XDocument.Parse(_xml);
+      : XDocument.Parse(_xml, LoadOptions.PreserveWhitespace);
 
   private static XDocument _createDocument() {
     throw new NotImplementedException(); //TODO
@@ -43,7 +42,7 @@ public sealed class XmpDocument(string? xml) {
     }
 
     if (bag == null) {
-      var description = _getDescription();
+      var description = _getOrCreateDescription(ns);
       var element = new XElement(ns + name, new XElement(XmpNs.Rdf + "Bag"));
 
       description.Add(element);
@@ -87,8 +86,7 @@ public sealed class XmpDocument(string? xml) {
     XmpValueStyle defaultStyle = XmpValueStyle.Attribute,
     XmpValueStyle style = XmpValueStyle.Auto) {
 
-    var description = _getDescription();
-
+    var description = _getOrCreateDescription(ns);
     var attribute = description.Attribute(ns + name);
     var element = description.Element(ns + name);
 
@@ -130,7 +128,7 @@ public sealed class XmpDocument(string? xml) {
   }
 
   public string? GetLangAlt(XNamespace ns, string name) {
-    if (_getDescription().Element(ns + name) is not { } property) return null;
+    if (_getOrCreateDescription(ns).Element(ns + name) is not { } property) return null;
 
     var rdf = XmpNs.Rdf;
     var xml = XNamespace.Xml;
@@ -151,7 +149,7 @@ public sealed class XmpDocument(string? xml) {
   }
 
   public void SetLangAlt(XNamespace ns, string name, string? value) {
-    var description = _getDescription();
+    var description = _getOrCreateDescription(ns);
 
     // Remove an invalid attribute representation.
     description.Attribute(ns + name)?.Remove();
@@ -181,11 +179,7 @@ public sealed class XmpDocument(string? xml) {
       .FirstOrDefault(e => (string?)e.Attribute(xml + "lang") == "x-default");
 
     if (item == null) {
-      item = new XElement(
-        rdf + "li",
-        new XAttribute(xml + "lang", "x-default"),
-        value);
-
+      item = new XElement(rdf + "li", new XAttribute(xml + "lang", "x-default"), value);
       alt.Add(item);
     }
     else {
@@ -193,11 +187,24 @@ public sealed class XmpDocument(string? xml) {
     }
   }
 
-  private XElement _getDescription() {
-    _rootDesc ??= Document
-      .Descendants()
-      .First(e => e.Name.LocalName == "Description");
+  private XElement _getOrCreateDescription(XNamespace ns) {
+    var desc = Document
+      .Descendants(XmpNs.Rdf + "Description")
+      .FirstOrDefault(d =>
+        d.Attributes()
+          .Any(a => a.IsNamespaceDeclaration && a.Value == ns.NamespaceName));
 
-    return _rootDesc;
+    if (desc != null) return desc;
+
+    var rdf = Document.Descendants(XmpNs.Rdf + "RDF").First();
+
+    desc = new XElement(
+      XmpNs.Rdf + "Description",
+      new XAttribute(XmpNs.Rdf + "about", ""),
+      new XAttribute(XNamespace.Xmlns + XmpNs.GetPrefix(ns), ns.NamespaceName));
+
+    rdf.Add(desc);
+
+    return desc;
   }
 }

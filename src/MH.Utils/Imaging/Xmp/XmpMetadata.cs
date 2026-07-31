@@ -1,4 +1,6 @@
-﻿namespace MH.Utils.Imaging.Xmp;
+﻿using System.Xml.Linq;
+
+namespace MH.Utils.Imaging.Xmp;
 
 public class XmpMetadata(string? xml) {
   public XmpDocument Doc { get; } = new(xml);
@@ -30,4 +32,7 @@ public class XmpMetadata(string? xml) {
 
   public void SetKeywords(string[]? values) =>
     Doc.SetArray(XmpNs.Dc, "subject", values);
+
+  public string ToXml() =>
+    Doc.Document.ToString(SaveOptions.DisableFormatting);
 }

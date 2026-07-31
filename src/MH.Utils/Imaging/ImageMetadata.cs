@@ -109,11 +109,20 @@ public class ImageMetadata(string filePath) {
     Xmp.SetKeywords(value);
   }
 
-  public bool Write(string srcPath) =>
-    JpegTiffWriter.Write(srcPath, Exif.ToTiff());
+  public bool Write(string srcPath) {
+    var jpeg = new JpegMetadataWriter();
+
+    if (IsExifModified)
+      jpeg.Exif = Exif.ToTiff();
+
+    if (IsXmpModified)
+      jpeg.Xmp = Xmp.ToXml();
+
+    return jpeg.Write(srcPath);
+  }
 
   public bool WriteIfModified(string srcPath) {
-    if (!IsExifModified) return false;
+    if (!IsExifModified && !IsXmpModified) return false;
     return Write(srcPath);
   }
 }

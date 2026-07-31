@@ -1,5 +1,4 @@
 ﻿using MH.Utils.Imaging.Exif;
-using MH.Utils.Imaging.Tiff;
 using MH.Utils.Imaging.Xmp;
 using System;
 using System.Linq;
@@ -13,7 +12,7 @@ public class ImageMetadata(string filePath) {
   public bool IsExifModified { get; private set; }
   public bool IsXmpModified { get; private set; }
 
-  public ExifMetadata Exif => _exif ??= new(JpegTiffReader.ReadFrom(filePath));
+  public ExifMetadata Exif => _exif ??= new(ExifU.ReadFromJpeg(filePath));
   public XmpMetadata Xmp => _xmp ??= new(XmpU.ReadFromJpeg(filePath));
 
   public ushort? Width { get => _getWidth(); set => _setWidth(value); }

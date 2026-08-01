@@ -16,7 +16,26 @@ public sealed class XmpDocument(string? xml) {
       : XDocument.Parse(_xml, LoadOptions.PreserveWhitespace);
 
   private static XDocument _createDocument() {
-    throw new NotImplementedException(); //TODO
+    var rdf = XmpNs.Rdf;
+
+    return new XDocument(
+      new XDeclaration("1.0", "utf-8", null),
+
+      new XElement(XNamespace.Get("adobe:ns:meta/") + "xmpmeta",
+        new XAttribute(XNamespace.Xmlns + "x", "adobe:ns:meta/"),
+
+        new XElement(rdf + "RDF",
+          new XAttribute(XNamespace.Xmlns + "rdf", rdf.NamespaceName),
+
+          new XElement(rdf + "Description",
+            new XAttribute(rdf + "about", ""),
+
+            new XAttribute(XNamespace.Xmlns + "xmp", XmpNs.Xmp.NamespaceName),
+            new XAttribute(XNamespace.Xmlns + "dc", XmpNs.Dc.NamespaceName)
+          )
+        )
+      )
+    );
   }
 
   public string[]? GetArray(XNamespace ns, string name) {
@@ -207,4 +226,7 @@ public sealed class XmpDocument(string? xml) {
 
     return desc;
   }
+
+  public string ToXml() =>
+    Document.ToString(SaveOptions.DisableFormatting);
 }

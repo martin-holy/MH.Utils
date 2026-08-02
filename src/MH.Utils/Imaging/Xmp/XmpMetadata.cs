@@ -1,9 +1,40 @@
-﻿using System.Xml.Linq;
+﻿using System;
+using System.IO;
+using System.Reflection;
+using System.Text;
 
 namespace MH.Utils.Imaging.Xmp;
 
-public class XmpMetadata(string? xml) {
-  public XmpDocument Doc { get; } = new(xml);
+public class XmpMetadata {
+  private const int _app1MaxPayload = 65533;
+  private const int _paddingChunk = 2048;
+  private const string _xmpMetaEnd = "</x:xmpmeta>";
+  private const string _defaultEnd = "\r\n<?xpacket end=\"w\"?>";
+  private static string _createDefaultBegin() => $"<?xpacket begin=\"﻿\" id=\"{Guid.NewGuid():N}\"?>\r\n";
+
+  private readonly string _packetBegin;
+  private readonly string _packetEnd;
+  private readonly int _originalPacketSize;
+  private readonly record struct XmlSection(int Start, int End, string Xml);
+  private static readonly string _toolkitVersion = _createToolkitVersion();
+
+  public XmpDocument Doc { get; }
+
+  public XmpMetadata(string? packet) {
+    if (string.IsNullOrWhiteSpace(packet)) {
+      _packetBegin = _createDefaultBegin();
+      _packetEnd = _defaultEnd;
+      Doc = new(null);
+      return;
+    }
+
+    _originalPacketSize = Encoding.UTF8.GetByteCount(packet);
+
+    var xml = _extractXml(packet);
+    _packetBegin = _extractPacketBegin(packet, xml.Start);
+    _packetEnd = _extractPacketEnd(packet, xml.End);
+    Doc = new(xml.Xml);
+  }
 
   public void SetWidth(ushort? value) {
     Doc.SetValue(XmpNs.Tiff, "ImageWidth", value?.ToString());
@@ -33,6 +64,104 @@ public class XmpMetadata(string? xml) {
   public void SetKeywords(string[]? values) =>
     Doc.SetArray(XmpNs.Dc, "subject", values);
 
-  public string ToXml() =>
-    Doc.Document.ToString(SaveOptions.DisableFormatting);
+  private static XmlSection _extractXml(string packet) {
+    var start = packet.IndexOf("<x:xmpmeta", StringComparison.Ordinal);
+    if (start < 0) throw new InvalidDataException("Missing x:xmpmeta.");
+
+    var end = packet.IndexOf(_xmpMetaEnd, start, StringComparison.Ordinal);
+    if (end < 0) throw new InvalidDataException("Missing </x:xmpmeta>.");
+    end += _xmpMetaEnd.Length;
+
+    var xml = packet[start..end];
+
+    return new(start, end, xml);
+  }
+
+  private static string _extractPacketBegin(string packet, int xmlStart) {
+    var begin = packet[..xmlStart];
+
+    if (begin.Length == 0)
+      begin = _createDefaultBegin();
+
+    return begin;
+  }
+
+  private static string _extractPacketEnd(string packet, int xmlEnd) {
+    int packetEndStart = packet.IndexOf("<?xpacket", xmlEnd, StringComparison.Ordinal);
+
+    return packetEndStart >= 0 ? packet[packetEndStart..] : _defaultEnd;
+  }
+
+  public byte[] ToPacket() {
+    _setToolKitVersion();
+
+    var xml = Doc.ToXml();
+
+    var begin = Encoding.UTF8.GetBytes(_packetBegin);
+    var body = Encoding.UTF8.GetBytes(xml);
+    var end = Encoding.UTF8.GetBytes(_packetEnd);
+
+    int targetSize = _calculatePacketSize(begin.Length, body.Length, end.Length);
+
+    using var stream = new MemoryStream(targetSize);
+    stream.Write(begin);
+    stream.Write(body);
+    _writePadding(stream, targetSize - stream.Length);
+    stream.Write(end);
+
+    return stream.ToArray();
+  }
+
+  private void _setToolKitVersion() {
+    Doc.Document?.Root?.SetAttributeValue(XmpNs.X + "xmptk", _toolkitVersion);
+  }
+
+  private static string _createToolkitVersion() {
+    var version = typeof(XmpMetadata).Assembly
+      .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+      .InformationalVersion ?? "Unknown";
+
+    int i = version.IndexOf('+');
+    if (i >= 0) version = version[..i];
+
+    return $"MH.Utils.Imaging {version}";
+  }
+
+  private int _calculatePacketSize(int beginLength, int bodyLength, int endLength) {
+    int fixedSize = beginLength + bodyLength + endLength;
+    int packetSize = Math.Max(_originalPacketSize, fixedSize);
+
+    if (packetSize > _app1MaxPayload)
+      return _app1MaxPayload;
+
+    if (packetSize >= fixedSize)
+      return packetSize;
+
+    return _growPacketSize(fixedSize);
+  }
+
+  private static int _growPacketSize(int requiredSize) {
+    int packetSize = requiredSize;
+
+    while (packetSize < _app1MaxPayload) {
+      packetSize += _paddingChunk;
+
+      if (packetSize >= requiredSize) break;
+    }
+
+    return Math.Min(packetSize, _app1MaxPayload);
+  }
+
+  private static void _writePadding(Stream stream, long count) {
+    if (count <= 0) return;
+
+    Span<byte> spaces = stackalloc byte[256];
+    spaces.Fill((byte)' ');
+
+    while (count > 0) {
+      int length = (int)Math.Min(count, spaces.Length);
+      stream.Write(spaces[..length]);
+      count -= length;
+    }
+  }
 }

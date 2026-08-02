@@ -4,6 +4,7 @@ using System.Xml.Linq;
 namespace MH.Utils.Imaging.Xmp;
 
 public static class XmpNs {
+  public static readonly XNamespace X = "adobe:ns:meta/";
   public static readonly XNamespace Xmp = "http://ns.adobe.com/xap/1.0/";
   public static readonly XNamespace Dc = "http://purl.org/dc/elements/1.1/";
   public static readonly XNamespace Exif = "http://ns.adobe.com/exif/1.0/";
@@ -14,6 +15,7 @@ public static class XmpNs {
   public static readonly XNamespace MpReg = "http://ns.microsoft.com/photo/1.2/t/Region#";
 
   public static string GetPrefix(XNamespace ns) =>
+    ns == X ? "x" :
     ns == Xmp ? "xmp" :
     ns == Dc ? "dc" :
     ns == Exif ? "exif" :

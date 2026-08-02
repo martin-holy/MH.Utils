@@ -22,7 +22,7 @@ public sealed class XmpDocument(string? xml) {
       new XDeclaration("1.0", "utf-8", null),
 
       new XElement(XNamespace.Get("adobe:ns:meta/") + "xmpmeta",
-        new XAttribute(XNamespace.Xmlns + "x", "adobe:ns:meta/"),
+        new XAttribute(XNamespace.Xmlns + "x", XmpNs.X.NamespaceName),
 
         new XElement(rdf + "RDF",
           new XAttribute(XNamespace.Xmlns + "rdf", rdf.NamespaceName),

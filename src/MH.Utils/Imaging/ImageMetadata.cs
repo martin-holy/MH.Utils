@@ -115,7 +115,7 @@ public class ImageMetadata(string filePath) {
       jpeg.Exif = Exif.ToTiff();
 
     if (IsXmpModified)
-      jpeg.Xmp = Xmp.ToXml();
+      jpeg.Xmp = Xmp.ToPacket();
 
     return jpeg.Write(srcPath);
   }

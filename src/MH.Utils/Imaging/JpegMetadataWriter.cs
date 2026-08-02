@@ -25,15 +25,20 @@ public sealed class JpegMetadataWriter {
   private bool _metadataWritten;
 
   public byte[]? Exif { get; set; }
-  public string? Xmp { get; set; }
+  public byte[]? Xmp { get; set; }
 
   public bool Write(string srcPath) {
-    var tmpPath = srcPath + ".tmp";
+    //var tmpPath = srcPath + ".tmp";
+    var tmpPath = srcPath + "_output.jpg"; //TODO just for test
 
     try {
       using var input = File.OpenRead(srcPath);
       using var output = File.Create(tmpPath);
       Write(input, output);
+
+      // TODO removed for testing
+      //File.Delete(srcPath);
+      //File.Move(tmpPath, srcPath);
 
       return true;
     }
@@ -232,14 +237,12 @@ public sealed class JpegMetadataWriter {
   }
 
   private void _writeXmp(Stream stream) {
-    if (string.IsNullOrEmpty(Xmp)) return;
+    if (Xmp == null) return;
 
-    byte[] bytes = Encoding.UTF8.GetBytes(Xmp);
-
-    if (bytes.Length <= _normalCapacity)
-      _writeApp1(stream, XmpHeader, bytes);
+    if (Xmp.Length <= _normalCapacity)
+      _writeApp1(stream, XmpHeader, Xmp);
     else
-      _writeExtendedXmp(stream, bytes);
+      _writeExtendedXmp(stream, Xmp);
 
     _xmpHandled = true;
   }

@@ -61,7 +61,7 @@ public sealed class XmpDocument(string? xml) {
     }
 
     if (bag == null) {
-      var description = _getOrCreateDescription(ns);
+      var description = GetOrCreateDescription(ns);
       var element = new XElement(ns + name, new XElement(XmpNs.Rdf + "Bag"));
 
       description.Add(element);
@@ -105,7 +105,7 @@ public sealed class XmpDocument(string? xml) {
     XmpValueStyle defaultStyle = XmpValueStyle.Attribute,
     XmpValueStyle style = XmpValueStyle.Auto) {
 
-    var description = _getOrCreateDescription(ns);
+    var description = GetOrCreateDescription(ns);
     var attribute = description.Attribute(ns + name);
     var element = description.Element(ns + name);
 
@@ -147,7 +147,7 @@ public sealed class XmpDocument(string? xml) {
   }
 
   public string? GetLangAlt(XNamespace ns, string name) {
-    if (_getOrCreateDescription(ns).Element(ns + name) is not { } property) return null;
+    if (GetOrCreateDescription(ns).Element(ns + name) is not { } property) return null;
 
     var rdf = XmpNs.Rdf;
     var xml = XNamespace.Xml;
@@ -168,7 +168,7 @@ public sealed class XmpDocument(string? xml) {
   }
 
   public void SetLangAlt(XNamespace ns, string name, string? value) {
-    var description = _getOrCreateDescription(ns);
+    var description = GetOrCreateDescription(ns);
 
     // Remove an invalid attribute representation.
     description.Attribute(ns + name)?.Remove();
@@ -206,14 +206,15 @@ public sealed class XmpDocument(string? xml) {
     }
   }
 
-  private XElement _getOrCreateDescription(XNamespace ns) {
-    var desc = Document
+  public XElement? GetDescription(XNamespace ns) =>
+    Document
       .Descendants(XmpNs.Rdf + "Description")
       .FirstOrDefault(d =>
-        d.Attributes()
-          .Any(a => a.IsNamespaceDeclaration && a.Value == ns.NamespaceName));
+        d.Attributes().Any(a => a.Name.Namespace == ns) ||
+        d.Elements().Any(e => e.Name.Namespace == ns));
 
-    if (desc != null) return desc;
+  public XElement GetOrCreateDescription(XNamespace ns) {
+    if (GetDescription(ns) is { } desc) return desc;
 
     var rdf = Document.Descendants(XmpNs.Rdf + "RDF").First();
 
@@ -225,6 +226,18 @@ public sealed class XmpDocument(string? xml) {
     rdf.Add(desc);
 
     return desc;
+  }
+
+  public void RemoveEmptyDescriptions() {
+    foreach (var desc in Document.Descendants(XmpNs.Rdf + "Description").ToList()) {
+      bool hasContent =
+        desc.HasElements ||
+        desc.Attributes()
+          .Any(a => !a.IsNamespaceDeclaration && a.Name != XmpNs.Rdf + "about");
+
+      if (!hasContent)
+        desc.Remove();
+    }
   }
 
   public string ToXml() =>

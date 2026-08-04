@@ -22,6 +22,7 @@ public class ImageMetadata(string filePath) {
   public GpsCoordinate? GpsCoordinate { get => _getGpsCoordinate(); set => _setGpsCoordinate(value); }
   public int? Rating { get => _getRating(); set => _setRating(value); }
   public string[]? Keywords { get => _getKeywords(); set => _setKeywords(value); }
+  public MpRegionCollection People { get => _getPeople(); }
 
   private ushort? _getWidth() =>
     Exif.GetWidth();
@@ -107,6 +108,9 @@ public class ImageMetadata(string filePath) {
 
     Xmp.SetKeywords(value);
   }
+
+  private MpRegionCollection _getPeople() =>
+    Xmp.GetPeople();
 
   public bool Write(string srcPath) {
     var jpeg = new JpegMetadataWriter();

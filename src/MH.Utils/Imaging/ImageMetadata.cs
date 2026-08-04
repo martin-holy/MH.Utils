@@ -9,8 +9,8 @@ public class ImageMetadata(string filePath) {
   private ExifMetadata? _exif;
   private XmpMetadata? _xmp;
 
-  public bool IsExifModified { get; private set; }
-  public bool IsXmpModified { get; private set; }
+  public bool IsExifModified => Exif.IsModified;
+  public bool IsXmpModified => Xmp.Doc.IsModified;
 
   public ExifMetadata Exif => _exif ??= new(ExifU.ReadFromJpeg(filePath));
   public XmpMetadata Xmp => _xmp ??= new(XmpU.ReadFromJpeg(filePath));
@@ -32,9 +32,6 @@ public class ImageMetadata(string filePath) {
 
     Exif.SetWidth(value);
     Xmp.SetWidth(value);
-
-    IsExifModified = true;
-    IsXmpModified = true;
   }
 
   private ushort? _getHeight() =>
@@ -45,9 +42,6 @@ public class ImageMetadata(string filePath) {
     
     Exif.SetHeight(value);
     Xmp.SetHeight(value);
-
-    IsExifModified = true;
-    IsXmpModified = true;
   }
 
   private ushort? _getOrientation() =>
@@ -57,8 +51,6 @@ public class ImageMetadata(string filePath) {
     if (Orientation == value) return;
 
     Exif.SetOrientation(value);
-
-    IsExifModified = true;
   }
 
   private string? _getComment() =>
@@ -69,9 +61,6 @@ public class ImageMetadata(string filePath) {
 
     Exif.SetComment(value);
     Xmp.SetComment(value);
-
-    IsExifModified = true;
-    IsXmpModified = true;
   }
 
   private GpsCoordinate? _getGpsCoordinate() =>
@@ -81,8 +70,6 @@ public class ImageMetadata(string filePath) {
     if (gps.AlmostEquals(GpsCoordinate)) return;
 
     Exif.SetGpsCoordinate(gps);
-
-    IsExifModified = true;
   }
 
   private int? _getRating() =>
@@ -90,9 +77,6 @@ public class ImageMetadata(string filePath) {
 
   private void _setRating(int? value) {
     if (Rating == value) return;
-
-    IsXmpModified = true;
-    IsExifModified = true;
 
     Xmp.SetRating(value);
     Exif.SetRating(value);
@@ -103,8 +87,6 @@ public class ImageMetadata(string filePath) {
 
   private void _setKeywords(string[]? value) {
     if ((Keywords ?? []).SequenceEqual(value ?? [])) return;
-
-    IsXmpModified = true;
 
     Xmp.SetKeywords(value);
   }

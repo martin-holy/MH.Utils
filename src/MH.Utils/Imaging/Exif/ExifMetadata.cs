@@ -15,6 +15,7 @@ public class ExifMetadata(TiffReader? reader) {
   public TiffFile TiffFile => _getTiffFile();
   public TiffReader? Reader { get; } = reader;
   public UserCommentEncoding UserCommentEncoding { get; private set; }
+  public bool IsModified { get; private set; }
 
   public ushort? GetWidth() =>
     Reader?.GetIfd0().GetUShort(ExifTag.ImageWidth, Reader.IsLittleEndian);
@@ -24,6 +25,8 @@ public class ExifMetadata(TiffReader? reader) {
 
     if (TiffFile.ExifIfd != null || value != null)
       _setUShort(TiffFile.GetOrCreateExifIfd(), ExifTag.PixelXDimension, value);
+
+    IsModified = true;
   }
 
   public ushort? GetHeight() =>
@@ -34,13 +37,18 @@ public class ExifMetadata(TiffReader? reader) {
 
     if (TiffFile.ExifIfd != null || value != null)
       _setUShort(TiffFile.GetOrCreateExifIfd(), ExifTag.PixelYDimension, value);
+
+    IsModified = true;
   }
 
   public ushort? GetOrientation() =>
     Reader?.GetIfd0().GetUShort(ExifTag.Orientation, Reader.IsLittleEndian);
 
-  public void SetOrientation(ushort? value) =>
+  public void SetOrientation(ushort? value) {
     _setUShort(TiffFile.Ifd0, ExifTag.Orientation, value);
+
+    IsModified = true;
+  }
 
   public string? GetComment() =>
     GetUserComment() ?? GetXpComment();
@@ -89,15 +97,18 @@ public class ExifMetadata(TiffReader? reader) {
   public void SetXpComment(string? value) {
     if (string.IsNullOrEmpty(value)) {
       TiffFile.Ifd0.RemoveEntry(ExifTag.XpComment);
+      IsModified = true;
       return;
     }
 
     TiffFile.Ifd0.SetEntry(ExifTag.XpComment, TiffType.Byte, Encoding.Unicode.GetBytes(value + '\0'));
+    IsModified = true;
   }
 
   public void SetUserComment(string? value) {
     if (string.IsNullOrEmpty(value)) {
       TiffFile.ExifIfd?.RemoveEntry(ExifTag.UserComment);
+      IsModified = true;
       return;
     }
 
@@ -126,6 +137,8 @@ public class ExifMetadata(TiffReader? reader) {
 
     var exifIfd = TiffFile.GetOrCreateExifIfd();
     exifIfd.SetEntry(ExifTag.UserComment, TiffType.Undefined, data);
+
+    IsModified = true;
   }
 
   private static UserCommentEncoding _normalizeEncoding(string text, UserCommentEncoding encoding) {
@@ -169,6 +182,8 @@ public class ExifMetadata(TiffReader? reader) {
       TiffFile.Ifd0.RemoveEntry(ExifTag.GpsIfd);
       TiffFile.GpsIfd = null;
 
+      IsModified = true;
+
       return;
     }
 
@@ -181,6 +196,8 @@ public class ExifMetadata(TiffReader? reader) {
       .SetRationals(ExifTag.GpsLatitude, GpsU.ToDms(Math.Abs(lat)), TiffFile.IsLittleEndian)
       .SetAscii(ExifTag.GpsLongitudeRef, lng >= 0 ? "E" : "W")
       .SetRationals(ExifTag.GpsLongitude, GpsU.ToDms(Math.Abs(lng)), TiffFile.IsLittleEndian);
+
+    IsModified = true;
   }
 
   private double? _readGpsCoordinate(ExifTag tag, ExifTag refTag, char negRef) {
@@ -209,8 +226,11 @@ public class ExifMetadata(TiffReader? reader) {
   public ushort? GetRating() =>
     Reader?.GetIfd0().GetUShort(ExifTag.Rating, Reader.IsLittleEndian);
 
-  public void SetRating(int? value) =>
+  public void SetRating(int? value) {
     _setUShort(TiffFile.Ifd0, ExifTag.Rating, (ushort?)value);
+
+    IsModified = true;
+  }
 
   public byte[] ToTiff() {
     var layout = TiffLayoutBuilder.Build(TiffFile, Reader);

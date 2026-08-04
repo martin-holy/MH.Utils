@@ -15,8 +15,12 @@ public class XmpMetadata {
   private readonly string _packetBegin;
   private readonly string _packetEnd;
   private readonly int _originalPacketSize;
-  private readonly record struct XmlSection(int Start, int End, string Xml);
+
   private static readonly string _toolkitVersion = _createToolkitVersion();
+
+  private MpRegionCollection? _people;
+
+  private readonly record struct XmlSection(int Start, int End, string Xml);
 
   public XmpDocument Doc { get; }
 
@@ -63,6 +67,11 @@ public class XmpMetadata {
 
   public void SetKeywords(string[]? values) =>
     Doc.SetArray(XmpNs.Dc, "subject", values);
+
+  public MpRegionCollection GetPeople() {
+    _people ??= new(Doc);
+    return _people;
+  }
 
   private static XmlSection _extractXml(string packet) {
     var start = packet.IndexOf("<x:xmpmeta", StringComparison.Ordinal);

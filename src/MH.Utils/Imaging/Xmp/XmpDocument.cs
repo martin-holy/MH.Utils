@@ -10,10 +10,21 @@ public sealed class XmpDocument(string? xml) {
   private readonly string? _xml = xml;
   private XDocument? _document;
 
-  public XDocument Document =>
-    _document ??= string.IsNullOrWhiteSpace(_xml)
-      ? _createDocument()
-      : XDocument.Parse(_xml, LoadOptions.PreserveWhitespace);
+  public bool IsModified { get; private set; }
+
+  public XDocument Document {
+    get {
+      if (_document != null) return _document;
+
+      _document = string.IsNullOrWhiteSpace(_xml)
+        ? _createDocument()
+        : XDocument.Parse(_xml, LoadOptions.PreserveWhitespace);
+
+      _document.Changed += (_, _) => IsModified = true;
+
+      return _document;
+    }
+  }
 
   private static XDocument _createDocument() {
     var rdf = XmpNs.Rdf;

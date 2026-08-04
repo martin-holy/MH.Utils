@@ -28,17 +28,12 @@ public sealed class JpegMetadataWriter {
   public byte[]? Xmp { get; set; }
 
   public bool Write(string srcPath) {
-    //var tmpPath = srcPath + ".tmp";
-    var tmpPath = srcPath + "_output.jpg"; //TODO just for test
+    var tmpPath = srcPath + ".tmp";
 
     try {
       using var input = File.OpenRead(srcPath);
       using var output = File.Create(tmpPath);
       Write(input, output);
-
-      // TODO removed for testing
-      //File.Delete(srcPath);
-      //File.Move(tmpPath, srcPath);
 
       return true;
     }

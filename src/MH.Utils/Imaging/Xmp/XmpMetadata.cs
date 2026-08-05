@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Globalization;
 using System.IO;
 using System.Reflection;
 using System.Text;
@@ -16,7 +17,7 @@ public class XmpMetadata {
   private readonly string _packetEnd;
   private readonly int _originalPacketSize;
 
-  private static readonly string _toolkitVersion = _createToolkitVersion();
+  private static string? _toolkitVersion;
 
   private MpRegionCollection? _people;
 
@@ -103,6 +104,7 @@ public class XmpMetadata {
 
   public byte[] ToPacket() {
     _setToolKitVersion();
+    _setMetadataDate();
 
     var xml = Doc.ToXml();
 
@@ -122,7 +124,7 @@ public class XmpMetadata {
   }
 
   private void _setToolKitVersion() {
-    Doc.Document?.Root?.SetAttributeValue(XmpNs.X + "xmptk", _toolkitVersion);
+    Doc.Document?.Root?.SetAttributeValue(XmpNs.X + "xmptk", _getToolkitVersion());
   }
 
   private static string _createToolkitVersion() {
@@ -134,6 +136,16 @@ public class XmpMetadata {
     if (i >= 0) version = version[..i];
 
     return $"MH.Utils.Imaging {version}";
+  }
+
+  private static string _getToolkitVersion() {
+    _toolkitVersion ??= _createToolkitVersion();
+    return _toolkitVersion;
+  }
+
+  private void _setMetadataDate() {
+    var dt = DateTimeOffset.Now.ToString("yyyy-MM-dd'T'HH:mm:sszzz", CultureInfo.InvariantCulture);
+    Doc.SetValue(XmpNs.Xmp, "ModifyDate", dt);
   }
 
   private int _calculatePacketSize(int beginLength, int bodyLength, int endLength) {

@@ -1,6 +1,6 @@
 5.1.0 (not released):
 	- [N] ByteU: CheckBounds
-	- [N] ImageMetadata: Read and lossless Write of Orientation, Comment and GPS from/to Exif
+	- [N] ImageMetadata: Read and lossless Write of JPEG Exif and XMP
 	- [B] XmpU: WriteToJpeg on windows
 	- [B] FlatTree: Insert items on expand
 	- [N] GpsU: ToDms and FromDms methods
@@ -8,6 +8,7 @@
 	- [N] BinarySpanReader
 	- [N] BinarySpanWriter
 	- [N] BinaryStreamWriter
+	- [N] ExifOrientation
 
 5.0.1:
 	- [B] FlatTree: Expander visibility

@@ -1,4 +1,5 @@
 ﻿using MH.Utils.Imaging.Exif;
+using MH.Utils.Imaging.Jpeg;
 using MH.Utils.Imaging.Xmp;
 using System;
 using System.Linq;
@@ -6,12 +7,14 @@ using System.Linq;
 namespace MH.Utils.Imaging;
 
 public class ImageMetadata(string filePath) {
+  private JpegFile? _jpeg;
   private ExifMetadata? _exif;
   private XmpMetadata? _xmp;
 
   public bool IsExifModified => Exif.IsModified;
   public bool IsXmpModified => Xmp.Doc.IsModified;
 
+  public JpegFile Jpeg => _jpeg ??= new JpegFile(filePath);
   public ExifMetadata Exif => _exif ??= new(ExifU.ReadFromJpeg(filePath));
   public XmpMetadata Xmp => _xmp ??= new(XmpU.ReadFromJpeg(filePath));
 
@@ -25,7 +28,7 @@ public class ImageMetadata(string filePath) {
   public MpRegionCollection People { get => _getPeople(); }
 
   private ushort? _getWidth() =>
-    Exif.GetWidth();
+    Jpeg.Width;
 
   private void _setWidth(ushort? value) {
     if (Width == value) return;
@@ -35,7 +38,7 @@ public class ImageMetadata(string filePath) {
   }
 
   private ushort? _getHeight() =>
-    Exif.GetHeight();
+    Jpeg.Height;
 
   private void _setHeight(ushort? value) {
     if (Height == value) return;

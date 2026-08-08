@@ -17,7 +17,7 @@ public class ImageMetadata(string filePath) {
 
   public ushort? Width { get => _getWidth(); set => _setWidth(value); }
   public ushort? Height { get => _getHeight(); set => _setHeight(value); }
-  public ushort? Orientation { get => _getOrientation(); set => _setOrientation(value); }
+  public ExifOrientation? Orientation { get => _getOrientation(); set => _setOrientation(value); }
   public string? Comment { get => _getComment(); set => _setComment(value); }
   public GpsCoordinate? GpsCoordinate { get => _getGpsCoordinate(); set => _setGpsCoordinate(value); }
   public int? Rating { get => _getRating(); set => _setRating(value); }
@@ -44,13 +44,13 @@ public class ImageMetadata(string filePath) {
     Xmp.SetHeight(value);
   }
 
-  private ushort? _getOrientation() =>
-    Exif.GetOrientation();
+  private ExifOrientation? _getOrientation() =>
+    (ExifOrientation?)Exif.GetOrientation();
 
-  private void _setOrientation(ushort? value) {
+  private void _setOrientation(ExifOrientation? value) {
     if (Orientation == value) return;
 
-    Exif.SetOrientation(value);
+    Exif.SetOrientation((ushort?)value);
   }
 
   private string? _getComment() =>

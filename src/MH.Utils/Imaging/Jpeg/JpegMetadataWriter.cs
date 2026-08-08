@@ -2,7 +2,7 @@
 using System.IO;
 using System.Text;
 
-namespace MH.Utils.Imaging;
+namespace MH.Utils.Imaging.Jpeg;
 
 public sealed class JpegMetadataWriter {
   public static ReadOnlySpan<byte> XmpHeader => "http://ns.adobe.com/xap/1.0/\0"u8;
@@ -60,7 +60,7 @@ public sealed class JpegMetadataWriter {
       if (br.ReadByte() != 0xFF)
         continue;
 
-      byte marker = br.ReadByte();
+      var marker = br.ReadByte();
 
       while (marker == 0xFF)
         marker = br.ReadByte();
@@ -76,12 +76,12 @@ public sealed class JpegMetadataWriter {
         return;
       }
 
-      ushort segLen = ByteU.ReadBigEndianUInt16(br);
+      var segLen = ByteU.ReadBigEndianUInt16(br);
 
       if (segLen < 2)
         throw new InvalidDataException("Invalid JPEG segment.");
 
-      int payloadLen = segLen - 2;
+      var payloadLen = segLen - 2;
 
       // ---------- APP1 ----------
       if (marker == 0xE1 && _tryProcessApp1(input, output, payloadLen))
@@ -136,7 +136,7 @@ public sealed class JpegMetadataWriter {
   }
 
   private static App1Type _getApp1Type(Stream stream, int payloadLength) {
-    long position = stream.Position;
+    var position = stream.Position;
 
     try {
       if (payloadLength >= ExifU.ExifHeader.Length && _startsWith(stream, ExifU.ExifHeader))
@@ -214,7 +214,7 @@ public sealed class JpegMetadataWriter {
   private static void _writeApp1(Stream stream, ReadOnlySpan<byte> header, ReadOnlySpan<byte> payload) {
     const int MaxAppPayload = 65533;
 
-    int payloadLength = header.Length + payload.Length;
+    var payloadLength = header.Length + payload.Length;
 
     if (payloadLength > MaxAppPayload)
       throw new InvalidOperationException(
@@ -249,9 +249,9 @@ public sealed class JpegMetadataWriter {
 
     _writeApp1(stream, XmpHeader, mainBytes);
 
-    int offset = 0;
+    var offset = 0;
     while (offset < xmlBytes.Length) {
-      int chunkLength = Math.Min(ExtChunkDataMax, xmlBytes.Length - offset);
+      var chunkLength = Math.Min(ExtChunkDataMax, xmlBytes.Length - offset);
       _writeExtendedChunk(stream, guidBytes, xmlBytes.Length, offset, xmlBytes, offset, chunkLength);
       offset += chunkLength;
     }
@@ -261,7 +261,7 @@ public sealed class JpegMetadataWriter {
     stream.WriteByte(0xFF);
     stream.WriteByte(0xE1);
 
-    int payloadLen =
+    var payloadLen =
       XmpExtHeader.Length +
       32 + // GUID
       4 +  // full length

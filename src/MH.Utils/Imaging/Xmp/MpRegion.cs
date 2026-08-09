@@ -6,12 +6,12 @@ public sealed class MpRegion(XElement element) {
   public XElement Element { get; } = element;
 
   public string? PersonDisplayName {
-    get => (string?)Element.Attribute(XmpNs.MpReg + "PersonDisplayName");
-    set => Element.SetAttributeValue(XmpNs.MpReg + "PersonDisplayName", value);
+    get => Element.GetXmpProperty(XmpNs.MpReg + "PersonDisplayName");
+    set => Element.SetXmpProperty(XmpNs.MpReg + "PersonDisplayName", value, XmpPropertyStorage.Attribute);
   }
 
   public string? Rectangle {
-    get => (string?)Element.Attribute(XmpNs.MpReg + "Rectangle");
-    set => Element.SetAttributeValue(XmpNs.MpReg + "Rectangle", value);
+    get => Element.GetXmpProperty(XmpNs.MpReg + "Rectangle");
+    set => Element.SetXmpProperty(XmpNs.MpReg + "Rectangle", value, XmpPropertyStorage.Attribute);
   }
 }

@@ -31,14 +31,11 @@ public sealed class MpRegionCollection : IReadOnlyList<MpRegion> {
   public MpRegion Add(string name, string? rectangle = null) {
     var element = new XElement(XmpNs.Rdf + "li");
 
-    element.SetAttributeValue(XmpNs.MpReg + "PersonDisplayName", name);
-
-    if (rectangle != null)
-      element.SetAttributeValue(XmpNs.MpReg + "Rectangle", rectangle);
-
     _bag.Add(element);
 
-    var person = new MpRegion(element);
+    var person = new MpRegion(element) {
+      PersonDisplayName = name,
+      Rectangle = rectangle };
 
     return person;
   }
@@ -61,9 +58,13 @@ public sealed class MpRegionCollection : IReadOnlyList<MpRegion> {
       desc.Add(regionInfo);
     }
 
-    if (regionInfo.Element(XmpNs.MpRi + "Regions") is not { } regions) {
+    var regionDesc =
+      regionInfo.Element(XmpNs.Rdf + "Description") ??
+      regionInfo;
+
+    if (regionDesc.Element(XmpNs.MpRi + "Regions") is not { } regions) {
       regions = new XElement(XmpNs.MpRi + "Regions");
-      regionInfo.Add(regions);
+      regionDesc.Add(regions);
     }
 
     if (regions.Element(XmpNs.Rdf + "Bag") is not { } bag) {

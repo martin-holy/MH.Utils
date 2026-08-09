@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
 
@@ -49,19 +50,10 @@ public sealed class XmpDocument(string? xml) {
     );
   }
 
-  public string[]? GetArray(XNamespace ns, string name) {
-    var items = Document
-      .Descendants()
-      .Where(e => e.Name == ns + name)
-      .Descendants()
-      .Where(e => e.Name.LocalName == "li")
-      .Select(e => e.Value.Trim())
-      .Where(x => x.Length > 0)
-      .Distinct(StringComparer.OrdinalIgnoreCase)
-      .ToArray();
-
-    return items.Length == 0 ? null : items;
-  }
+  public IEnumerable<string> GetArray(XName name) =>
+    Document
+      .GetXmpArray(name)
+      .Select(x => x.Value);
 
   public void SetArray(XNamespace ns, string name, string[]? values) {
     var bag = _findArray(ns, name);

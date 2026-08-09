@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Text;
 
@@ -63,8 +64,16 @@ public class XmpMetadata {
   public void SetRating(int? value) =>
     Doc.SetValue(XmpNs.Xmp, "Rating", value?.ToString());
 
-  public string[]? GetKeywords() =>
-    Doc.GetArray(XmpNs.Dc, "subject");
+  public string[]? GetKeywords() {
+    var items = Doc
+      .GetArray(XmpNs.Dc + "subject")?
+      .Select(x => x.Trim())
+      .Where(x => x.Length > 0)
+      .Distinct(StringComparer.OrdinalIgnoreCase)
+      .ToArray();
+
+    return items?.Length == 0 ? null : items;
+  }
 
   public void SetKeywords(string[]? values) =>
     Doc.SetArray(XmpNs.Dc, "subject", values);

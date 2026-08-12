@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
@@ -7,47 +8,61 @@ namespace MH.Utils.Imaging.Xmp;
 
 public sealed class MpRegionCollection : IReadOnlyList<MpRegion> {
   private readonly XmpDocument _doc;
-  private readonly XElement _bag;
 
   internal MpRegionCollection(XmpDocument doc) {
     _doc = doc;
-    _bag = _getOrCreateBag();
   }
 
   public int Count =>
-    _bag.Elements(XmpNs.Rdf + "li").Count();
+    _getBag()?.Elements(XmpNs.Rdf + "li").Count() ?? 0;
 
   public MpRegion this[int index] =>
-    new(_bag.Elements(XmpNs.Rdf + "li").ElementAt(index));
+    new(_getBag()?.Elements(XmpNs.Rdf + "li").ElementAt(index)
+      ?? throw new ArgumentOutOfRangeException(nameof(index)));
 
   public IEnumerator<MpRegion> GetEnumerator() =>
-    _bag.Elements(XmpNs.Rdf + "li")
-      .Select(e => new MpRegion(e))
-      .GetEnumerator();
+    (_getBag()?.Elements(XmpNs.Rdf + "li") ?? [])
+    .Select(e => new MpRegion(e))
+    .GetEnumerator();
 
   IEnumerator IEnumerable.GetEnumerator() =>
     GetEnumerator();
 
   public MpRegion Add(string name, string? rectangle = null) {
+    var bag = _getOrCreateBag();
     var element = new XElement(XmpNs.Rdf + "li");
+    bag.Add(element);
 
-    _bag.Add(element);
-
-    var person = new MpRegion(element) {
+    var region = new MpRegion(element) {
       PersonDisplayName = name,
-      Rectangle = rectangle };
+      Rectangle = rectangle
+    };
 
-    return person;
+    return region;
   }
 
-  public void Remove(MpRegion person) {
-    person.Element.Remove();
+  public void Remove(MpRegion region) {
+    if (region.Element.Parent == null)
+      return;
+
+    region.Element.Remove();
+
     _removeIfEmpty();
   }
 
   public void Clear() {
-    _bag.RemoveNodes();
+    if (_getBag() is not { } bag) return;
+
+    bag.RemoveNodes();
     _removeIfEmpty();
+  }
+
+  private XElement? _getBag() {
+    var description = _doc.GetDescription(XmpNs.Mp);
+    var regionInfo = description?.Element(XmpNs.Mp + "RegionInfo");
+    var regions = regionInfo?.Element(XmpNs.MpRi + "Regions");
+
+    return regions?.Element(XmpNs.Rdf + "Bag");
   }
 
   private XElement _getOrCreateBag() {
@@ -58,13 +73,9 @@ public sealed class MpRegionCollection : IReadOnlyList<MpRegion> {
       desc.Add(regionInfo);
     }
 
-    var regionDesc =
-      regionInfo.Element(XmpNs.Rdf + "Description") ??
-      regionInfo;
-
-    if (regionDesc.Element(XmpNs.MpRi + "Regions") is not { } regions) {
+    if (regionInfo.Element(XmpNs.MpRi + "Regions") is not { } regions) {
       regions = new XElement(XmpNs.MpRi + "Regions");
-      regionDesc.Add(regions);
+      regionInfo.Add(regions);
     }
 
     if (regions.Element(XmpNs.Rdf + "Bag") is not { } bag) {
@@ -76,18 +87,19 @@ public sealed class MpRegionCollection : IReadOnlyList<MpRegion> {
   }
 
   private void _removeIfEmpty() {
-    if (_bag.HasElements) return;
+    if (_getBag() is not { } bag || bag.HasElements) return;
 
-    var regions = _bag.Parent;
-    var regionInfo = regions?.Parent;
+    var regions = bag.Parent;
+    bag.Remove();
 
-    _bag.Remove();
+    if (regions?.HasElements != false) return;
 
-    if (regions?.HasElements == false)
-      regions.Remove();
+    var regionInfo = regions.Parent;
+    regions.Remove();
 
-    if (regionInfo?.HasElements == false)
-      regionInfo.Remove();
+    if (regionInfo?.HasElements != false) return;
+
+    regionInfo.Remove();
 
     _doc.RemoveEmptyDescriptions();
   }

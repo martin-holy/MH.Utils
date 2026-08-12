@@ -50,38 +50,11 @@ public sealed class XmpDocument(string? xml) {
     );
   }
 
-  public IEnumerable<string> GetArray(XName name) =>
-    Document
-      .GetXmpArray(name)
-      .Select(x => x.Value);
+  public IEnumerable<string>? GetArray(XName name) =>
+    Document.GetXmpStringArray(name);
 
-  public void SetArray(XNamespace ns, string name, string[]? values) {
-    var bag = _findArray(ns, name);
-
-    if (values == null || values.Length == 0) {
-      bag?.Parent?.Remove();
-      return;
-    }
-
-    if (bag == null) {
-      var description = GetOrCreateDescription(ns);
-      var element = new XElement(ns + name, new XElement(XmpNs.Rdf + "Bag"));
-
-      description.Add(element);
-      bag = element.Element(XmpNs.Rdf + "Bag")!;
-    }
-
-    bag.RemoveNodes();
-
-    foreach (var value in values)
-      bag.Add(new XElement(XmpNs.Rdf + "li", value));
-  }
-
-  private XElement? _findArray(XNamespace ns, string name) =>
-    Document
-      .Descendants(ns + name)
-      .Elements(XmpNs.Rdf + "Bag")
-      .FirstOrDefault();
+  public void SetArray(XNamespace ns, string name, string[]? values) =>
+    Document.SetXmpArray(ns + name, values);
 
   public int? GetInt(XNamespace ns, string name) {
     var value = GetValue(ns, name);
@@ -92,65 +65,15 @@ public sealed class XmpDocument(string? xml) {
     return null;
   }
 
-  public string? GetValue(XNamespace ns, string name) {
-    return Document
-      .Descendants()
-      .Attributes()
-      .FirstOrDefault(a => a.Name == ns + name)
-      ?.Value
-      ?? Document
-        .Descendants()
-        .FirstOrDefault(e => e.Name == ns + name)
-        ?.Value;
-  }
+  public string? GetValue(XNamespace ns, string name) =>
+    Document.GetXmpProperty(ns + name);
 
-  public void SetValue(XNamespace ns, string name, string? value,
-    XmpValueStyle defaultStyle = XmpValueStyle.Attribute,
-    XmpValueStyle style = XmpValueStyle.Auto) {
-
-    var description = GetOrCreateDescription(ns);
-    var attribute = description.Attribute(ns + name);
-    var element = description.Element(ns + name);
-
-    if (value == null) {
-      attribute?.Remove();
-      element?.Remove();
-      return;
-    }
-
-    if (style == XmpValueStyle.Auto) {
-      if (attribute != null)
-        style = XmpValueStyle.Attribute;
-      else if (element != null)
-        style = XmpValueStyle.Element;
-      else
-        style = defaultStyle;
-    }
-
-    switch (style) {
-      case XmpValueStyle.Attribute:
-        description.SetAttributeValue(ns + name, value);
-        element?.Remove();
-        break;
-
-      case XmpValueStyle.Element:
-        if (element == null) {
-          element = new XElement(ns + name);
-          description.Add(element);
-        }
-
-        element.Value = value;
-        attribute?.Remove();
-        break;
-
-      default:
-        throw new InvalidOperationException(
-          $"Unsupported XMP value style '{style}'.");
-    }
+  public void SetValue(XNamespace ns, string name, string? value, XmpValueStyle style = XmpValueStyle.Auto) {
+    Document.SetXmpProperty(ns + name, value, style);
   }
 
   public string? GetLangAlt(XNamespace ns, string name) {
-    if (GetOrCreateDescription(ns).Element(ns + name) is not { } property) return null;
+    if (GetDescription(ns)?.Element(ns + name) is not { } property) return null;
 
     var rdf = XmpNs.Rdf;
     var xml = XNamespace.Xml;

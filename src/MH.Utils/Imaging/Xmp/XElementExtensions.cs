@@ -74,8 +74,13 @@ public static class XElementExtensions {
   public static void SetXmpAttribute(this XElement resource, XName name, string value) {
     var description = resource.GetXmpDescription();
 
-    if (description?.Element(name) is { } element) {
-      element.Remove();
+    if (description?.Element(name) is { } descriptionElement) {
+      if (descriptionElement.Attributes().Any(a => !a.IsNamespaceDeclaration)) {
+        descriptionElement.Value = value;
+        return;
+      }
+
+      descriptionElement.Remove();
       description.SetAttributeValue(name, value);
       return;
     }
@@ -85,9 +90,13 @@ public static class XElementExtensions {
       return;
     }
 
-    if (resource.Element(name) is { } directElement) {
-      directElement.Remove();
+    if (resource.Element(name) is { } element) {
+      if (element.Attributes().Any(a => !a.IsNamespaceDeclaration)) {
+        element.Value = value;
+        return;
+      }
 
+      element.Remove();
       resource.SetAttributeValue(name, value);
       return;
     }
@@ -103,29 +112,43 @@ public static class XElementExtensions {
 
   public static void SetXmpElement(this XElement resource, XName name, string value) {
     var description = resource.GetXmpDescription();
+    var resourceAttribute = resource.Attribute(name);
+    var resourceElement = resource.Element(name);
+    var descriptionAttribute = description?.Attribute(name);
 
-    if (description?.Attribute(name) is { } attribute) {
-      attribute.Remove();
+    if (description?.Element(name) is { } element) {
+      element.Value = value;
 
-      description.Add(new XElement(name, value));
+      resourceAttribute?.Remove();
+      resourceElement?.Remove();
+      descriptionAttribute?.Remove();
+
       return;
     }
 
-    if (description?.Element(name) is { } descriptionElement) {
-      descriptionElement.Value = value;
+    if (descriptionAttribute is { }) {
+      descriptionAttribute.Remove();
+
+      resourceAttribute?.Remove();
+      resourceElement?.Remove();
+
+      description!.Add(new XElement(name, value));
       return;
     }
 
-    if (resource.Attribute(name) is { } resourceAttribute) {
+    if (resourceElement is { } directElement) {
+      directElement.Value = value;
+      resourceAttribute?.Remove();
+
+      return;
+    }
+
+    if (resourceAttribute is { }) {
       resourceAttribute.Remove();
 
-      var newDescription = resource.GetOrCreateXmpDescription();
-      newDescription.Add(new XElement(name, value));
-      return;
-    }
+      var target = description ?? resource.GetOrCreateXmpDescription();
+      target.Add(new XElement(name, value));
 
-    if (resource.Element(name) is { } element) {
-      element.Value = value;
       return;
     }
 

@@ -241,4 +241,91 @@ public class XmpExtensionsTests {
 
     Assert.AreEqual(1, element.Elements(XmpNs.Rdf + "Description").Count());
   }
+
+  [TestMethod]
+  public void SetXmpArray_CreatesBag() {
+    var element = new XElement(XmpNs.Rdf + "li");
+
+    element.SetXmpArray(_rectangleKeywords, ["one", "two"]);
+
+    var values = element.GetXmpStringArray(_rectangleKeywords)?.ToArray();
+
+    CollectionAssert.AreEqual(new[] { "one", "two" }, values);
+
+    var bag = element.GetXmpPropertyElement(_rectangleKeywords)!.Element(XmpNs.Rdf + "Bag");
+
+    Assert.IsNotNull(bag);
+  }
+
+  [TestMethod]
+  public void SetXmpArray_ReplacesExistingValues() {
+    var element = new XElement(XmpNs.Rdf + "li");
+
+    element.SetXmpArray(_rectangleKeywords, ["one", "two"]);
+
+    element.SetXmpArray(_rectangleKeywords, ["three"]);
+
+    CollectionAssert.AreEqual(new[] { "three" }, element.GetXmpStringArray(_rectangleKeywords)!.ToArray());
+  }
+
+  [TestMethod]
+  public void SetXmpArray_Null_RemovesArray() {
+    var element = new XElement(XmpNs.Rdf + "li");
+
+    element.SetXmpArray(_rectangleKeywords, ["one", "two"]);
+
+    element.SetXmpArray(_rectangleKeywords, null);
+
+    Assert.IsNull(element.GetXmpPropertyElement(_rectangleKeywords));
+  }
+
+  [TestMethod]
+  public void SetXmpArray_Empty_RemovesArray() {
+    var element = new XElement(XmpNs.Rdf + "li");
+
+    element.SetXmpArray(_rectangleKeywords, ["one", "two"]);
+
+    element.SetXmpArray(_rectangleKeywords, []);
+
+    Assert.IsNull(element.GetXmpPropertyElement(_rectangleKeywords));
+  }
+
+  [TestMethod]
+  public void SetXmpArray_CreatesDescriptionAndPreservesExistingAttributes() {
+    var element = new XElement(XmpNs.Rdf + "li",
+      new XAttribute(XmpNs.MpReg + "PersonDisplayName", "Martin"),
+      new XAttribute(XmpNs.MpReg + "Rectangle", "0,0,1,1"));
+
+    element.SetXmpArray(_rectangleKeywords, ["keyword1", "keyword2"]);
+
+    var description = element.GetXmpDescription();
+
+    Assert.IsNotNull(description);
+
+    // The existing properties were moved to the Description.
+    Assert.AreEqual("Martin", (string?)description!.Attribute(XmpNs.MpReg + "PersonDisplayName"));
+
+    Assert.AreEqual("0,0,1,1", (string?)description.Attribute(XmpNs.MpReg + "Rectangle"));
+
+    // They are no longer attributes of rdf:li.
+    Assert.IsNull(element.Attribute(XmpNs.MpReg + "PersonDisplayName"));
+
+    Assert.IsNull(element.Attribute(XmpNs.MpReg + "Rectangle"));
+
+    // They weren't accidentally converted to elements either.
+    Assert.AreEqual(0, description.Elements(XmpNs.MpReg + "PersonDisplayName").Count());
+
+    Assert.AreEqual(0, description.Elements(XmpNs.MpReg + "Rectangle").Count());
+
+    // RectangleKeywords was added exactly once.
+    var keywords = description.Elements(_rectangleKeywords).Single();
+
+    var bag = keywords.Element(XmpNs.Rdf + "Bag");
+
+    Assert.IsNotNull(bag);
+
+    CollectionAssert.AreEqual(
+      new[] { "keyword1", "keyword2" },
+      bag!.Elements(XmpNs.Rdf + "li").Select(x => x.Value).ToArray());
+  }
 }

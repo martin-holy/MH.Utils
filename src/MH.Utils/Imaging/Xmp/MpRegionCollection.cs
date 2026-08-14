@@ -6,12 +6,8 @@ using System.Xml.Linq;
 
 namespace MH.Utils.Imaging.Xmp;
 
-public sealed class MpRegionCollection : IReadOnlyList<MpRegion> {
-  private readonly XmpDocument _doc;
-
-  internal MpRegionCollection(XmpDocument doc) {
-    _doc = doc;
-  }
+public sealed class MpRegionCollection(XmpDocument doc) : IReadOnlyList<MpRegion> {
+  private readonly XmpDocument _doc = doc;
 
   public int Count =>
     _getBag()?.Elements(XmpNs.Rdf + "li").Count() ?? 0;

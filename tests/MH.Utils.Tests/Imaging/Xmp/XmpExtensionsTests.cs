@@ -5,10 +5,12 @@ namespace MH.Utils.Tests.Imaging.Xmp;
 
 [TestClass]
 public class XmpExtensionsTests {
+  private static readonly XName _rectangleKeywords = XNamespace.Get("urn:martin-holy:xmp-test") + "RectangleKeywords";
+
   [TestMethod]
   public void GetXmpProperty_ReadsAttribute() {
     var element = new XElement(XmpNs.Rdf + "li",
-      new XAttribute(XmpNs.MpReg + "PersonDisplayName","Martin"));
+      new XAttribute(XmpNs.MpReg + "PersonDisplayName", "Martin"));
 
     Assert.AreEqual("Martin", element.GetXmpProperty(XmpNs.MpReg + "PersonDisplayName"));
   }
@@ -37,5 +39,206 @@ public class XmpExtensionsTests {
         new XElement(XmpNs.MpReg + "PersonDisplayName", "Martin")));
 
     Assert.AreEqual("Martin", element.GetXmpProperty(XmpNs.MpReg + "PersonDisplayName"));
+  }
+
+  [TestMethod]
+  public void SetXmpProperty_Auto_PreservesExistingAttribute() {
+    var element = new XElement(XmpNs.Rdf + "li",
+      new XAttribute(XmpNs.MpReg + "PersonDisplayName", "Martin"));
+
+    element.SetXmpProperty(XmpNs.MpReg + "PersonDisplayName", "Martin2", XmpValueStyle.Auto);
+
+    Assert.AreEqual("Martin2", (string?)element.Attribute(XmpNs.MpReg + "PersonDisplayName"));
+
+    Assert.IsNull(element.Element(XmpNs.MpReg + "PersonDisplayName"));
+  }
+
+  [TestMethod]
+  public void SetXmpProperty_Auto_PreservesExistingElement() {
+    var element = new XElement(XmpNs.Rdf + "li",
+      new XElement(XmpNs.MpReg + "PersonDisplayName", "Martin"));
+
+    element.SetXmpProperty(XmpNs.MpReg + "PersonDisplayName", "Martin2", XmpValueStyle.Auto);
+
+    Assert.AreEqual("Martin2", (string?)element.Element(XmpNs.MpReg + "PersonDisplayName"));
+
+    Assert.IsNull(element.Attribute(XmpNs.MpReg + "PersonDisplayName"));
+  }
+
+  [TestMethod]
+  public void SetXmpProperty_Auto_NewProperty_UsesAttribute() {
+    var element = new XElement(XmpNs.Rdf + "li");
+
+    element.SetXmpProperty(XmpNs.MpReg + "PersonDisplayName", "Martin", XmpValueStyle.Auto);
+
+    Assert.AreEqual("Martin", (string?)element.Attribute(XmpNs.MpReg + "PersonDisplayName"));
+
+    Assert.IsNull(element.Element(XmpNs.MpReg + "PersonDisplayName"));
+  }
+
+  [TestMethod]
+  public void SetXmpProperty_Element_UsesElement() {
+    var element = new XElement(XmpNs.Rdf + "li");
+
+    element.SetXmpProperty(XmpNs.MpReg + "PersonDisplayName", "Martin", XmpValueStyle.Element);
+
+    Assert.AreEqual("Martin", (string?)element.Element(XmpNs.MpReg + "PersonDisplayName"));
+
+    Assert.IsNull(element.Attribute(XmpNs.MpReg + "PersonDisplayName"));
+  }
+
+  [TestMethod]
+  public void SetXmpProperty_Attribute_ReplacesExistingElement() {
+    var element = new XElement(XmpNs.Rdf + "li",
+      new XElement(XmpNs.MpReg + "PersonDisplayName", "Martin"));
+
+    element.SetXmpProperty(XmpNs.MpReg + "PersonDisplayName", "Martin2", XmpValueStyle.Attribute);
+
+    Assert.AreEqual("Martin2", (string?)element.Attribute(XmpNs.MpReg + "PersonDisplayName"));
+
+    Assert.IsNull(element.Element(XmpNs.MpReg + "PersonDisplayName"));
+  }
+
+  [TestMethod]
+  public void SetXmpProperty_Attribute_PreservesElementWithAttributes() {
+    var element = new XElement(XmpNs.Rdf + "li",
+      new XElement(XmpNs.MpReg + "PersonDisplayName",
+        new XAttribute("foo", "bar"), "Martin"));
+
+    element.SetXmpProperty(XmpNs.MpReg + "PersonDisplayName", "Martin2", XmpValueStyle.Attribute);
+
+    var property = element.Element(XmpNs.MpReg + "PersonDisplayName");
+
+    Assert.IsNotNull(property);
+
+    Assert.AreEqual("Martin2", property!.Value);
+
+    Assert.AreEqual("bar", (string?)property.Attribute("foo"));
+
+    Assert.IsNull(element.Attribute(XmpNs.MpReg + "PersonDisplayName"));
+  }
+
+  [TestMethod]
+  public void SetXmpProperty_Attribute_PreservesXmlLang() {
+    var element = new XElement(XmpNs.Rdf + "li",
+      new XElement(XmpNs.Dc + "title",
+        new XAttribute(XNamespace.Xml + "lang", "en"), "Hello"));
+
+    element.SetXmpProperty(XmpNs.Dc + "title", "Hello world", XmpValueStyle.Attribute);
+
+    var property = element.Element(XmpNs.Dc + "title");
+
+    Assert.IsNotNull(property);
+
+    Assert.AreEqual("Hello world", property!.Value);
+
+    Assert.AreEqual("en", (string?)property.Attribute(XNamespace.Xml + "lang"));
+
+    Assert.IsNull(element.Attribute(XmpNs.Dc + "title"));
+  }
+
+  [TestMethod]
+  public void SetXmpProperty_Null_RemovesAttribute() {
+    var element = new XElement(XmpNs.Rdf + "li",
+      new XAttribute(XmpNs.MpReg + "PersonDisplayName", "Martin"));
+
+    element.SetXmpProperty(XmpNs.MpReg + "PersonDisplayName", null);
+
+    Assert.IsNull(element.Attribute(XmpNs.MpReg + "PersonDisplayName"));
+  }
+
+
+  [TestMethod]
+  public void SetXmpProperty_Null_RemovesElement() {
+    var element = new XElement(XmpNs.Rdf + "li",
+      new XElement(XmpNs.MpReg + "PersonDisplayName", "Martin"));
+
+    element.SetXmpProperty(XmpNs.MpReg + "PersonDisplayName", null);
+
+    Assert.IsNull(element.Element(XmpNs.MpReg + "PersonDisplayName"));
+  }
+
+
+  [TestMethod]
+  public void SetXmpPropertyElement_MovesAttributePropertiesIntoDescription() {
+    var element = new XElement(XmpNs.Rdf + "li",
+      new XAttribute(XmpNs.MpReg + "PersonDisplayName", "Martin"),
+      new XAttribute(XmpNs.MpReg + "Rectangle", "0,0,1,1"));
+
+    var property = element.SetXmpPropertyElement(_rectangleKeywords);
+
+    Assert.IsNotNull(property);
+
+    var description = element.GetXmpDescription();
+
+    Assert.IsNotNull(description);
+
+    Assert.IsNull(element.Attribute(XmpNs.MpReg + "PersonDisplayName"));
+
+    Assert.IsNull(element.Attribute(XmpNs.MpReg + "Rectangle"));
+
+    Assert.AreEqual("Martin", (string?)description!.Attribute(XmpNs.MpReg + "PersonDisplayName"));
+
+    Assert.AreEqual("0,0,1,1", (string?)description.Attribute(XmpNs.MpReg + "Rectangle"));
+
+    Assert.AreSame(property, description.Element(_rectangleKeywords));
+  }
+
+  [TestMethod]
+  public void SetXmpPropertyElement_MovesElementPropertiesIntoDescription() {
+    var element = new XElement(XmpNs.Rdf + "li",
+      new XElement(XmpNs.MpReg + "PersonDisplayName", "Martin"),
+      new XElement(XmpNs.MpReg + "Rectangle", "0,0,1,1"));
+
+    element.SetXmpPropertyElement(_rectangleKeywords);
+
+    var description = element.GetXmpDescription();
+
+    Assert.IsNotNull(description);
+
+    Assert.IsNull(element.Element(XmpNs.MpReg + "PersonDisplayName"));
+
+    Assert.IsNull(element.Element(XmpNs.MpReg + "Rectangle"));
+
+    Assert.AreEqual("Martin", (string?)description!.Element(XmpNs.MpReg + "PersonDisplayName"));
+
+    Assert.AreEqual("0,0,1,1", (string?)description.Element(XmpNs.MpReg + "Rectangle"));
+  }
+
+  [TestMethod]
+  public void SetXmpPropertyElement_MovesMixedPropertiesIntoDescription() {
+    var element = new XElement(XmpNs.Rdf + "li",
+      new XAttribute(XmpNs.MpReg + "PersonDisplayName", "Martin"),
+      new XElement(XmpNs.MpReg + "Rectangle", "0,0,1,1"));
+
+    element.SetXmpPropertyElement(_rectangleKeywords);
+
+    var description = element.GetXmpDescription();
+
+    Assert.IsNotNull(description);
+
+    Assert.IsNull(element.Attribute(XmpNs.MpReg + "PersonDisplayName"));
+
+    Assert.IsNull(element.Element(XmpNs.MpReg + "Rectangle"));
+
+    Assert.AreEqual("Martin", (string?)description!.Attribute(XmpNs.MpReg + "PersonDisplayName"));
+
+    Assert.AreEqual("0,0,1,1", (string?)description.Element(XmpNs.MpReg + "Rectangle"));
+  }
+
+  [TestMethod]
+  public void SetXmpPropertyElement_ReusesExistingDescription() {
+    var element = new XElement(XmpNs.Rdf + "li",
+      new XElement(XmpNs.Rdf + "Description",
+        new XAttribute(XmpNs.MpReg + "PersonDisplayName", "Martin")));
+
+    var description = element.GetXmpDescription();
+    var property = element.SetXmpPropertyElement(_rectangleKeywords);
+
+    Assert.AreSame(description, element.GetXmpDescription());
+
+    Assert.AreSame(property, description!.Element(_rectangleKeywords));
+
+    Assert.AreEqual(1, element.Elements(XmpNs.Rdf + "Description").Count());
   }
 }

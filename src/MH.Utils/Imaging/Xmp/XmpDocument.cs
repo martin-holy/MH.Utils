@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
 
@@ -144,12 +143,17 @@ public sealed class XmpDocument(string? xml) {
 
     var rdf = Document.Descendants(XmpNs.Rdf + "RDF").First();
 
-    desc = new XElement(
-      XmpNs.Rdf + "Description",
-      new XAttribute(XmpNs.Rdf + "about", ""),
-      new XAttribute(XNamespace.Xmlns + XmpNs.GetPrefix(ns), ns.NamespaceName));
+    desc = rdf.Elements(XmpNs.Rdf + "Description").FirstOrDefault();
 
-    rdf.Add(desc);
+    if (desc == null) {
+      desc = new XElement(XmpNs.Rdf + "Description",
+        new XAttribute(XmpNs.Rdf + "about", ""));
+
+      rdf.Add(desc);
+    }
+
+    if (!desc.Attributes().Any(a => a.IsNamespaceDeclaration && a.Value == ns.NamespaceName))
+      desc.Add(new XAttribute(XNamespace.Xmlns + XmpNs.GetPrefix(ns), ns.NamespaceName));
 
     return desc;
   }

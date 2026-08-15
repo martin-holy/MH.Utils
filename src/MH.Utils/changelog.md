@@ -9,6 +9,9 @@
 	- [N] BinarySpanWriter
 	- [N] BinaryStreamWriter
 	- [N] ExifOrientation
+	- [N] JpegFile
+	- [N] XContainerExtensions
+	- [N] XElementExtensions
 
 5.0.1:
 	- [B] FlatTree: Expander visibility

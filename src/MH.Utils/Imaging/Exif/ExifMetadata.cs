@@ -10,6 +10,10 @@ namespace MH.Utils.Imaging.Exif;
 public enum UserCommentEncoding { None, Ascii, Unicode, Jis, Undefined }
 
 public class ExifMetadata(TiffReader? reader) {
+  public static ReadOnlySpan<byte> AsciiHeader => "ASCII\0\0\0"u8;
+  public static ReadOnlySpan<byte> UnicodeHeader => "UNICODE\0"u8;
+  public static ReadOnlySpan<byte> JisHeader => "JIS\0\0\0\0\0"u8;
+
   private TiffFile? _tiffFile;
 
   public TiffFile TiffFile => _getTiffFile();
@@ -70,17 +74,17 @@ public class ExifMetadata(TiffReader? reader) {
 
     var span = Reader.GetSpan(comment.ValueOrOffset, (int)comment.Count);
 
-    if (span[..8].SequenceEqual(ExifU.AsciiHeader)) {
+    if (span[..8].SequenceEqual(AsciiHeader)) {
       UserCommentEncoding = UserCommentEncoding.Ascii;
       return Encoding.ASCII.GetString(span[8..]).TrimEnd('\0');
     }
 
-    if (span[..8].SequenceEqual(ExifU.UnicodeHeader)) {
+    if (span[..8].SequenceEqual(UnicodeHeader)) {
       UserCommentEncoding = UserCommentEncoding.Unicode;
       return Reader.ReadUtf16(span[8..]).TrimEnd('\0');
     }
 
-    if (span[..8].SequenceEqual(ExifU.JisHeader)) {
+    if (span[..8].SequenceEqual(JisHeader)) {
       UserCommentEncoding = UserCommentEncoding.Jis;
       Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
       return Encoding.GetEncoding("shift_jis").GetString(span[8..]).TrimEnd('\0');
@@ -124,9 +128,9 @@ public class ExifMetadata(TiffReader? reader) {
     };
 
     ReadOnlySpan<byte> header = encoding switch {
-      UserCommentEncoding.Ascii => ExifU.AsciiHeader,
-      UserCommentEncoding.Unicode => ExifU.UnicodeHeader,
-      UserCommentEncoding.Jis => ExifU.JisHeader,
+      UserCommentEncoding.Ascii => AsciiHeader,
+      UserCommentEncoding.Unicode => UnicodeHeader,
+      UserCommentEncoding.Jis => JisHeader,
       _ => stackalloc byte[8]
     };
 

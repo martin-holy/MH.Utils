@@ -28,32 +28,6 @@ public sealed class JpegMetadataWriter {
   public byte[]? Exif { get; set; }
   public byte[]? Xmp { get; set; }
 
-  public bool Write(string srcPath) {
-    var tmpPath = srcPath + ".tmp";
-
-    try {
-      using var input = File.OpenRead(srcPath);
-      using var output = File.Create(tmpPath);
-      Write(input, output);
-
-      File.Delete(srcPath);
-      File.Move(tmpPath, srcPath);
-
-      return true;
-    }
-    catch (Exception ex) {
-      Log.Error(ex, srcPath);
-
-      try {
-        if (File.Exists(tmpPath))
-          File.Delete(tmpPath);
-      }
-      catch { }
-
-      return false;
-    }
-  }
-
   public void Write(Stream input, Stream output) {
     using var br = new BinaryReader(input, Encoding.ASCII, true);
 

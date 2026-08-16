@@ -394,6 +394,81 @@ public class JpegFileTests {
     Assert.ThrowsException<InvalidDataException>(() => jpeg.Width);
   }
 
+  [TestMethod]
+  public void JpegFile_ReadingExif_StopsAfterExif() {
+    var exif = _createApp1Exif(6);
+    var xmp = _createApp1Xmp(
+      """
+      <x:xmpmeta xmlns:x="adobe:ns:meta/">
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+        </rdf:RDF>
+      </x:xmpmeta>
+      """);
+
+    var jpegData = _createJpeg(
+      _createApp(0xE0, 100),
+      exif,
+      _createApp(0xE2, 50000),
+      xmp,
+      _createSof(640, 480));
+
+    using var stream = new TrackingStream(jpegData);
+    using var jpeg = new JpegFile(stream);
+
+    Assert.AreEqual((ushort)6, jpeg.Exif.GetOrientation());
+
+    // The scanner should not have reached the large segment,
+    // XMP or SOF.
+    long exifEnd =
+      2 +                 // SOI
+      (4 + 100) +         // APP0
+      exif.Length;        // complete EXIF segment
+
+    Assert.AreEqual(exifEnd, stream.MaxPosition);
+  }
+
+  [TestMethod]
+  public void JpegFile_ReadingXmp_StopsAfterXmp() {
+    var exif = _createApp1Exif(6);
+
+    var xmp = _createApp1Xmp(
+      """
+      <x:xmpmeta xmlns:x="adobe:ns:meta/">
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+                 xmlns:dc="http://purl.org/dc/elements/1.1/">
+          <rdf:Description>
+            <dc:description>
+              <rdf:Alt>
+                <rdf:li xml:lang="x-default">Test</rdf:li>
+              </rdf:Alt>
+            </dc:description>
+          </rdf:Description>
+        </rdf:RDF>
+      </x:xmpmeta>
+      """);
+
+    var jpegData = _createJpeg(
+      _createApp(0xE0, 100),
+      exif,
+      _createApp(0xE2, 50000),
+      xmp,
+      _createSof(640, 480));
+
+    using var stream = new TrackingStream(jpegData);
+    using var jpeg = new JpegFile(stream);
+
+    Assert.AreEqual("Test", jpeg.Xmp.GetComment());
+
+    long xmpEnd =
+      2 +                 // SOI
+      (4 + 100) +         // APP0
+      exif.Length +       // complete EXIF segment
+      (4 + 50000) +       // large APP2
+      xmp.Length;         // complete XMP segment
+
+    Assert.AreEqual(xmpEnd, stream.MaxPosition);
+  }
+
   private static byte[] _createJpeg(params byte[][] segments) {
     using var stream = new MemoryStream();
 
@@ -573,4 +648,45 @@ public class JpegFileTests {
         </rdf:RDF>
       </x:xmpmeta>
       """;
+
+  private sealed class TrackingStream(byte[] buffer) : MemoryStream(buffer) {
+    public long MaxPosition { get; private set; }
+
+    public override long Position {
+      get => base.Position;
+      set {
+        base.Position = value;
+        _updateMaxPosition();
+      }
+    }
+
+    public override long Seek(long offset, SeekOrigin origin) {
+      var position = base.Seek(offset, origin);
+      _updateMaxPosition();
+      return position;
+    }
+
+    public override int Read(byte[] buffer, int offset, int count) {
+      var result = base.Read(buffer, offset, count);
+      _updateMaxPosition();
+      return result;
+    }
+
+    public override int Read(Span<byte> buffer) {
+      var result = base.Read(buffer);
+      _updateMaxPosition();
+      return result;
+    }
+
+    public override int ReadByte() {
+      var result = base.ReadByte();
+      _updateMaxPosition();
+      return result;
+    }
+
+    private void _updateMaxPosition() {
+      if (Position > MaxPosition)
+        MaxPosition = Position;
+    }
+  }
 }

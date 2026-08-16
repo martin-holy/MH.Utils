@@ -71,8 +71,6 @@ public class JpegFile : IDisposable {
     }
   }
 
-  public IReadOnlyList<JpegSegment> Segments => _segments;
-
   public JpegFile(string filePath)
     : this(File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.Read)) {
   }
@@ -84,6 +82,42 @@ public class JpegFile : IDisposable {
     _validateJpeg();
 
     _scanPosition = _stream.Position;
+  }
+
+  public bool Write(string srcPath) {
+    var exif = Exif.IsModified ? Exif.ToTiff() : null;
+    var xmp = Xmp.Doc.IsModified ? Xmp.ToPacket() : null;
+
+    if (exif == null && xmp == null) return true;
+
+    var writer = new JpegMetadataWriter {
+      Exif = exif,
+      Xmp = xmp
+    };
+
+    var tmpPath = srcPath + ".tmp";
+
+    try {
+      using var input = File.OpenRead(srcPath);
+      using var output = File.Create(tmpPath);
+      writer.Write(input, output);
+
+      File.Delete(srcPath);
+      File.Move(tmpPath, srcPath);
+
+      return true;
+    }
+    catch (Exception ex) {
+      Log.Error(ex, srcPath);
+
+      try {
+        if (File.Exists(tmpPath))
+          File.Delete(tmpPath);
+      }
+      catch { }
+
+      return false;
+    }
   }
 
   private void _validateJpeg() {

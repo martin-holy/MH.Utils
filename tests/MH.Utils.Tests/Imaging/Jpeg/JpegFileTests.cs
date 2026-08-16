@@ -657,7 +657,7 @@ public class JpegFileTests {
     var comment = _createComment("test"u8.ToArray());
     var sof = _createSof(640, 480);
 
-    var source = _createJpegWithImageData(app0, exif, app2, xmp, comment, sof);
+    var source = _createJpeg(app0, exif, app2, xmp, comment, sof);
     var result = _writeJpeg(source, _createApp1Exif(3), _createApp1Xmp("<x:xmpmeta />"));
     var segments = _readSegments(result);
 
@@ -672,7 +672,7 @@ public class JpegFileTests {
     var app2 = _createApp(0xE2, 200);
     var comment = _createComment("Keep me"u8.ToArray());
 
-    var source = _createJpegWithImageData(app0, _createApp1Exif(6), app2, comment, _createSof(640, 480));
+    var source = _createJpeg(app0, _createApp1Exif(6), app2, comment, _createSof(640, 480));
     var result = _writeJpeg(source, _createApp1Exif(3));
     var sourceSegments = _readSegments(source);
     var resultSegments = _readSegments(result);
@@ -684,7 +684,7 @@ public class JpegFileTests {
 
   [TestMethod]
   public void JpegMetadataWriter_PreservesImageData() {
-    var source = _createJpegWithImageData([_createApp1Exif(6), _createSof(640, 480)]);
+    var source = _createJpeg([_createApp1Exif(6), _createSof(640, 480)]);
     var result = _writeJpeg(source, _createApp1Exif(3));
 
     CollectionAssert.AreEqual(_getAfterSos(source), _getAfterSos(result));
@@ -692,7 +692,7 @@ public class JpegFileTests {
 
   [TestMethod]
   public void TestGeneratedJpeg_CanBeRead() {
-    var jpegData = _createJpegWithImageData(
+    var jpegData = _createJpeg(
       _createApp(0xE0, 100),
       _createApp1Exif(6),
       _createApp(0xE2, 200),
@@ -724,14 +724,39 @@ public class JpegFileTests {
   private static byte[] _createJpeg(params byte[][] segments) {
     using var stream = new MemoryStream();
 
+    // SOI
     stream.WriteByte(0xFF);
     stream.WriteByte(0xD8);
 
     foreach (var segment in segments)
       stream.Write(segment);
 
+    // SOS
     stream.WriteByte(0xFF);
     stream.WriteByte(0xDA);
+
+    // SOS length = 8
+    stream.WriteByte(0x00);
+    stream.WriteByte(0x08);
+
+    // One component
+    stream.WriteByte(0x01);
+    stream.WriteByte(0x01);
+    stream.WriteByte(0x00);
+
+    // Spectral selection
+    stream.WriteByte(0x00);
+    stream.WriteByte(0x3F);
+
+    // Successive approximation
+    stream.WriteByte(0x00);
+
+    // Fake image data
+    stream.Write([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+
+    // EOI
+    stream.WriteByte(0xFF);
+    stream.WriteByte(0xD9);
 
     return stream.ToArray();
   }
@@ -771,64 +796,45 @@ public class JpegFileTests {
   }
 
   private static byte[] _createApp1Xmp(string xml) {
+    var header = "http://ns.adobe.com/xap/1.0/\0"u8;
     var xmlBytes = Encoding.UTF8.GetBytes(xml);
-    var payload = new byte[29 + xmlBytes.Length];
+    var payload = new byte[header.Length + xmlBytes.Length];
 
-    "http://ns.adobe.com/xap/1.0/\0"u8.CopyTo(payload);
-    xmlBytes.CopyTo(payload, 29);
+    header.CopyTo(payload);
+    xmlBytes.CopyTo(payload, header.Length);
 
     return _createApp1(payload);
   }
 
   private static byte[] _createExifTiff(ushort orientation) {
-    using var stream = new MemoryStream();
+    return [
+      // TIFF header
+      (byte)'I', (byte)'I',
+      42, 0,
 
-    // TIFF header
-    stream.Write("II"u8);
+      // IFD0 offset = 8
+      8, 0, 0, 0,
 
-    // TIFF magic
-    stream.WriteByte(42);
-    stream.WriteByte(0);
+      // One IFD entry
+      1, 0,
 
-    // IFD0 offset = 8
-    stream.WriteByte(8);
-    stream.WriteByte(0);
-    stream.WriteByte(0);
-    stream.WriteByte(0);
+      // Orientation
+      0x12, 0x01,
 
-    // IFD0 entry count = 1
-    stream.WriteByte(1);
-    stream.WriteByte(0);
+      // SHORT
+      3, 0,
 
-    // Orientation tag = 0x0112
-    stream.WriteByte(0x12);
-    stream.WriteByte(0x01);
+      // Count = 1
+      1, 0, 0, 0,
 
-    // Type = SHORT (3)
-    stream.WriteByte(3);
-    stream.WriteByte(0);
+      // Value
+      (byte)orientation,
+      (byte)(orientation >> 8),
+      0, 0,
 
-    // Count = 1
-    stream.WriteByte(1);
-    stream.WriteByte(0);
-    stream.WriteByte(0);
-    stream.WriteByte(0);
-
-    // Value
-    stream.WriteByte((byte)orientation);
-    stream.WriteByte((byte)(orientation >> 8));
-
-    // Remaining two bytes of the 4-byte value field
-    stream.WriteByte(0);
-    stream.WriteByte(0);
-
-    // Next IFD = none
-    stream.WriteByte(0);
-    stream.WriteByte(0);
-    stream.WriteByte(0);
-    stream.WriteByte(0);
-
-    return stream.ToArray();
+      // Next IFD = none
+      0, 0, 0, 0
+    ];
   }
 
   private static byte[] _createSof(ushort width, ushort height, byte marker = 0xC0) {
@@ -849,8 +855,14 @@ public class JpegFileTests {
   }
 
   private static byte[] _createApp1ExtendedXmp(string guid, int fullLength, int offset, byte[] data) {
-    if (guid.Length != 32)
-      throw new ArgumentException("Extended XMP GUID must contain 32 characters.", nameof(guid));
+    const int fixedPayloadLength =
+      35 + // XMP extension header
+      32 + // GUID
+      4 +  // full length
+      4;   // offset
+
+    if (data.Length > ushort.MaxValue - 2 - fixedPayloadLength)
+      throw new ArgumentOutOfRangeException(nameof(data));
 
     var header = "http://ns.adobe.com/xmp/extension/\0"u8;
     var guidBytes = Encoding.ASCII.GetBytes(guid);
@@ -993,7 +1005,7 @@ public class JpegFileTests {
 
     segments.Add(_createSof(640, 480));
 
-    return _createJpegWithImageData([.. segments]);
+    return _createJpeg([.. segments]);
   }
 
   private static List<(byte Marker, byte[] Payload)> _readSegments(byte[] jpeg) {
@@ -1017,51 +1029,16 @@ public class JpegFileTests {
         break;
 
       var length = (reader.ReadByte() << 8) | reader.ReadByte();
+
+      Assert.IsTrue(length >= 2);
+
       var payload = reader.ReadBytes(length - 2);
+
+      Assert.AreEqual(length - 2, payload.Length);
 
       result.Add((marker, payload));
     }
 
     return result;
-  }
-
-  private static byte[] _createJpegWithImageData(params byte[][] segments) {
-    using var stream = new MemoryStream();
-
-    // SOI
-    stream.WriteByte(0xFF);
-    stream.WriteByte(0xD8);
-
-    foreach (var segment in segments)
-      stream.Write(segment);
-
-    // SOS
-    stream.WriteByte(0xFF);
-    stream.WriteByte(0xDA);
-
-    // SOS length = 8
-    stream.WriteByte(0x00);
-    stream.WriteByte(0x08);
-
-    // One component
-    stream.WriteByte(0x01);
-    stream.WriteByte(0x01);
-    stream.WriteByte(0x00);
-
-    // Spectral selection
-    stream.WriteByte(0x00);
-    stream.WriteByte(0x3F);
-
-    // Successive approximation
-    stream.WriteByte(0x00);
-
-    // Fake image data
-    stream.Write([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
-
-    // EOI
-    stream.WriteByte(0xFF);
-    stream.WriteByte(0xD9);
-
-    return stream.ToArray();
   }
 }

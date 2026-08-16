@@ -469,6 +469,258 @@ public class JpegFileTests {
     Assert.AreEqual(xmpEnd, stream.MaxPosition);
   }
 
+  [TestMethod]
+  public void JpegMetadataWriter_NoMetadata_PreservesJpeg() {
+    var source = _createJpegWithMetadata(
+      _createApp1Exif(6),
+      _createApp1Xmp(_createExtendedXmpXml("Original")),
+      true);
+
+    var result = _writeJpeg(source);
+
+    CollectionAssert.AreEqual(source, result);
+  }
+
+  [TestMethod]
+  public void JpegMetadataWriter_ReplacesExif() {
+    var source = _createJpegWithMetadata(_createApp1Exif(6), null, true);
+    var result = _writeJpeg(source, _createExifTiff(3));
+
+    using var stream = new MemoryStream(result);
+    using var jpeg = new JpegFile(stream);
+
+    Assert.AreEqual((ushort)3, jpeg.Exif.GetOrientation());
+  }
+
+  [TestMethod]
+  public void JpegMetadataWriter_ReplacingExif_PreservesOtherSegments() {
+    var xmp = _createApp1Xmp(
+      """
+      <x:xmpmeta xmlns:x="adobe:ns:meta/">
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+                 xmlns:dc="http://purl.org/dc/elements/1.1/">
+          <rdf:Description>
+            <dc:description>
+              <rdf:Alt>
+                <rdf:li xml:lang="x-default">Original</rdf:li>
+              </rdf:Alt>
+            </dc:description>
+          </rdf:Description>
+        </rdf:RDF>
+      </x:xmpmeta>
+      """);
+
+    var source = _createJpegWithMetadata(_createApp1Exif(6), xmp, true);
+    var result = _writeJpeg(source, _createExifTiff(3));
+
+    using var stream = new MemoryStream(result);
+    using var jpeg = new JpegFile(stream);
+
+    Assert.AreEqual((ushort)3, jpeg.Exif.GetOrientation());
+    Assert.AreEqual("Original", jpeg.Xmp.GetComment());
+  }
+
+  [TestMethod]
+  public void JpegMetadataWriter_ReplacesXmp() {
+    var source = _createJpegWithMetadata(
+      null,
+      _createApp1Xmp(
+        """
+      <x:xmpmeta xmlns:x="adobe:ns:meta/">
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+                 xmlns:dc="http://purl.org/dc/elements/1.1/">
+          <rdf:Description>
+            <dc:description>
+              <rdf:Alt>
+                <rdf:li xml:lang="x-default">Old</rdf:li>
+              </rdf:Alt>
+            </dc:description>
+          </rdf:Description>
+        </rdf:RDF>
+      </x:xmpmeta>
+      """));
+
+    var newXmp = _createApp1Xmp(
+      """
+      <x:xmpmeta xmlns:x="adobe:ns:meta/">
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+                 xmlns:dc="http://purl.org/dc/elements/1.1/">
+          <rdf:Description>
+            <dc:description>
+              <rdf:Alt>
+                <rdf:li xml:lang="x-default">New</rdf:li>
+              </rdf:Alt>
+            </dc:description>
+          </rdf:Description>
+        </rdf:RDF>
+      </x:xmpmeta>
+      """);
+
+    var result = _writeJpeg(source, xmp: newXmp);
+
+    using var stream = new MemoryStream(result);
+    using var jpeg = new JpegFile(stream);
+
+    Assert.AreEqual("New", jpeg.Xmp.GetComment());
+  }
+
+  [TestMethod]
+  public void JpegMetadataWriter_AddsMissingExif() {
+    var source = _createJpegWithMetadata();
+    var result = _writeJpeg(source, _createExifTiff(6));
+
+    using var stream = new MemoryStream(result);
+    using var jpeg = new JpegFile(stream);
+
+    Assert.AreEqual((ushort)6, jpeg.Exif.GetOrientation());
+  }
+
+  [TestMethod]
+  public void JpegMetadataWriter_AddsMissingXmp() {
+    var source = _createJpegWithMetadata();
+
+    var xmp = _createApp1Xmp(
+      """
+      <x:xmpmeta xmlns:x="adobe:ns:meta/">
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+                 xmlns:dc="http://purl.org/dc/elements/1.1/">
+          <rdf:Description>
+            <dc:description>
+              <rdf:Alt>
+                <rdf:li xml:lang="x-default">Added</rdf:li>
+              </rdf:Alt>
+            </dc:description>
+          </rdf:Description>
+        </rdf:RDF>
+      </x:xmpmeta>
+      """);
+
+    var result = _writeJpeg(source, xmp: xmp);
+
+    using var stream = new MemoryStream(result);
+    using var jpeg = new JpegFile(stream);
+
+    Assert.AreEqual("Added", jpeg.Xmp.GetComment());
+  }
+
+  [TestMethod]
+  public void JpegMetadataWriter_ReplacesExifAndXmp() {
+    var source = _createJpegWithMetadata(
+      _createApp1Exif(6),
+      _createApp1Xmp(
+        """
+        <x:xmpmeta xmlns:x="adobe:ns:meta/">
+          <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+                   xmlns:dc="http://purl.org/dc/elements/1.1/">
+            <rdf:Description>
+              <dc:description>
+                <rdf:Alt>
+                  <rdf:li xml:lang="x-default">Old</rdf:li>
+                </rdf:Alt>
+              </dc:description>
+            </rdf:Description>
+          </rdf:RDF>
+        </x:xmpmeta>
+        """));
+
+    var newXmp = _createApp1Xmp(
+      """
+      <x:xmpmeta xmlns:x="adobe:ns:meta/">
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+                 xmlns:dc="http://purl.org/dc/elements/1.1/">
+          <rdf:Description>
+            <dc:description>
+              <rdf:Alt>
+                <rdf:li xml:lang="x-default">New</rdf:li>
+              </rdf:Alt>
+            </dc:description>
+          </rdf:Description>
+        </rdf:RDF>
+      </x:xmpmeta>
+      """);
+
+    var result = _writeJpeg(source, _createExifTiff(3), newXmp);
+
+    using var stream = new MemoryStream(result);
+    using var jpeg = new JpegFile(stream);
+
+    Assert.AreEqual((ushort)3, jpeg.Exif.GetOrientation());
+    Assert.AreEqual("New", jpeg.Xmp.GetComment());
+  }
+
+  [TestMethod]
+  public void JpegMetadataWriter_PreservesSegmentOrder() {
+    var exif = _createApp1Exif(6);
+    var xmp = _createApp1Xmp("<x:xmpmeta />");
+    var app0 = _createApp(0xE0, 10);
+    var app2 = _createApp(0xE2, 20);
+    var comment = _createComment("test"u8.ToArray());
+    var sof = _createSof(640, 480);
+
+    var source = _createJpegWithImageData(app0, exif, app2, xmp, comment, sof);
+    var result = _writeJpeg(source, _createApp1Exif(3), _createApp1Xmp("<x:xmpmeta />"));
+    var segments = _readSegments(result);
+
+    CollectionAssert.AreEqual(
+      new[] { (byte)0xE0, (byte)0xE1, (byte)0xE2, (byte)0xE1, (byte)0xFE, (byte)0xC0 },
+      segments.Select(x => x.Marker).ToArray());
+  }
+
+  [TestMethod]
+  public void JpegMetadataWriter_PreservesUnrelatedSegments() {
+    var app0 = _createApp(0xE0, 100);
+    var app2 = _createApp(0xE2, 200);
+    var comment = _createComment("Keep me"u8.ToArray());
+
+    var source = _createJpegWithImageData(app0, _createApp1Exif(6), app2, comment, _createSof(640, 480));
+    var result = _writeJpeg(source, _createApp1Exif(3));
+    var sourceSegments = _readSegments(source);
+    var resultSegments = _readSegments(result);
+
+    CollectionAssert.AreEqual(sourceSegments[0].Payload, resultSegments[0].Payload);
+    CollectionAssert.AreEqual(sourceSegments[2].Payload, resultSegments[2].Payload);
+    CollectionAssert.AreEqual(sourceSegments[3].Payload, resultSegments[3].Payload);
+  }
+
+  [TestMethod]
+  public void JpegMetadataWriter_PreservesImageData() {
+    var source = _createJpegWithImageData([_createApp1Exif(6), _createSof(640, 480)]);
+    var result = _writeJpeg(source, _createApp1Exif(3));
+
+    CollectionAssert.AreEqual(_getAfterSos(source), _getAfterSos(result));
+  }
+
+  [TestMethod]
+  public void TestGeneratedJpeg_CanBeRead() {
+    var jpegData = _createJpegWithImageData(
+      _createApp(0xE0, 100),
+      _createApp1Exif(6),
+      _createApp(0xE2, 200),
+      _createSof(640, 480));
+
+    using var stream = new MemoryStream(jpegData);
+    var jpeg = new JpegFile(stream);
+
+    Assert.AreEqual(640, jpeg.Width);
+    Assert.AreEqual(480, jpeg.Height);
+    Assert.AreEqual((ushort)6, jpeg.Exif.GetOrientation());
+  }
+
+  private static byte[] _getAfterSos(byte[] jpeg) {
+    var index = 0;
+
+    for (int i = 0; i < jpeg.Length - 1; i++) {
+      if (jpeg[i] == 0xFF && jpeg[i + 1] == 0xDA) {
+        index = i;
+        break;
+      }
+    }
+
+    Assert.AreNotEqual(0, index);
+
+    return jpeg[index..];
+  }
+
   private static byte[] _createJpeg(params byte[][] segments) {
     using var stream = new MemoryStream();
 
@@ -529,38 +781,54 @@ public class JpegFileTests {
   }
 
   private static byte[] _createExifTiff(ushort orientation) {
-    var tiff = new byte[26];
+    using var stream = new MemoryStream();
 
-    // TIFF header, little endian.
-    tiff[0] = 0x49;
-    tiff[1] = 0x49;
-    tiff[2] = 0x2A;
-    tiff[3] = 0x00;
+    // TIFF header
+    stream.Write("II"u8);
 
-    // IFD0 offset.
-    tiff[4] = 0x08;
+    // TIFF magic
+    stream.WriteByte(42);
+    stream.WriteByte(0);
 
-    // One entry.
-    tiff[8] = 0x01;
+    // IFD0 offset = 8
+    stream.WriteByte(8);
+    stream.WriteByte(0);
+    stream.WriteByte(0);
+    stream.WriteByte(0);
 
-    // Orientation tag 0x0112.
-    tiff[10] = 0x12;
-    tiff[11] = 0x01;
+    // IFD0 entry count = 1
+    stream.WriteByte(1);
+    stream.WriteByte(0);
 
-    // SHORT type = 3.
-    tiff[12] = 0x03;
+    // Orientation tag = 0x0112
+    stream.WriteByte(0x12);
+    stream.WriteByte(0x01);
 
-    // Count = 1.
-    tiff[14] = 0x01;
+    // Type = SHORT (3)
+    stream.WriteByte(3);
+    stream.WriteByte(0);
 
-    // Value.
-    tiff[18] = (byte)orientation;
-    tiff[19] = (byte)(orientation >> 8);
+    // Count = 1
+    stream.WriteByte(1);
+    stream.WriteByte(0);
+    stream.WriteByte(0);
+    stream.WriteByte(0);
 
-    // Next IFD = 0.
-    // Already zero.
+    // Value
+    stream.WriteByte((byte)orientation);
+    stream.WriteByte((byte)(orientation >> 8));
 
-    return tiff;
+    // Remaining two bytes of the 4-byte value field
+    stream.WriteByte(0);
+    stream.WriteByte(0);
+
+    // Next IFD = none
+    stream.WriteByte(0);
+    stream.WriteByte(0);
+    stream.WriteByte(0);
+    stream.WriteByte(0);
+
+    return stream.ToArray();
   }
 
   private static byte[] _createSof(ushort width, ushort height, byte marker = 0xC0) {
@@ -688,5 +956,112 @@ public class JpegFileTests {
       if (Position > MaxPosition)
         MaxPosition = Position;
     }
+  }
+
+  private static byte[] _writeJpeg(byte[] source, byte[]? exif = null, byte[]? xmp = null) {
+    using var input = new MemoryStream(source);
+    using var output = new MemoryStream();
+
+    var writer = new JpegMetadataWriter {
+      Exif = exif,
+      Xmp = xmp
+    };
+
+    writer.Write(input, output);
+
+    return output.ToArray();
+  }
+
+  private static byte[] _createComment(byte[] data) =>
+    _createSegment(0xFE, data);
+
+  private static byte[] _createJpegWithMetadata(byte[]? exif = null, byte[]? xmp = null, bool includeComment = false) {
+    var segments = new List<byte[]> {
+      _createApp(0xE0, 100)
+    };
+
+    if (includeComment)
+      segments.Add(_createComment("JPEG comment"u8.ToArray()));
+
+    if (exif != null)
+      segments.Add(exif);
+
+    segments.Add(_createApp(0xE2, 200));
+
+    if (xmp != null)
+      segments.Add(xmp);
+
+    segments.Add(_createSof(640, 480));
+
+    return _createJpegWithImageData([.. segments]);
+  }
+
+  private static List<(byte Marker, byte[] Payload)> _readSegments(byte[] jpeg) {
+    using var stream = new MemoryStream(jpeg);
+    using var reader = new BinaryReader(stream);
+
+    Assert.AreEqual(0xFF, reader.ReadByte());
+    Assert.AreEqual(0xD8, reader.ReadByte());
+
+    var result = new List<(byte, byte[])>();
+
+    while (stream.Position < stream.Length) {
+      Assert.AreEqual(0xFF, reader.ReadByte());
+
+      var marker = reader.ReadByte();
+
+      while (marker == 0xFF)
+        marker = reader.ReadByte();
+
+      if (marker == 0xDA)
+        break;
+
+      var length = (reader.ReadByte() << 8) | reader.ReadByte();
+      var payload = reader.ReadBytes(length - 2);
+
+      result.Add((marker, payload));
+    }
+
+    return result;
+  }
+
+  private static byte[] _createJpegWithImageData(params byte[][] segments) {
+    using var stream = new MemoryStream();
+
+    // SOI
+    stream.WriteByte(0xFF);
+    stream.WriteByte(0xD8);
+
+    foreach (var segment in segments)
+      stream.Write(segment);
+
+    // SOS
+    stream.WriteByte(0xFF);
+    stream.WriteByte(0xDA);
+
+    // SOS length = 8
+    stream.WriteByte(0x00);
+    stream.WriteByte(0x08);
+
+    // One component
+    stream.WriteByte(0x01);
+    stream.WriteByte(0x01);
+    stream.WriteByte(0x00);
+
+    // Spectral selection
+    stream.WriteByte(0x00);
+    stream.WriteByte(0x3F);
+
+    // Successive approximation
+    stream.WriteByte(0x00);
+
+    // Fake image data
+    stream.Write([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+
+    // EOI
+    stream.WriteByte(0xFF);
+    stream.WriteByte(0xD9);
+
+    return stream.ToArray();
   }
 }

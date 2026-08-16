@@ -5,6 +5,7 @@ using System.Text;
 namespace MH.Utils.Imaging.Jpeg;
 
 public sealed class JpegMetadataWriter {
+  public static ReadOnlySpan<byte> ExifHeader => "Exif\0\0"u8;
   public static ReadOnlySpan<byte> XmpHeader => "http://ns.adobe.com/xap/1.0/\0"u8;
   public static ReadOnlySpan<byte> XmpExtHeader => "http://ns.adobe.com/xmp/extension/\0"u8;
   public const int App1MaxPayload = 65533;
@@ -142,7 +143,7 @@ public sealed class JpegMetadataWriter {
     var position = stream.Position;
 
     try {
-      if (payloadLength >= ExifU.ExifHeader.Length && _startsWith(stream, ExifU.ExifHeader))
+      if (payloadLength >= ExifHeader.Length && _startsWith(stream, ExifHeader))
         return App1Type.Exif;
 
       stream.Position = position;
@@ -231,7 +232,7 @@ public sealed class JpegMetadataWriter {
 
   private void _writeExif(Stream stream) {
     if (Exif != null)
-      _writeApp1(stream, ExifU.ExifHeader, Exif);
+      _writeApp1(stream, ExifHeader, Exif);
   }
 
   private void _writeXmp(Stream stream) {

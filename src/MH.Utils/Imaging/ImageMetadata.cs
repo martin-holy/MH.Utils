@@ -8,15 +8,11 @@ namespace MH.Utils.Imaging;
 
 public class ImageMetadata(string filePath) {
   private JpegFile? _jpeg;
-  private ExifMetadata? _exif;
-  private XmpMetadata? _xmp;
 
-  public bool IsExifModified => Exif.IsModified;
-  public bool IsXmpModified => Xmp.Doc.IsModified;
+  public bool IsExifModified => Jpeg.Exif.IsModified;
+  public bool IsXmpModified => Jpeg.Xmp.Doc.IsModified;
 
   public JpegFile Jpeg => _jpeg ??= new JpegFile(filePath);
-  public ExifMetadata Exif => _exif ??= new(ExifU.ReadFromJpeg(filePath));
-  public XmpMetadata Xmp => _xmp ??= new(XmpU.ReadFromJpeg(filePath));
 
   public ushort? Width { get => _getWidth(); set => _setWidth(value); }
   public ushort? Height { get => _getHeight(); set => _setHeight(value); }
@@ -33,8 +29,8 @@ public class ImageMetadata(string filePath) {
   private void _setWidth(ushort? value) {
     if (Width == value) return;
 
-    Exif.SetWidth(value);
-    Xmp.SetWidth(value);
+    Jpeg.Exif.SetWidth(value);
+    Jpeg.Xmp.SetWidth(value);
   }
 
   private ushort? _getHeight() =>
@@ -42,72 +38,63 @@ public class ImageMetadata(string filePath) {
 
   private void _setHeight(ushort? value) {
     if (Height == value) return;
-    
-    Exif.SetHeight(value);
-    Xmp.SetHeight(value);
+
+    Jpeg.Exif.SetHeight(value);
+    Jpeg.Xmp.SetHeight(value);
   }
 
   private ExifOrientation? _getOrientation() =>
-    (ExifOrientation?)Exif.GetOrientation();
+    (ExifOrientation?)Jpeg.Exif.GetOrientation();
 
   private void _setOrientation(ExifOrientation? value) {
     if (Orientation == value) return;
 
-    Exif.SetOrientation((ushort?)value);
+    Jpeg.Exif.SetOrientation((ushort?)value);
   }
 
   private string? _getComment() =>
-    Xmp.GetComment() ?? Exif.GetComment();
+    Jpeg.Xmp.GetComment() ?? Jpeg.Exif.GetComment();
 
   private void _setComment(string? value) {
     if (Comment == value) return;
 
-    Exif.SetComment(value);
-    Xmp.SetComment(value);
+    Jpeg.Exif.SetComment(value);
+    Jpeg.Xmp.SetComment(value);
   }
 
   private GpsCoordinate? _getGpsCoordinate() =>
-    Exif.GetGpsCoordinate();
+    Jpeg.Exif.GetGpsCoordinate();
 
   public void _setGpsCoordinate(GpsCoordinate? gps) {
     if (gps.AlmostEquals(GpsCoordinate)) return;
 
-    Exif.SetGpsCoordinate(gps);
+    Jpeg.Exif.SetGpsCoordinate(gps);
   }
 
   private int? _getRating() =>
-    Xmp.GetRating() ?? Exif.GetRating();
+    Jpeg.Xmp.GetRating() ?? Jpeg.Exif.GetRating();
 
   private void _setRating(int? value) {
     if (Rating == value) return;
 
-    Xmp.SetRating(value);
-    Exif.SetRating(value);
+    Jpeg.Xmp.SetRating(value);
+    Jpeg.Exif.SetRating(value);
   }
 
   private string[]? _getKeywords() =>
-    Xmp.GetKeywords();
+    Jpeg.Xmp.GetKeywords();
 
   private void _setKeywords(string[]? value) {
     if ((Keywords ?? []).SequenceEqual(value ?? [])) return;
 
-    Xmp.SetKeywords(value);
+    Jpeg.Xmp.SetKeywords(value);
   }
 
   private MpRegionCollection _getPeople() =>
-    Xmp.GetPeople();
+    Jpeg.Xmp.GetPeople();
 
-  public bool Write(string srcPath) {
-    var jpeg = new JpegMetadataWriter();
-
-    if (IsExifModified)
-      jpeg.Exif = Exif.ToTiff();
-
-    if (IsXmpModified)
-      jpeg.Xmp = Xmp.ToPacket();
-
-    return jpeg.Write(srcPath);
-  }
+  public bool Write(string srcPath) =>
+    Jpeg.Write(srcPath);
 
   public bool WriteIfModified(string srcPath) {
     if (!IsExifModified && !IsXmpModified) return false;

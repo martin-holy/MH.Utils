@@ -35,6 +35,9 @@ public sealed class JpegMetadataWriter {
       using var output = File.Create(tmpPath);
       Write(input, output);
 
+      File.Delete(srcPath);
+      File.Move(tmpPath, srcPath);
+
       return true;
     }
     catch (Exception ex) {

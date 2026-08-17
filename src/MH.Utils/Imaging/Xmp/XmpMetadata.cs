@@ -75,8 +75,10 @@ public class XmpMetadata {
     return items?.Length == 0 ? null : items;
   }
 
-  public void SetKeywords(string[]? values) =>
+  public void SetKeywords(string[]? values) {
     Doc.SetArray(XmpNs.Dc, "subject", values);
+    Doc.SetArray(XmpNs.MicrosoftPhoto, "LastKeywordXMP", values);
+  }
 
   public MpRegionCollection GetPeople() {
     _people ??= new(Doc);

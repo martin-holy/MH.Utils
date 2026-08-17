@@ -10,6 +10,7 @@ public static class XmpNs {
   public static readonly XNamespace Exif = "http://ns.adobe.com/exif/1.0/";
   public static readonly XNamespace Tiff = "http://ns.adobe.com/tiff/1.0/";
   public static readonly XNamespace Rdf = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
+  public static readonly XNamespace MicrosoftPhoto = "http://ns.microsoft.com/photo/1.0/";
   public static readonly XNamespace Mp = "http://ns.microsoft.com/photo/1.2/";
   public static readonly XNamespace MpRi = "http://ns.microsoft.com/photo/1.2/t/RegionInfo#";
   public static readonly XNamespace MpReg = "http://ns.microsoft.com/photo/1.2/t/Region#";

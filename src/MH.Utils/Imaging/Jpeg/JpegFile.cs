@@ -190,7 +190,7 @@ public class JpegFile : IDisposable {
     if (_stream.Length - _stream.Position < 2)
       throw new InvalidDataException("Invalid JPEG segment.");
 
-    ushort segmentLength = _readUInt16(_reader);
+    ushort segmentLength = ByteU.ReadBigEndianUInt16(_reader);
 
     if (segmentLength < 2)
       throw new InvalidDataException("Invalid JPEG segment.");
@@ -225,8 +225,8 @@ public class JpegFile : IDisposable {
 
     _reader.ReadByte(); // precision
 
-    _height = _readUInt16(_reader);
-    _width = _readUInt16(_reader);
+    _height = ByteU.ReadBigEndianUInt16(_reader);
+    _width = ByteU.ReadBigEndianUInt16(_reader);
   }
 
   private void _inspectApp1(JpegSegment segment) {
@@ -454,13 +454,6 @@ public class JpegFile : IDisposable {
 
     position += 4;
     return value;
-  }
-
-  private static ushort _readUInt16(BinaryReader reader) {
-    byte high = reader.ReadByte();
-    byte low = reader.ReadByte();
-
-    return (ushort)((high << 8) | low);
   }
 
   private static bool _isStartOfFrame(byte marker) =>

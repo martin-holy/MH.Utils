@@ -16,7 +16,7 @@ public enum JpegMetadataLoad {
   All = Exif | Xmp
 }
 
-public class JpegFile : IDisposable {
+public class JpegFile {
   private const byte _soi = 0xD8;
   private const byte _eoi = 0xD9;
   private const byte _sos = 0xDA;
@@ -78,9 +78,7 @@ public class JpegFile : IDisposable {
     _read(stream, load);
   }
 
-  //[assembly: InternalsVisibleTo("MH.Utils.Tests")]
-  // TODO make it internal
-  public JpegFile(Stream stream, JpegMetadataLoad load = JpegMetadataLoad.None) {
+  internal JpegFile(Stream stream, JpegMetadataLoad load = JpegMetadataLoad.None) {
     // The stream constructor is intended for tests. Keep a private copy so
     // the supplied stream does not have to remain open for lazy loading.
     using var input = stream;
@@ -521,8 +519,6 @@ public class JpegFile : IDisposable {
       0x01 => false,
       _ => true
     };
-
-  public void Dispose() { }
 
   private readonly record struct JpegSegment(
     byte Marker,

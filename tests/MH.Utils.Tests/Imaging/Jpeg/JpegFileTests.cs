@@ -359,9 +359,7 @@ public class JpegFileTests {
       0xFF, 0xDA        // SOS
       ]);
 
-    using var jpeg = new JpegFile(stream);
-
-    Assert.ThrowsException<InvalidDataException>(() => jpeg.Exif);
+    Assert.ThrowsException<InvalidDataException>(() => new JpegFile(stream));
   }
 
   [TestMethod]
@@ -373,9 +371,7 @@ public class JpegFileTests {
       0x01, 0x02, 0x03  // but only 3 bytes follow
       ]);
 
-    using var jpeg = new JpegFile(stream);
-
-    Assert.ThrowsException<InvalidDataException>(() => jpeg.Exif);
+    Assert.ThrowsException<InvalidDataException>(() => new JpegFile(stream));
   }
 
   [TestMethod]
@@ -389,84 +385,8 @@ public class JpegFileTests {
       ]);
 
     using var stream = new MemoryStream(_createJpeg(sof));
-    using var jpeg = new JpegFile(stream);
 
-    Assert.ThrowsException<InvalidDataException>(() => jpeg.Width);
-  }
-
-  [TestMethod]
-  public void JpegFile_ReadingExif_StopsAfterExif() {
-    var exif = _createApp1Exif(6);
-    var xmp = _createApp1Xmp(
-      """
-      <x:xmpmeta xmlns:x="adobe:ns:meta/">
-        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
-        </rdf:RDF>
-      </x:xmpmeta>
-      """);
-
-    var jpegData = _createJpeg(
-      _createApp(0xE0, 100),
-      exif,
-      _createApp(0xE2, 50000),
-      xmp,
-      _createSof(640, 480));
-
-    using var stream = new TrackingStream(jpegData);
-    using var jpeg = new JpegFile(stream);
-
-    Assert.AreEqual((ushort)6, jpeg.Exif.GetOrientation());
-
-    // The scanner should not have reached the large segment,
-    // XMP or SOF.
-    long exifEnd =
-      2 +                 // SOI
-      (4 + 100) +         // APP0
-      exif.Length;        // complete EXIF segment
-
-    Assert.AreEqual(exifEnd, stream.MaxPosition);
-  }
-
-  [TestMethod]
-  public void JpegFile_ReadingXmp_StopsAfterXmp() {
-    var exif = _createApp1Exif(6);
-
-    var xmp = _createApp1Xmp(
-      """
-      <x:xmpmeta xmlns:x="adobe:ns:meta/">
-        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-                 xmlns:dc="http://purl.org/dc/elements/1.1/">
-          <rdf:Description>
-            <dc:description>
-              <rdf:Alt>
-                <rdf:li xml:lang="x-default">Test</rdf:li>
-              </rdf:Alt>
-            </dc:description>
-          </rdf:Description>
-        </rdf:RDF>
-      </x:xmpmeta>
-      """);
-
-    var jpegData = _createJpeg(
-      _createApp(0xE0, 100),
-      exif,
-      _createApp(0xE2, 50000),
-      xmp,
-      _createSof(640, 480));
-
-    using var stream = new TrackingStream(jpegData);
-    using var jpeg = new JpegFile(stream);
-
-    Assert.AreEqual("Test", jpeg.Xmp.GetComment());
-
-    long xmpEnd =
-      2 +                 // SOI
-      (4 + 100) +         // APP0
-      exif.Length +       // complete EXIF segment
-      (4 + 50000) +       // large APP2
-      xmp.Length;         // complete XMP segment
-
-    Assert.AreEqual(xmpEnd, stream.MaxPosition);
+    Assert.ThrowsException<InvalidDataException>(() => new JpegFile(stream));
   }
 
   [TestMethod]

@@ -8,35 +8,35 @@ public class JpegFileTests {
   [TestMethod]
   public void JpegFile_MissingExif_CreatesExifMetadata() {
     using var stream = new MemoryStream(_createJpeg(_createSof(640, 480)));
-    using var jpeg = new JpegFile(stream);
+    var jpeg = new JpegFile(stream);
     Assert.IsNotNull(jpeg.Exif);
   }
 
   [TestMethod]
   public void JpegFile_MissingXmp_CreatesXmpMetadata() {
     using var stream = new MemoryStream(_createJpeg(_createSof(640, 480)));
-    using var jpeg = new JpegFile(stream);
+    var jpeg = new JpegFile(stream);
     Assert.IsNotNull(jpeg.Xmp);
   }
 
   [TestMethod]
   public void JpegFile_MissingExif_ReturnsSameInstance() {
     using var stream = new MemoryStream(_createJpeg(_createSof(640, 480)));
-    using var jpeg = new JpegFile(stream);
+    var jpeg = new JpegFile(stream);
     Assert.AreSame(jpeg.Exif, jpeg.Exif);
   }
 
   [TestMethod]
   public void JpegFile_MissingXmp_ReturnsSameInstance() {
     using var stream = new MemoryStream(_createJpeg(_createSof(640, 480)));
-    using var jpeg = new JpegFile(stream);
+    var jpeg = new JpegFile(stream);
     Assert.AreSame(jpeg.Xmp, jpeg.Xmp);
   }
 
   [TestMethod]
   public void JpegFile_Exif_ReturnsSameInstance() {
     using var stream = new MemoryStream(_createJpeg(_createApp1Exif(6), _createSof(640, 480)));
-    using var jpeg = new JpegFile(stream);
+    var jpeg = new JpegFile(stream);
     var exif = jpeg.Exif;
     Assert.AreSame(exif, jpeg.Exif);
   }
@@ -62,7 +62,7 @@ public class JpegFileTests {
           """),
         _createSof(640, 480)));
 
-    using var jpeg = new JpegFile(stream);
+    var jpeg = new JpegFile(stream);
     var xmp = jpeg.Xmp;
 
     Assert.AreSame(xmp, jpeg.Xmp);
@@ -82,7 +82,7 @@ public class JpegFileTests {
           """),
         _createSof(640, 480)));
 
-    using var jpeg = new JpegFile(stream);
+    var jpeg = new JpegFile(stream);
 
     Assert.AreEqual((ushort)6, jpeg.Exif.GetOrientation());
   }
@@ -108,7 +108,7 @@ public class JpegFileTests {
           """),
         _createSof(640, 480)));
 
-    using var jpeg = new JpegFile(stream);
+    var jpeg = new JpegFile(stream);
 
     Assert.AreEqual("Test", jpeg.Xmp.GetComment());
   }
@@ -136,7 +136,7 @@ public class JpegFileTests {
           """),
         _createSof(640, 480)));
 
-    using var jpeg = new JpegFile(stream);
+    var jpeg = new JpegFile(stream);
 
     Assert.AreEqual((ushort)6, jpeg.Exif.GetOrientation());
     Assert.AreEqual("Test", jpeg.Xmp.GetComment());
@@ -165,7 +165,7 @@ public class JpegFileTests {
         _createApp1Exif(6),
         _createSof(640, 480)));
 
-    using var jpeg = new JpegFile(stream);
+    var jpeg = new JpegFile(stream);
 
     Assert.AreEqual("Test", jpeg.Xmp.GetComment());
     Assert.AreEqual((ushort)6, jpeg.Exif.GetOrientation());
@@ -195,7 +195,7 @@ public class JpegFileTests {
           """),
         _createSof(640, 480)));
 
-    using var jpeg = new JpegFile(stream);
+    var jpeg = new JpegFile(stream);
 
     Assert.AreEqual("XMP comment", jpeg.Xmp.GetComment());
   }
@@ -203,7 +203,7 @@ public class JpegFileTests {
   [TestMethod]
   public void JpegFile_ReadsSizeWithoutExif() {
     using var stream = new MemoryStream(_createJpeg(_createSof(1234, 567)));
-    using var jpeg = new JpegFile(stream);
+    var jpeg = new JpegFile(stream);
     Assert.AreEqual(1234, jpeg.Width);
     Assert.AreEqual(567, jpeg.Height);
   }
@@ -217,7 +217,7 @@ public class JpegFileTests {
         _createApp(0xE2, 1000),
         _createSof(1234, 567)));
 
-    using var jpeg = new JpegFile(stream);
+    var jpeg = new JpegFile(stream);
 
     Assert.AreEqual(1234, jpeg.Width);
     Assert.AreEqual(567, jpeg.Height);
@@ -231,7 +231,7 @@ public class JpegFileTests {
         _createApp1Exif(6),
         _createSof(640, 480)));
 
-    using var jpeg = new JpegFile(stream);
+    var jpeg = new JpegFile(stream);
 
     Assert.AreEqual((ushort)6, jpeg.Exif.GetOrientation());
   }
@@ -244,7 +244,7 @@ public class JpegFileTests {
         _createApp1Exif(3),
         _createSof(640, 480)));
 
-    using var jpeg = new JpegFile(stream);
+    var jpeg = new JpegFile(stream);
 
     Assert.AreEqual((ushort)6, jpeg.Exif.GetOrientation());
   }
@@ -261,7 +261,7 @@ public class JpegFileTests {
     using var stream = new MemoryStream(
       _createJpeg(mainXmp, _createApp(0xE2, 100), extendedXmp, _createSof(640, 480)));
 
-    using var jpeg = new JpegFile(stream);
+    var jpeg = new JpegFile(stream);
 
     Assert.AreEqual(comment, jpeg.Xmp.GetComment());
   }
@@ -283,7 +283,7 @@ public class JpegFileTests {
         _createApp1ExtendedXmp(guid, xml.Length, split, second),
         _createSof(640, 480)));
 
-    using var jpeg = new JpegFile(stream);
+    var jpeg = new JpegFile(stream);
 
     Assert.AreEqual(comment, jpeg.Xmp.GetComment());
   }
@@ -305,7 +305,7 @@ public class JpegFileTests {
         _createApp1ExtendedXmp(guid, xml.Length, 0, first),
         _createSof(640, 480)));
 
-    using var jpeg = new JpegFile(stream);
+    var jpeg = new JpegFile(stream);
 
     Assert.AreEqual(comment, jpeg.Xmp.GetComment());
   }
@@ -323,7 +323,7 @@ public class JpegFileTests {
         _createApp1ExtendedXmp(otherGuid, extendedXml.Length, 0, extendedXml),
         _createSof(640, 480)));
 
-    using var jpeg = new JpegFile(stream);
+    var jpeg = new JpegFile(stream);
 
     // There is no usable extended XMP for our GUID.
     // The main packet itself only contains HasExtendedXMP.
@@ -339,7 +339,7 @@ public class JpegFileTests {
         _createApp1Xmp(_createMainXmpWithExtendedGuid(guid)),
         _createSof(640, 480)));
 
-    using var jpeg = new JpegFile(stream);
+    var jpeg = new JpegFile(stream);
 
     Assert.IsNull(jpeg.Xmp.GetComment());
   }
@@ -407,7 +407,7 @@ public class JpegFileTests {
     var result = _writeJpeg(source, _createExifTiff(3));
 
     using var stream = new MemoryStream(result);
-    using var jpeg = new JpegFile(stream);
+    var jpeg = new JpegFile(stream);
 
     Assert.AreEqual((ushort)3, jpeg.Exif.GetOrientation());
   }
@@ -434,7 +434,7 @@ public class JpegFileTests {
     var result = _writeJpeg(source, _createExifTiff(3));
 
     using var stream = new MemoryStream(result);
-    using var jpeg = new JpegFile(stream);
+    var jpeg = new JpegFile(stream);
 
     Assert.AreEqual((ushort)3, jpeg.Exif.GetOrientation());
     Assert.AreEqual("Original", jpeg.Xmp.GetComment());
@@ -479,7 +479,7 @@ public class JpegFileTests {
     var result = _writeJpeg(source, xmp: newXmp);
 
     using var stream = new MemoryStream(result);
-    using var jpeg = new JpegFile(stream);
+    var jpeg = new JpegFile(stream);
 
     Assert.AreEqual("New", jpeg.Xmp.GetComment());
   }
@@ -490,7 +490,7 @@ public class JpegFileTests {
     var result = _writeJpeg(source, _createExifTiff(6));
 
     using var stream = new MemoryStream(result);
-    using var jpeg = new JpegFile(stream);
+    var jpeg = new JpegFile(stream);
 
     Assert.AreEqual((ushort)6, jpeg.Exif.GetOrientation());
   }
@@ -518,7 +518,7 @@ public class JpegFileTests {
     var result = _writeJpeg(source, xmp: xmp);
 
     using var stream = new MemoryStream(result);
-    using var jpeg = new JpegFile(stream);
+    var jpeg = new JpegFile(stream);
 
     Assert.AreEqual("Added", jpeg.Xmp.GetComment());
   }
@@ -562,7 +562,7 @@ public class JpegFileTests {
     var result = _writeJpeg(source, _createExifTiff(3), newXmp);
 
     using var stream = new MemoryStream(result);
-    using var jpeg = new JpegFile(stream);
+    var jpeg = new JpegFile(stream);
 
     Assert.AreEqual((ushort)3, jpeg.Exif.GetOrientation());
     Assert.AreEqual("New", jpeg.Xmp.GetComment());

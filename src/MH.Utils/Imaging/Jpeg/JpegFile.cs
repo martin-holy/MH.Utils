@@ -91,6 +91,9 @@ public class JpegFile {
     _read(testStream, load);
   }
 
+  internal bool XmpIsNull() => _xmp == null;
+  internal bool ExifIsNull() => _exif == null;
+
   public bool Write(string srcPath) {
     var exif = _exif?.IsModified == true ? _exif.ToTiff() : null;
     var xmp = _xmp?.Doc.IsModified == true ? _xmp.ToPacket() : null;

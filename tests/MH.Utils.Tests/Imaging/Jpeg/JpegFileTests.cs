@@ -6,6 +6,90 @@ namespace MH.Utils.Tests.Imaging.Jpeg;
 [TestClass]
 public class JpegFileTests {
   [TestMethod]
+  public void JpegFile_DefaultLoad_DoesNotLoadExifOrXmp() {
+    using var stream = new MemoryStream(
+      _createJpeg(
+        _createApp1Exif(6),
+        _createApp1Xmp(_getTestXmp()),
+        _createSof(640, 480)));
+
+    var jpeg = new JpegFile(stream);
+
+    Assert.IsTrue(jpeg.ExifIsNull());
+    Assert.IsTrue(jpeg.XmpIsNull());
+  }
+
+  [TestMethod]
+  public void JpegFile_LoadExif_LoadsExifOnly() {
+    using var stream = new MemoryStream(
+      _createJpeg(
+        _createApp1Exif(6),
+        _createApp1Xmp(_getTestXmp()),
+        _createSof(640, 480)));
+
+    var jpeg = new JpegFile(stream, JpegMetadataLoad.Exif);
+
+    Assert.IsFalse(jpeg.ExifIsNull());
+    Assert.IsTrue(jpeg.XmpIsNull());
+  }
+
+  [TestMethod]
+  public void JpegFile_LoadXmp_LoadsXmpOnly() {
+    using var stream = new MemoryStream(
+      _createJpeg(
+        _createApp1Exif(6),
+        _createApp1Xmp(_getTestXmp()),
+        _createSof(640, 480)));
+
+    var jpeg = new JpegFile(stream, JpegMetadataLoad.Xmp);
+
+    Assert.IsTrue(jpeg.ExifIsNull());
+    Assert.IsFalse(jpeg.XmpIsNull());
+  }
+
+  [TestMethod]
+  public void JpegFile_LoadAll_LoadsExifAndXmp() {
+    using var stream = new MemoryStream(
+      _createJpeg(
+        _createApp1Exif(6),
+        _createApp1Xmp(_getTestXmp()),
+        _createSof(640, 480)));
+
+    var jpeg = new JpegFile(stream, JpegMetadataLoad.All);
+
+    Assert.IsFalse(jpeg.ExifIsNull());
+    Assert.IsFalse(jpeg.XmpIsNull());
+  }
+
+  [TestMethod]
+  public void JpegFile_LazyExif_LoadsWhenAccessed() {
+    using var stream = new MemoryStream(
+      _createJpeg(
+        _createApp1Exif(6),
+        _createSof(640, 480)));
+
+    var jpeg = new JpegFile(stream);
+
+    Assert.IsTrue(jpeg.ExifIsNull());
+    Assert.AreEqual((ushort)6, jpeg.Exif.GetOrientation());
+    Assert.IsFalse(jpeg.ExifIsNull());
+  }
+
+  [TestMethod]
+  public void JpegFile_LazyXmp_LoadsWhenAccessed() {
+    using var stream = new MemoryStream(
+      _createJpeg(
+        _createApp1Xmp(_getTestXmp()),
+        _createSof(640, 480)));
+
+    var jpeg = new JpegFile(stream);
+
+    Assert.IsTrue(jpeg.XmpIsNull());
+    Assert.AreEqual("Test", jpeg.Xmp.GetComment());
+    Assert.IsFalse(jpeg.XmpIsNull());
+  }
+
+  [TestMethod]
   public void JpegFile_MissingExif_CreatesExifMetadata() {
     using var stream = new MemoryStream(_createJpeg(_createSof(640, 480)));
     var jpeg = new JpegFile(stream);
@@ -20,97 +104,32 @@ public class JpegFileTests {
   }
 
   [TestMethod]
-  public void JpegFile_MissingExif_ReturnsSameInstance() {
-    using var stream = new MemoryStream(_createJpeg(_createSof(640, 480)));
-    var jpeg = new JpegFile(stream);
-    Assert.AreSame(jpeg.Exif, jpeg.Exif);
-  }
-
-  [TestMethod]
-  public void JpegFile_MissingXmp_ReturnsSameInstance() {
-    using var stream = new MemoryStream(_createJpeg(_createSof(640, 480)));
-    var jpeg = new JpegFile(stream);
-    Assert.AreSame(jpeg.Xmp, jpeg.Xmp);
-  }
-
-  [TestMethod]
-  public void JpegFile_Exif_ReturnsSameInstance() {
-    using var stream = new MemoryStream(_createJpeg(_createApp1Exif(6), _createSof(640, 480)));
-    var jpeg = new JpegFile(stream);
-    var exif = jpeg.Exif;
-    Assert.AreSame(exif, jpeg.Exif);
-  }
-
-  [TestMethod]
-  public void JpegFile_Xmp_ReturnsSameInstance() {
-    using var stream = new MemoryStream(
-      _createJpeg(
-        _createApp1Xmp(
-          """
-          <x:xmpmeta xmlns:x="adobe:ns:meta/">
-            <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-                     xmlns:dc="http://purl.org/dc/elements/1.1/">
-              <rdf:Description>
-                <dc:description>
-                  <rdf:Alt>
-                    <rdf:li xml:lang="x-default">Test</rdf:li>
-                  </rdf:Alt>
-                </dc:description>
-              </rdf:Description>
-            </rdf:RDF>
-          </x:xmpmeta>
-          """),
-        _createSof(640, 480)));
-
-    var jpeg = new JpegFile(stream);
-    var xmp = jpeg.Xmp;
-
-    Assert.AreSame(xmp, jpeg.Xmp);
-  }
-
-  [TestMethod]
-  public void JpegFile_ReadingExif_DoesNotNeedXmp() {
+  public void JpegFile_ReadingExif_DoesNotLoadXmp() {
     using var stream = new MemoryStream(
       _createJpeg(
         _createApp1Exif(6),
-        _createApp1Xmp(
-          """
-          <x:xmpmeta xmlns:x="adobe:ns:meta/">
-            <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
-            </rdf:RDF>
-          </x:xmpmeta>
-          """),
+        _createApp1Xmp(_getTestXmp()),
         _createSof(640, 480)));
 
     var jpeg = new JpegFile(stream);
 
+    Assert.IsTrue(jpeg.XmpIsNull());
     Assert.AreEqual((ushort)6, jpeg.Exif.GetOrientation());
+    Assert.IsTrue(jpeg.XmpIsNull());
   }
 
   [TestMethod]
-  public void JpegFile_ReadingXmp_DoesNotNeedExif() {
+  public void JpegFile_ReadingXmp_DoesNotLoadExif() {
     using var stream = new MemoryStream(
       _createJpeg(
-        _createApp1Xmp(
-          """
-          <x:xmpmeta xmlns:x="adobe:ns:meta/">
-            <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-                     xmlns:dc="http://purl.org/dc/elements/1.1/">
-              <rdf:Description>
-                <dc:description>
-                  <rdf:Alt>
-                    <rdf:li xml:lang="x-default">Test</rdf:li>
-                  </rdf:Alt>
-                </dc:description>
-              </rdf:Description>
-            </rdf:RDF>
-          </x:xmpmeta>
-          """),
+        _createApp1Xmp(_getTestXmp()),
         _createSof(640, 480)));
 
     var jpeg = new JpegFile(stream);
 
+    Assert.IsTrue(jpeg.ExifIsNull());
     Assert.AreEqual("Test", jpeg.Xmp.GetComment());
+    Assert.IsTrue(jpeg.ExifIsNull());
   }
 
   [TestMethod]
@@ -119,21 +138,7 @@ public class JpegFileTests {
       _createJpeg(
         _createApp1Exif(6),
         _createApp(0xE2, 100),
-        _createApp1Xmp(
-          """
-          <x:xmpmeta xmlns:x="adobe:ns:meta/">
-            <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-                     xmlns:dc="http://purl.org/dc/elements/1.1/">
-              <rdf:Description>
-                <dc:description>
-                  <rdf:Alt>
-                    <rdf:li xml:lang="x-default">Test</rdf:li>
-                  </rdf:Alt>
-                </dc:description>
-              </rdf:Description>
-            </rdf:RDF>
-          </x:xmpmeta>
-          """),
+        _createApp1Xmp(_getTestXmp()),
         _createSof(640, 480)));
 
     var jpeg = new JpegFile(stream);
@@ -146,21 +151,7 @@ public class JpegFileTests {
   public void JpegFile_CanReadExifAfterXmp() {
     using var stream = new MemoryStream(
       _createJpeg(
-        _createApp1Xmp(
-          """
-          <x:xmpmeta xmlns:x="adobe:ns:meta/">
-            <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-                     xmlns:dc="http://purl.org/dc/elements/1.1/">
-              <rdf:Description>
-                <dc:description>
-                  <rdf:Alt>
-                    <rdf:li xml:lang="x-default">Test</rdf:li>
-                  </rdf:Alt>
-                </dc:description>
-              </rdf:Description>
-            </rdf:RDF>
-          </x:xmpmeta>
-          """),
+        _createApp1Xmp(_getTestXmp()),
         _createApp(0xE2, 100),
         _createApp1Exif(6),
         _createSof(640, 480)));
@@ -172,47 +163,19 @@ public class JpegFileTests {
   }
 
   [TestMethod]
-  public void JpegFile_FindsXmpRegardlessOfSegmentOrder() {
-    using var stream = new MemoryStream(
-      _createJpeg(
-        _createApp(0xE0, 100),
-        _createApp1Exif(6),
-        _createApp(0xE2, 500),
-        _createApp1Xmp(
-          """
-          <x:xmpmeta xmlns:x="adobe:ns:meta/">
-            <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-                     xmlns:dc="http://purl.org/dc/elements/1.1/">
-              <rdf:Description>
-                <dc:description>
-                  <rdf:Alt>
-                    <rdf:li xml:lang="x-default">XMP comment</rdf:li>
-                  </rdf:Alt>
-                </dc:description>
-              </rdf:Description>
-            </rdf:RDF>
-          </x:xmpmeta>
-          """),
-        _createSof(640, 480)));
-
-    var jpeg = new JpegFile(stream);
-
-    Assert.AreEqual("XMP comment", jpeg.Xmp.GetComment());
-  }
-
-  [TestMethod]
   public void JpegFile_ReadsSizeWithoutExif() {
     using var stream = new MemoryStream(_createJpeg(_createSof(1234, 567)));
     var jpeg = new JpegFile(stream);
     Assert.AreEqual(1234, jpeg.Width);
     Assert.AreEqual(567, jpeg.Height);
+    Assert.IsTrue(jpeg.ExifIsNull());
   }
 
   [TestMethod]
   public void JpegFile_ReadsSizeIndependentlyOfMetadata() {
     using var stream = new MemoryStream(
       _createJpeg(
-        _createApp1Xmp("<x:xmpmeta />"),
+        _createApp1Xmp(_getTestXmp()),
         _createApp1Exif(6),
         _createApp(0xE2, 1000),
         _createSof(1234, 567)));
@@ -221,6 +184,7 @@ public class JpegFileTests {
 
     Assert.AreEqual(1234, jpeg.Width);
     Assert.AreEqual(567, jpeg.Height);
+    Assert.IsTrue(jpeg.ExifIsNull());
   }
 
   [TestMethod]
@@ -247,6 +211,19 @@ public class JpegFileTests {
     var jpeg = new JpegFile(stream);
 
     Assert.AreEqual((ushort)6, jpeg.Exif.GetOrientation());
+  }
+
+  [TestMethod]
+  public void JpegFile_UsesFirstXmpSegment() {
+    using var stream = new MemoryStream(
+      _createJpeg(
+        _createApp1Xmp(_getTestXmp("First")),
+        _createApp1Xmp(_getTestXmp("Second")),
+        _createSof(640, 480)));
+
+    var jpeg = new JpegFile(stream);
+
+    Assert.AreEqual("First", jpeg.Xmp.GetComment());
   }
 
   [TestMethod]
@@ -414,21 +391,7 @@ public class JpegFileTests {
 
   [TestMethod]
   public void JpegMetadataWriter_ReplacingExif_PreservesOtherSegments() {
-    var xmp = _createApp1Xmp(
-      """
-      <x:xmpmeta xmlns:x="adobe:ns:meta/">
-        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-                 xmlns:dc="http://purl.org/dc/elements/1.1/">
-          <rdf:Description>
-            <dc:description>
-              <rdf:Alt>
-                <rdf:li xml:lang="x-default">Original</rdf:li>
-              </rdf:Alt>
-            </dc:description>
-          </rdf:Description>
-        </rdf:RDF>
-      </x:xmpmeta>
-      """);
+    var xmp = _createApp1Xmp(_getTestXmp());
 
     var source = _createJpegWithMetadata(_createApp1Exif(6), xmp, true);
     var result = _writeJpeg(source, _createExifTiff(3));
@@ -437,45 +400,15 @@ public class JpegFileTests {
     var jpeg = new JpegFile(stream);
 
     Assert.AreEqual((ushort)3, jpeg.Exif.GetOrientation());
-    Assert.AreEqual("Original", jpeg.Xmp.GetComment());
+    Assert.AreEqual("Test", jpeg.Xmp.GetComment());
   }
 
   [TestMethod]
   public void JpegMetadataWriter_ReplacesXmp() {
     var source = _createJpegWithMetadata(
       null,
-      _createApp1Xmp(
-        """
-      <x:xmpmeta xmlns:x="adobe:ns:meta/">
-        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-                 xmlns:dc="http://purl.org/dc/elements/1.1/">
-          <rdf:Description>
-            <dc:description>
-              <rdf:Alt>
-                <rdf:li xml:lang="x-default">Old</rdf:li>
-              </rdf:Alt>
-            </dc:description>
-          </rdf:Description>
-        </rdf:RDF>
-      </x:xmpmeta>
-      """));
-
-    var newXmp = _createApp1Xmp(
-      """
-      <x:xmpmeta xmlns:x="adobe:ns:meta/">
-        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-                 xmlns:dc="http://purl.org/dc/elements/1.1/">
-          <rdf:Description>
-            <dc:description>
-              <rdf:Alt>
-                <rdf:li xml:lang="x-default">New</rdf:li>
-              </rdf:Alt>
-            </dc:description>
-          </rdf:Description>
-        </rdf:RDF>
-      </x:xmpmeta>
-      """);
-
+      _createApp1Xmp(_getTestXmp("Old")));
+    var newXmp = _createApp1Xmp(_getTestXmp("New"));
     var result = _writeJpeg(source, xmp: newXmp);
 
     using var stream = new MemoryStream(result);
@@ -499,66 +432,22 @@ public class JpegFileTests {
   public void JpegMetadataWriter_AddsMissingXmp() {
     var source = _createJpegWithMetadata();
 
-    var xmp = _createApp1Xmp(
-      """
-      <x:xmpmeta xmlns:x="adobe:ns:meta/">
-        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-                 xmlns:dc="http://purl.org/dc/elements/1.1/">
-          <rdf:Description>
-            <dc:description>
-              <rdf:Alt>
-                <rdf:li xml:lang="x-default">Added</rdf:li>
-              </rdf:Alt>
-            </dc:description>
-          </rdf:Description>
-        </rdf:RDF>
-      </x:xmpmeta>
-      """);
+    var xmp = _createApp1Xmp(_getTestXmp());
 
     var result = _writeJpeg(source, xmp: xmp);
 
     using var stream = new MemoryStream(result);
     var jpeg = new JpegFile(stream);
 
-    Assert.AreEqual("Added", jpeg.Xmp.GetComment());
+    Assert.AreEqual("Test", jpeg.Xmp.GetComment());
   }
 
   [TestMethod]
   public void JpegMetadataWriter_ReplacesExifAndXmp() {
     var source = _createJpegWithMetadata(
       _createApp1Exif(6),
-      _createApp1Xmp(
-        """
-        <x:xmpmeta xmlns:x="adobe:ns:meta/">
-          <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-                   xmlns:dc="http://purl.org/dc/elements/1.1/">
-            <rdf:Description>
-              <dc:description>
-                <rdf:Alt>
-                  <rdf:li xml:lang="x-default">Old</rdf:li>
-                </rdf:Alt>
-              </dc:description>
-            </rdf:Description>
-          </rdf:RDF>
-        </x:xmpmeta>
-        """));
-
-    var newXmp = _createApp1Xmp(
-      """
-      <x:xmpmeta xmlns:x="adobe:ns:meta/">
-        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-                 xmlns:dc="http://purl.org/dc/elements/1.1/">
-          <rdf:Description>
-            <dc:description>
-              <rdf:Alt>
-                <rdf:li xml:lang="x-default">New</rdf:li>
-              </rdf:Alt>
-            </dc:description>
-          </rdf:Description>
-        </rdf:RDF>
-      </x:xmpmeta>
-      """);
-
+      _createApp1Xmp(_getTestXmp("Old")));
+    var newXmp = _createApp1Xmp(_getTestXmp("New"));
     var result = _writeJpeg(source, _createExifTiff(3), newXmp);
 
     using var stream = new MemoryStream(result);
@@ -571,14 +460,14 @@ public class JpegFileTests {
   [TestMethod]
   public void JpegMetadataWriter_PreservesSegmentOrder() {
     var exif = _createApp1Exif(6);
-    var xmp = _createApp1Xmp("<x:xmpmeta />");
+    var xmp = _createApp1Xmp(_getTestXmp());
     var app0 = _createApp(0xE0, 10);
     var app2 = _createApp(0xE2, 20);
     var comment = _createComment("test"u8.ToArray());
     var sof = _createSof(640, 480);
 
     var source = _createJpeg(app0, exif, app2, xmp, comment, sof);
-    var result = _writeJpeg(source, _createApp1Exif(3), _createApp1Xmp("<x:xmpmeta />"));
+    var result = _writeJpeg(source, _createApp1Exif(3), _createApp1Xmp(_getTestXmp()));
     var segments = _readSegments(result);
 
     CollectionAssert.AreEqual(
@@ -625,6 +514,22 @@ public class JpegFileTests {
     Assert.AreEqual(480, jpeg.Height);
     Assert.AreEqual((ushort)6, jpeg.Exif.GetOrientation());
   }
+
+  private static string _getTestXmp(string comment = "Test") =>
+    $"""
+    <x:xmpmeta xmlns:x="adobe:ns:meta/">
+      <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+               xmlns:dc="http://purl.org/dc/elements/1.1/">
+        <rdf:Description>
+          <dc:description>
+            <rdf:Alt>
+              <rdf:li xml:lang="x-default">{comment}</rdf:li>
+            </rdf:Alt>
+          </dc:description>
+        </rdf:Description>
+      </rdf:RDF>
+    </x:xmpmeta>
+    """;
 
   private static byte[] _getAfterSos(byte[] jpeg) {
     var index = 0;
@@ -824,20 +729,7 @@ public class JpegFileTests {
   }
 
   private static string _createExtendedXmpXml(string comment) =>
-    $"""
-      <x:xmpmeta xmlns:x="adobe:ns:meta/">
-        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-                 xmlns:dc="http://purl.org/dc/elements/1.1/">
-          <rdf:Description>
-            <dc:description>
-              <rdf:Alt>
-                <rdf:li xml:lang="x-default">{comment}</rdf:li>
-              </rdf:Alt>
-            </dc:description>
-          </rdf:Description>
-        </rdf:RDF>
-      </x:xmpmeta>
-      """;
+    _getTestXmp(comment);
 
   private static string _createMainXmpWithExtendedGuid(string guid) =>
     $"""
@@ -848,47 +740,6 @@ public class JpegFileTests {
         </rdf:RDF>
       </x:xmpmeta>
       """;
-
-  private sealed class TrackingStream(byte[] buffer) : MemoryStream(buffer) {
-    public long MaxPosition { get; private set; }
-
-    public override long Position {
-      get => base.Position;
-      set {
-        base.Position = value;
-        _updateMaxPosition();
-      }
-    }
-
-    public override long Seek(long offset, SeekOrigin origin) {
-      var position = base.Seek(offset, origin);
-      _updateMaxPosition();
-      return position;
-    }
-
-    public override int Read(byte[] buffer, int offset, int count) {
-      var result = base.Read(buffer, offset, count);
-      _updateMaxPosition();
-      return result;
-    }
-
-    public override int Read(Span<byte> buffer) {
-      var result = base.Read(buffer);
-      _updateMaxPosition();
-      return result;
-    }
-
-    public override int ReadByte() {
-      var result = base.ReadByte();
-      _updateMaxPosition();
-      return result;
-    }
-
-    private void _updateMaxPosition() {
-      if (Position > MaxPosition)
-        MaxPosition = Position;
-    }
-  }
 
   private static byte[] _writeJpeg(byte[] source, byte[]? exif = null, byte[]? xmp = null) {
     using var input = new MemoryStream(source);

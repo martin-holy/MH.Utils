@@ -59,20 +59,20 @@ public class ExifMetadata(TiffReader? reader) {
 
   public string? GetXpComment() {
     if (Reader?.GetIfd0().FindEntry(ExifTag.XpComment) is not { Type: 1 } entry) return null;
-    var span = Reader.GetSpan(entry.ValueOrOffset, (int)entry.Count);
+    var span = Reader.GetValueSpan(entry);
     return Encoding.Unicode.GetString(span).TrimEnd('\0');
   }
 
   public string? GetUserComment() {
-    if (Reader?.GetExifIfd().FindEntry(ExifTag.UserComment) is not { Type: 7 } comment)
+    if (Reader?.GetExifIfd().FindEntry(ExifTag.UserComment) is not { Type: 7 } entry)
       return null;
 
-    if (comment.Count < 8) {
+    if (entry.Count < 8) {
       UserCommentEncoding = UserCommentEncoding.Undefined;
       return string.Empty;
     }
 
-    var span = Reader.GetSpan(comment.ValueOrOffset, (int)comment.Count);
+    var span = Reader.GetSpan(entry.ValueOrOffset, (int)entry.Count);
 
     if (span[..8].SequenceEqual(AsciiHeader)) {
       UserCommentEncoding = UserCommentEncoding.Ascii;

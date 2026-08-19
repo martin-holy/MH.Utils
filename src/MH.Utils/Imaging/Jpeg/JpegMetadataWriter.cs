@@ -19,7 +19,6 @@ public sealed class JpegMetadataWriter {
 
   private static readonly int _normalCapacity = App1MaxPayload - XmpHeader.Length;
   private enum App1Type { Unknown, Exif, Xmp, ExtendedXmp }
-  private const string _extXmpAttr = "HasExtendedXMP=\"";
 
   private bool _exifHandled;
   private bool _xmpHandled;

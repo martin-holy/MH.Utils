@@ -324,7 +324,7 @@ public class JpegFileTests {
   [TestMethod]
   public void JpegFile_InvalidSignature_Throws() {
     using var stream = new MemoryStream([0x00, 0x00]);
-    Assert.ThrowsException<InvalidDataException>(() => new JpegFile(stream));
+    Assert.ThrowsException<InvalidDataException>(() => new JpegFile(stream, JpegMetadataLoad.All));
   }
 
   [TestMethod]
@@ -336,7 +336,7 @@ public class JpegFileTests {
       0xFF, 0xDA        // SOS
       ]);
 
-    Assert.ThrowsException<InvalidDataException>(() => new JpegFile(stream));
+    Assert.ThrowsException<InvalidDataException>(() => new JpegFile(stream, JpegMetadataLoad.All));
   }
 
   [TestMethod]
@@ -348,7 +348,7 @@ public class JpegFileTests {
       0x01, 0x02, 0x03  // but only 3 bytes follow
       ]);
 
-    Assert.ThrowsException<InvalidDataException>(() => new JpegFile(stream));
+    Assert.ThrowsException<InvalidDataException>(() => new JpegFile(stream, JpegMetadataLoad.All));
   }
 
   [TestMethod]
@@ -363,7 +363,7 @@ public class JpegFileTests {
 
     using var stream = new MemoryStream(_createJpeg(sof));
 
-    Assert.ThrowsException<InvalidDataException>(() => new JpegFile(stream));
+    Assert.ThrowsException<InvalidDataException>(() => new JpegFile(stream, JpegMetadataLoad.All));
   }
 
   [TestMethod]

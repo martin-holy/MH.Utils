@@ -14,25 +14,18 @@ public class XmpMetadata {
   private const string _defaultEnd = "\r\n<?xpacket end=\"w\"?>";
   private static string _createDefaultBegin() => $"<?xpacket begin=\"﻿\" id=\"{Guid.NewGuid():N}\"?>\r\n";
 
-  private readonly string _packetBegin;
-  private readonly string _packetEnd;
+  private string? _packetBegin;
+  private string? _packetEnd;
   private readonly int _originalPacketSize;
 
   private static string? _toolkitVersion;
 
   private MpRegionCollection? _people;
 
-  private readonly record struct XmlSection(int Start, int End, string Xml);
-
-  public XmpDocument Doc { get; }
+  public XmpDocument? Doc { get; private set; }
 
   public XmpMetadata(string? packet) {
-    if (string.IsNullOrWhiteSpace(packet)) {
-      _packetBegin = _createDefaultBegin();
-      _packetEnd = _defaultEnd;
-      Doc = new(null);
-      return;
-    }
+    if (string.IsNullOrWhiteSpace(packet)) return;
 
     _originalPacketSize = Encoding.UTF8.GetByteCount(packet);
 
@@ -42,30 +35,42 @@ public class XmpMetadata {
     Doc = new(xml.Xml);
   }
 
+  private readonly record struct XmlSection(int Start, int End, string Xml);
+
+  public XmpDocument EnsureDoc() {
+    if (Doc != null) return Doc;
+
+    _packetBegin = _createDefaultBegin();
+    _packetEnd = _defaultEnd;
+    Doc = new(null);
+
+    return Doc;
+  }
+
   public void SetWidth(ushort? value) {
-    Doc.SetValue(XmpNs.Tiff, "ImageWidth", value?.ToString());
-    Doc.SetValue(XmpNs.Exif, "PixelXDimension", value?.ToString());
+    EnsureDoc().SetValue(XmpNs.Tiff, "ImageWidth", value?.ToString());
+    EnsureDoc().SetValue(XmpNs.Exif, "PixelXDimension", value?.ToString());
   }
 
   public void SetHeight(ushort? value) {
-    Doc.SetValue(XmpNs.Tiff, "ImageLength", value?.ToString());
-    Doc.SetValue(XmpNs.Exif, "PixelYDimension", value?.ToString());
+    EnsureDoc().SetValue(XmpNs.Tiff, "ImageLength", value?.ToString());
+    EnsureDoc().SetValue(XmpNs.Exif, "PixelYDimension", value?.ToString());
   }
 
   public string? GetComment() =>
-    Doc.GetLangAlt(XmpNs.Dc, "description");
+    Doc?.GetLangAlt(XmpNs.Dc, "description");
 
   public void SetComment(string? value) =>
-    Doc.SetLangAlt(XmpNs.Dc, "description", value);
+    EnsureDoc().SetLangAlt(XmpNs.Dc, "description", value);
 
   public int? GetRating() =>
-    Doc.GetInt(XmpNs.Xmp, "Rating");
+    Doc?.GetInt(XmpNs.Xmp, "Rating");
 
   public void SetRating(int? value) =>
-    Doc.SetValue(XmpNs.Xmp, "Rating", value?.ToString());
+    EnsureDoc().SetValue(XmpNs.Xmp, "Rating", value?.ToString());
 
   public string[]? GetKeywords() {
-    var items = Doc
+    var items = Doc?
       .GetArray(XmpNs.Dc + "subject")?
       .Select(x => x.Trim())
       .Where(x => x.Length > 0)
@@ -76,12 +81,18 @@ public class XmpMetadata {
   }
 
   public void SetKeywords(string[]? values) {
-    Doc.SetArray(XmpNs.Dc, "subject", values);
-    Doc.SetArray(XmpNs.MicrosoftPhoto, "LastKeywordXMP", values);
+    EnsureDoc().SetArray(XmpNs.Dc, "subject", values);
+    EnsureDoc().SetArray(XmpNs.MicrosoftPhoto, "LastKeywordXMP", values);
   }
 
-  public MpRegionCollection GetPeople() {
+  public MpRegionCollection? GetPeople() {
+    if (Doc == null) return null;
     _people ??= new(Doc);
+    return _people;
+  }
+
+  public MpRegionCollection EnsurePeople() {
+    _people ??= new(EnsureDoc());
     return _people;
   }
 
@@ -117,11 +128,11 @@ public class XmpMetadata {
     _setToolKitVersion();
     _setMetadataDate();
 
-    var xml = Doc.ToXml();
+    var xml = EnsureDoc().ToXml();
 
-    var begin = Encoding.UTF8.GetBytes(_packetBegin);
+    var begin = Encoding.UTF8.GetBytes(_packetBegin!);
     var body = Encoding.UTF8.GetBytes(xml);
-    var end = Encoding.UTF8.GetBytes(_packetEnd);
+    var end = Encoding.UTF8.GetBytes(_packetEnd!);
 
     int targetSize = _calculatePacketSize(begin.Length, body.Length, end.Length);
 
@@ -135,7 +146,7 @@ public class XmpMetadata {
   }
 
   private void _setToolKitVersion() {
-    Doc.Document?.Root?.SetAttributeValue(XmpNs.X + "xmptk", _getToolkitVersion());
+    EnsureDoc().Document?.Root?.SetAttributeValue(XmpNs.X + "xmptk", _getToolkitVersion());
   }
 
   private static string _createToolkitVersion() {
@@ -156,7 +167,7 @@ public class XmpMetadata {
 
   private void _setMetadataDate() {
     var dt = DateTimeOffset.Now.ToString("yyyy-MM-dd'T'HH:mm:sszzz", CultureInfo.InvariantCulture);
-    Doc.SetValue(XmpNs.Xmp, "ModifyDate", dt);
+    EnsureDoc().SetValue(XmpNs.Xmp, "ModifyDate", dt);
   }
 
   private int _calculatePacketSize(int beginLength, int bodyLength, int endLength) {

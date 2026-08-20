@@ -6,13 +6,13 @@ using System.Linq;
 
 namespace MH.Utils.Imaging;
 
-public class ImageMetadata(string filePath) {
+public class ImageMetadata(string filePath, JpegMetadataLoad load = JpegMetadataLoad.None) {
   private JpegFile? _jpeg;
 
   public bool IsExifModified => Jpeg.Exif.IsModified;
   public bool IsXmpModified => Jpeg.Xmp.Doc?.IsModified == true;
 
-  public JpegFile Jpeg => _jpeg ??= new JpegFile(filePath);
+  public JpegFile Jpeg => _jpeg ??= new JpegFile(filePath, load);
 
   public ushort? Width { get => _getWidth(); set => _setWidth(value); }
   public ushort? Height { get => _getHeight(); set => _setHeight(value); }

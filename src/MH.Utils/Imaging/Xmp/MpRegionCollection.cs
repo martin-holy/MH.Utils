@@ -56,7 +56,7 @@ public sealed class MpRegionCollection(XmpDocument doc) : IReadOnlyList<MpRegion
   private XElement? _getBag() {
     var description = _doc.GetDescription(XmpNs.Mp);
     var regionInfo = description?.Element(XmpNs.Mp + "RegionInfo");
-    var regions = regionInfo?.Element(XmpNs.MpRi + "Regions");
+    var regions = regionInfo?.Descendants(XmpNs.MpRi + "Regions").FirstOrDefault();
 
     return regions?.Element(XmpNs.Rdf + "Bag");
   }

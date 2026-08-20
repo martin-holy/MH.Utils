@@ -35,6 +35,8 @@ public class JpegFile {
 
   private ExifMetadata? _exif;
   private XmpMetadata? _xmp;
+  private bool _exifRead;
+  private bool _xmpRead;
 
   public ushort Width {
     get {
@@ -56,19 +58,23 @@ public class JpegFile {
 
   public ExifMetadata Exif {
     get {
-      if (_exif is null)
+      if (!_exifRead) {
         _readExif();
+        _exifRead = true;
+      }
 
-      return _exif!;
+      return _exif ??= new ExifMetadata(null);
     }
   }
 
   public XmpMetadata Xmp {
     get {
-      if (_xmp is null)
+      if (!_xmpRead) {
         _readXmp();
+        _xmpRead = true;
+      }
 
-      return _xmp!;
+      return _xmp ??= new XmpMetadata(null);
     }
   }
 
@@ -96,7 +102,7 @@ public class JpegFile {
 
   public bool Write(string srcPath) {
     var exif = _exif?.IsModified == true ? _exif.ToTiff() : null;
-    var xmp = _xmp?.Doc.IsModified == true ? _xmp.ToPacket() : null;
+    var xmp = _xmp?.Doc?.IsModified == true ? _xmp.ToPacket() : null;
 
     if (exif == null && xmp == null) return true;
 
@@ -163,12 +169,6 @@ public class JpegFile {
         (!needXmp || _xmp is not null))
         break;
     }
-
-    if (needExif && _exif is null)
-      _exif = new ExifMetadata(null);
-
-    if (needXmp && _xmp is null)
-      _xmp = new XmpMetadata(null);
   }
 
   private void _readSize() {
@@ -200,14 +200,11 @@ public class JpegFile {
 
       if (segment.Marker != _app1) continue;
 
-      if (!_isExif(stream, segment)) continue;
-
-      _exif = _readExif(stream, segment);
-
-      return;
+      if (_isExif(stream, segment)) {
+        _exif = _readExif(stream, segment);
+        break;
+      }
     }
-
-    _exif = new ExifMetadata(null);
   }
 
   private void _readXmp() {
@@ -216,22 +213,16 @@ public class JpegFile {
 
     _validateJpeg(stream, reader);
 
-    JpegSegment? xmpSegment = null;
-
     while (stream.Position < stream.Length) {
       if (_readSegment(stream, reader) is not { } segment) break;
 
       if (segment.Marker != _app1) continue;
 
       if (_isXmp(stream, segment)) {
-        xmpSegment = segment;
+        _xmp = _readXmp(stream, reader, segment);
         break;
       }
     }
-
-    _xmp = xmpSegment is null
-      ? new XmpMetadata(null)
-      : _readXmp(stream, reader, xmpSegment.Value);
   }
 
   private static void _validateJpeg(Stream stream, BinaryReader reader) {
@@ -345,7 +336,7 @@ public class JpegFile {
     return new ExifMetadata(new TiffReader(data));
   }
 
-  private static XmpMetadata _readXmp(Stream stream, BinaryReader reader, JpegSegment mainSegment) {
+  private static XmpMetadata? _readXmp(Stream stream, BinaryReader reader, JpegSegment mainSegment) {
     var mainPayload = _readSegmentPayload(stream, mainSegment);
     var xmlOffset = _xmpHeader.Length;
 
@@ -353,7 +344,7 @@ public class JpegFile {
       xmlOffset++;
 
     if (_tryDecodeXml(mainPayload, xmlOffset, mainPayload.Length - xmlOffset) is not { } mainXml)
-      return new XmpMetadata(null);
+      return null;
 
     if (_findExtendedGuid(mainXml) is not { } extendedGuid)
       return new XmpMetadata(mainXml);

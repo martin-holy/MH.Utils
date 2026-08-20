@@ -11,9 +11,10 @@ namespace MH.Utils.Imaging.Jpeg;
 [Flags]
 public enum JpegMetadataLoad {
   None = 0,
-  Exif = 1,
-  Xmp = 2,
-  All = Exif | Xmp
+  Size = 1,
+  Exif = 2,
+  Xmp = 4,
+  All = Size | Exif | Xmp
 }
 
 public class JpegFile {
@@ -28,7 +29,6 @@ public class JpegFile {
   private const string _extXmpAttr = "HasExtendedXMP=\"";
 
   private readonly string? _filePath;
-  private readonly byte[]? _testData;
 
   private ushort? _width;
   private ushort? _height;
@@ -38,45 +38,10 @@ public class JpegFile {
   private bool _exifRead;
   private bool _xmpRead;
 
-  public ushort Width {
-    get {
-      if (!_width.HasValue)
-        _readSize();
-
-      return _width!.Value;
-    }
-  }
-
-  public ushort Height {
-    get {
-      if (!_height.HasValue)
-        _readSize();
-
-      return _height!.Value;
-    }
-  }
-
-  public ExifMetadata Exif {
-    get {
-      if (!_exifRead) {
-        _readExif();
-        _exifRead = true;
-      }
-
-      return _exif ??= new ExifMetadata(null);
-    }
-  }
-
-  public XmpMetadata Xmp {
-    get {
-      if (!_xmpRead) {
-        _readXmp();
-        _xmpRead = true;
-      }
-
-      return _xmp ??= new XmpMetadata(null);
-    }
-  }
+  public ushort Width => _getWidth();
+  public ushort Height => _getHeight();
+  public ExifMetadata Exif => _getExif();
+  public XmpMetadata Xmp => _getXmp();
 
   public JpegFile(string filePath, JpegMetadataLoad load = JpegMetadataLoad.None) {
     _filePath = filePath;
@@ -84,144 +49,38 @@ public class JpegFile {
     _read(stream, load);
   }
 
-  internal JpegFile(Stream stream, JpegMetadataLoad load = JpegMetadataLoad.None) {
-    // The stream constructor is intended for tests. Keep a private copy so
-    // the supplied stream does not have to remain open for lazy loading.
-    using var input = stream;
-
-    var data = new MemoryStream();
-    input.CopyTo(data);
-    _testData = data.ToArray();
-
-    using var testStream = new MemoryStream(_testData, writable: false);
-    _read(testStream, load);
-  }
-
-  internal bool XmpIsNull() => _xmp == null;
-  internal bool ExifIsNull() => _exif == null;
-
-  public bool Write(string srcPath) {
-    var exif = _exif?.IsModified == true ? _exif.ToTiff() : null;
-    var xmp = _xmp?.Doc?.IsModified == true ? _xmp.ToPacket() : null;
-
-    if (exif == null && xmp == null) return true;
-
-    var writer = new JpegMetadataWriter {
-      Exif = exif,
-      Xmp = xmp
-    };
-
-    var tmpPath = srcPath + ".tmp";
-
-    try {
-      using (var input = File.OpenRead(srcPath))
-      using (var output = File.Create(tmpPath))
-        writer.Write(input, output);
-
-      File.Delete(srcPath);
-      File.Move(tmpPath, srcPath);
-
-      return true;
-    }
-    catch (Exception ex) {
-      Log.Error(ex, srcPath);
-
-      try {
-        if (File.Exists(tmpPath))
-          File.Delete(tmpPath);
-      }
-      catch { }
-
-      return false;
-    }
-  }
-
   private void _read(Stream stream, JpegMetadataLoad load) {
+    if (load == JpegMetadataLoad.None) return;
+
     using var reader = new BinaryReader(stream, Encoding.ASCII, leaveOpen: true);
 
     _validateJpeg(stream, reader);
 
+    var needSize = load.HasFlag(JpegMetadataLoad.Size);
     var needExif = load.HasFlag(JpegMetadataLoad.Exif);
     var needXmp = load.HasFlag(JpegMetadataLoad.Xmp);
 
     while (stream.Position < stream.Length) {
-      var segment = _readSegment(stream, reader);
+      if (_readSegment(stream, reader) is not { } segment) break;
 
-      if (segment is null) break;
+      if (needSize && !_width.HasValue && _isStartOfFrame(segment.Marker))
+        _readSize(stream, reader, segment);
 
-      if (_isStartOfFrame(segment.Value.Marker) && !_width.HasValue)
-        _readSize(stream, reader, segment.Value);
+      if (segment.Marker == _app1) {
+        if (needExif && _exif == null && segment.StartsWith(_exifHeader, stream))
+          _exif = _readExif(stream, segment);
 
-      if (segment.Value.Marker == _app1) {
-        if (needExif && _exif is null && _isExif(stream, segment.Value))
-          _exif = _readExif(stream, segment.Value);
-
-        if (needXmp && _xmp is null && _isXmp(stream, segment.Value))
-          _xmp = _readXmp(stream, reader, segment.Value);
+        if (needXmp && _xmp == null && segment.StartsWith(_xmpHeader, stream))
+          _xmp = _readXmp(stream, reader, segment);
       }
 
-      stream.Position =
-        segment.Value.PayloadPosition +
-        segment.Value.PayloadLength;
+      // TODO test if the position is actually different specially with extended xmp
+      stream.Position = segment.PayloadPosition + segment.PayloadLength;
 
       if (_width.HasValue &&
-        (!needExif || _exif is not null) &&
-        (!needXmp || _xmp is not null))
+        (!needExif || _exif != null) &&
+        (!needXmp || _xmp != null))
         break;
-    }
-  }
-
-  private void _readSize() {
-    using var stream = _open();
-    using var reader = new BinaryReader(stream, Encoding.ASCII, leaveOpen: true);
-
-    _validateJpeg(stream, reader);
-
-    while (stream.Position < stream.Length) {
-      if (_readSegment(stream, reader) is not { } segment) break;
-
-      if (_isStartOfFrame(segment.Marker)) {
-        _readSize(stream, reader, segment);
-        return;
-      }
-    }
-
-    throw new InvalidDataException("JPEG size not found.");
-  }
-
-  private void _readExif() {
-    using var stream = _open();
-    using var reader = new BinaryReader(stream, Encoding.ASCII, leaveOpen: true);
-
-    _validateJpeg(stream, reader);
-
-    while (stream.Position < stream.Length) {
-      if (_readSegment(stream, reader) is not { } segment) break;
-
-      if (segment.Marker != _app1) continue;
-
-      if (_isExif(stream, segment)) {
-        _exif = _readExif(stream, segment);
-        break;
-      }
-    }
-  }
-
-  private void _readXmp() {
-    using var stream = _open();
-    using var reader = new BinaryReader(stream, Encoding.ASCII, leaveOpen: true);
-
-    _validateJpeg(stream, reader);
-
-    while (stream.Position < stream.Length) {
-      if (_readSegment(stream, reader) is not { } segment) break;
-
-      if (segment.Marker != _app1) continue;
-
-      if (_isXmp(stream, segment)) {
-        _xmp = _readXmp(stream, reader, segment);
-        break;
-      }
     }
   }
 
@@ -281,63 +140,21 @@ public class JpegFile {
     if (segment.PayloadLength < 5)
       throw new InvalidDataException("Invalid JPEG SOF segment.");
 
-    var position = stream.Position;
+    stream.Position = segment.PayloadPosition;
+    reader.ReadByte();
 
-    try {
-      stream.Position = segment.PayloadPosition;
-
-      reader.ReadByte();
-
-      _height = ByteU.ReadBigEndianUInt16(reader);
-      _width = ByteU.ReadBigEndianUInt16(reader);
-    }
-    finally {
-      stream.Position = position;
-    }
-  }
-
-  private static bool _isExif(Stream stream, JpegSegment segment) =>
-    _startsWith(stream, segment, _exifHeader);
-
-  private static bool _isXmp(Stream stream, JpegSegment segment) =>
-    _startsWith(stream, segment, _xmpHeader);
-
-  private static bool _startsWith(Stream stream, JpegSegment segment, ReadOnlySpan<byte> prefix) {
-    if (segment.PayloadLength < prefix.Length)
-      return false;
-
-    var position = stream.Position;
-
-    try {
-      stream.Position = segment.PayloadPosition;
-
-      Span<byte> buffer = stackalloc byte[prefix.Length];
-      stream.ReadExactly(buffer);
-
-      return buffer.SequenceEqual(prefix);
-    }
-    finally {
-      stream.Position = position;
-    }
+    _height = ByteU.ReadBigEndianUInt16(reader);
+    _width = ByteU.ReadBigEndianUInt16(reader);
   }
 
   private static ExifMetadata _readExif(Stream stream, JpegSegment segment) {
-    var offset = _exifHeader.Length;
-    var length = segment.PayloadLength - offset;
-
-    if (length < 0)
-      throw new InvalidDataException("Invalid EXIF segment.");
-
-    stream.Position = segment.PayloadPosition + offset;
-
-    var data = new byte[length];
-    stream.ReadExactly(data);
+    var data = segment.ReadPayloadData(stream, _exifHeader.Length);
 
     return new ExifMetadata(new TiffReader(data));
   }
 
   private static XmpMetadata? _readXmp(Stream stream, BinaryReader reader, JpegSegment mainSegment) {
-    var mainPayload = _readSegmentPayload(stream, mainSegment);
+    var mainPayload = mainSegment.ReadPayload(stream);
     var xmlOffset = _xmpHeader.Length;
 
     if (xmlOffset < mainPayload.Length && mainPayload[xmlOffset] == 0)
@@ -353,11 +170,12 @@ public class JpegFile {
     var fullLength = 0;
 
     while (true) {
+      // TODO this starts to read the stream from the position after _readSegmentPayload(stream, mainSegment) was called
       if (_readSegment(stream, reader) is not { } segment) break;
 
       if (segment.Marker != _app1) continue;
 
-      var payload = _readSegmentPayload(stream, segment);
+      var payload = segment.ReadPayload(stream);
 
       if (!payload.AsSpan().StartsWith(_xmpExtHeader)) continue;
 
@@ -402,35 +220,6 @@ public class JpegFile {
       : new XmpMetadata(mainXml);
   }
 
-  private static byte[] _readSegmentPayload(Stream stream, JpegSegment segment) {
-    stream.Position = segment.PayloadPosition;
-    var payload = new byte[segment.PayloadLength];
-    stream.ReadExactly(payload);
-
-    return payload;
-  }
-
-  private Stream _open() {
-    if (_testData is not null)
-      return new MemoryStream(_testData, writable: false);
-
-    if (_filePath is null)
-      throw new InvalidOperationException("The JPEG file has no source path.");
-
-    return File.OpenRead(_filePath);
-  }
-
-  private static string? _findExtendedGuid(string xml) {
-    var index = xml.IndexOf(_extXmpAttr, StringComparison.Ordinal);
-
-    if (index < 0) return null;
-
-    var start = index + _extXmpAttr.Length;
-    var end = xml.IndexOf('"', start);
-
-    return end > start ? xml[start..end] : null;
-  }
-
   private static string? _tryDecodeXml(byte[] buffer, int offset, int length) {
     if (length <= 0) return null;
 
@@ -447,6 +236,7 @@ public class JpegFile {
 
     var utf8 = Encoding.UTF8.GetString(buffer, offset, length);
 
+    // TODO extract to method
     if (utf8.Contains("<x:xmpmeta", StringComparison.Ordinal) ||
       utf8.Contains("<rdf:RDF", StringComparison.Ordinal) ||
       utf8.Contains("<?xpacket", StringComparison.Ordinal) ||
@@ -455,6 +245,7 @@ public class JpegFile {
 
     var unicode = Encoding.Unicode.GetString(buffer, offset, length);
 
+    // TODO extract to method
     if (unicode.Contains("<x:xmpmeta", StringComparison.Ordinal) ||
       unicode.Contains("<rdf:RDF", StringComparison.Ordinal) ||
       unicode.Contains("<?xpacket", StringComparison.Ordinal))
@@ -463,6 +254,18 @@ public class JpegFile {
     return null;
   }
 
+  private static string? _findExtendedGuid(string xml) {
+    var index = xml.IndexOf(_extXmpAttr, StringComparison.Ordinal);
+
+    if (index < 0) return null;
+
+    var start = index + _extXmpAttr.Length;
+    var end = xml.IndexOf('"', start);
+
+    return end > start ? xml[start..end] : null;
+  }
+
+  // TODO try to use ByteU
   private static int _readBigEndianInt32(byte[] buffer, ref int position) {
     if (position + 4 > buffer.Length)
       throw new InvalidDataException("Invalid XMP extended segment.");
@@ -514,10 +317,110 @@ public class JpegFile {
       _ => true
     };
 
-  private readonly record struct JpegSegment(
-    byte Marker,
-    long Position,
-    int Length,
-    long PayloadPosition,
-    int PayloadLength);
+  private ushort _getWidth() {
+    if (!_width.HasValue) _readSize();
+    return _width!.Value;
+  }
+
+  private ushort _getHeight() {
+    if (!_height.HasValue) _readSize();
+    return _height!.Value;
+  }
+
+  private void _readSize() {
+    using var stream = _open();
+    _read(stream, JpegMetadataLoad.Size);
+
+    if (!_width.HasValue || !_height.HasValue)
+      throw new InvalidDataException("JPEG size not found.");
+  }
+
+  private ExifMetadata _getExif() {
+    if (_exif != null) return _exif;
+
+    // TODO _exifRead flag is set only here and not in _read method 
+    if (!_exifRead) {
+      using var stream = _open();
+      _read(stream, JpegMetadataLoad.Exif);
+      _exifRead = true;
+    }
+
+    return _exif ??= new ExifMetadata(null);
+  }
+
+  private XmpMetadata _getXmp() {
+    if (_xmp != null) return _xmp;
+
+    if (!_xmpRead) {
+      using var stream = _open();
+      _read(stream, JpegMetadataLoad.Xmp);
+      _xmpRead = true;
+    }
+
+    return _xmp ??= new XmpMetadata(null);
+  }
+
+  private Stream _open() {
+    if (_testData is not null)
+      return new MemoryStream(_testData, writable: false);
+
+    if (_filePath is null)
+      throw new InvalidOperationException("The JPEG file has no source path.");
+
+    return File.OpenRead(_filePath);
+  }
+
+  public bool Write(string srcPath) {
+    var exif = _exif?.IsModified == true ? _exif.ToTiff() : null;
+    var xmp = _xmp?.Doc?.IsModified == true ? _xmp.ToPacket() : null;
+
+    if (exif == null && xmp == null) return true;
+
+    var writer = new JpegMetadataWriter {
+      Exif = exif,
+      Xmp = xmp
+    };
+
+    var tmpPath = srcPath + ".tmp";
+
+    try {
+      using (var input = File.OpenRead(srcPath))
+      using (var output = File.Create(tmpPath))
+        writer.Write(input, output);
+
+      File.Delete(srcPath);
+      File.Move(tmpPath, srcPath);
+
+      return true;
+    }
+    catch (Exception ex) {
+      Log.Error(ex, srcPath);
+
+      try {
+        if (File.Exists(tmpPath))
+          File.Delete(tmpPath);
+      }
+      catch { }
+
+      return false;
+    }
+  }
+
+  // --- for tests ---
+
+  private readonly byte[]? _testData;
+
+  internal JpegFile(Stream stream, JpegMetadataLoad load = JpegMetadataLoad.None) {
+    using var input = stream;
+
+    var data = new MemoryStream();
+    input.CopyTo(data);
+    _testData = data.ToArray();
+
+    using var testStream = new MemoryStream(_testData, writable: false);
+    _read(testStream, load);
+  }
+
+  internal bool XmpIsNull() => _xmp == null;
+  internal bool ExifIsNull() => _exif == null;
 }

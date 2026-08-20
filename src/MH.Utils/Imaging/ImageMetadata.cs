@@ -10,7 +10,7 @@ public class ImageMetadata(string filePath) {
   private JpegFile? _jpeg;
 
   public bool IsExifModified => Jpeg.Exif.IsModified;
-  public bool IsXmpModified => Jpeg.Xmp.Doc.IsModified;
+  public bool IsXmpModified => Jpeg.Xmp.Doc?.IsModified == true;
 
   public JpegFile Jpeg => _jpeg ??= new JpegFile(filePath);
 
@@ -21,7 +21,7 @@ public class ImageMetadata(string filePath) {
   public GpsCoordinate? GpsCoordinate { get => _getGpsCoordinate(); set => _setGpsCoordinate(value); }
   public int? Rating { get => _getRating(); set => _setRating(value); }
   public string[]? Keywords { get => _getKeywords(); set => _setKeywords(value); }
-  public MpRegionCollection People { get => _getPeople(); }
+  public MpRegionCollection? People { get => _getPeople(); }
 
   private ushort? _getWidth() =>
     Jpeg.Width;
@@ -90,7 +90,7 @@ public class ImageMetadata(string filePath) {
     Jpeg.Xmp.SetKeywords(value);
   }
 
-  private MpRegionCollection _getPeople() =>
+  private MpRegionCollection? _getPeople() =>
     Jpeg.Xmp.GetPeople();
 
   public bool Write(string srcPath) =>

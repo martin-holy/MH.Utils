@@ -6,15 +6,31 @@ namespace MH.Utils.Tests.Imaging.Jpeg;
 [TestClass]
 public class JpegFileTests {
   [TestMethod]
-  public void JpegFile_DefaultLoad_DoesNotLoadExifOrXmp() {
+  public void JpegFile_LoadNone_DoesNotLoadSizeExifOrXmp() {
     using var stream = new MemoryStream(
       _createJpeg(
         _createApp1Exif(6),
         _createApp1Xmp(_getTestXmp()),
         _createSof(640, 480)));
 
-    var jpeg = new JpegFile(stream);
+    var jpeg = new JpegFile(stream, JpegMetadataLoad.None);
 
+    Assert.IsTrue(jpeg.SizeIsNull());
+    Assert.IsTrue(jpeg.ExifIsNull());
+    Assert.IsTrue(jpeg.XmpIsNull());
+  }
+
+  [TestMethod]
+  public void JpegFile_LoadSize_LoadsSizeOnly() {
+    using var stream = new MemoryStream(
+      _createJpeg(
+        _createApp1Exif(6),
+        _createApp1Xmp(_getTestXmp()),
+        _createSof(640, 480)));
+
+    var jpeg = new JpegFile(stream, JpegMetadataLoad.Size);
+
+    Assert.IsFalse(jpeg.SizeIsNull());
     Assert.IsTrue(jpeg.ExifIsNull());
     Assert.IsTrue(jpeg.XmpIsNull());
   }
@@ -29,6 +45,7 @@ public class JpegFileTests {
 
     var jpeg = new JpegFile(stream, JpegMetadataLoad.Exif);
 
+    Assert.IsTrue(jpeg.SizeIsNull());
     Assert.IsFalse(jpeg.ExifIsNull());
     Assert.IsTrue(jpeg.XmpIsNull());
   }
@@ -43,6 +60,7 @@ public class JpegFileTests {
 
     var jpeg = new JpegFile(stream, JpegMetadataLoad.Xmp);
 
+    Assert.IsTrue(jpeg.SizeIsNull());
     Assert.IsTrue(jpeg.ExifIsNull());
     Assert.IsFalse(jpeg.XmpIsNull());
   }
@@ -57,8 +75,23 @@ public class JpegFileTests {
 
     var jpeg = new JpegFile(stream, JpegMetadataLoad.All);
 
+    Assert.IsFalse(jpeg.SizeIsNull());
     Assert.IsFalse(jpeg.ExifIsNull());
     Assert.IsFalse(jpeg.XmpIsNull());
+  }
+
+  [TestMethod]
+  public void JpegFile_LazySize_LoadsWhenAccessed() {
+    using var stream = new MemoryStream(
+      _createJpeg(
+        _createApp1Exif(6),
+        _createSof(640, 480)));
+
+    var jpeg = new JpegFile(stream, JpegMetadataLoad.None);
+
+    Assert.IsTrue(jpeg.SizeIsNull());
+    Assert.AreEqual(640, jpeg.Width);
+    Assert.IsFalse(jpeg.SizeIsNull());
   }
 
   [TestMethod]
@@ -68,7 +101,7 @@ public class JpegFileTests {
         _createApp1Exif(6),
         _createSof(640, 480)));
 
-    var jpeg = new JpegFile(stream);
+    var jpeg = new JpegFile(stream, JpegMetadataLoad.None);
 
     Assert.IsTrue(jpeg.ExifIsNull());
     Assert.AreEqual((ushort)6, jpeg.Exif.GetOrientation());
@@ -82,7 +115,7 @@ public class JpegFileTests {
         _createApp1Xmp(_getTestXmp()),
         _createSof(640, 480)));
 
-    var jpeg = new JpegFile(stream);
+    var jpeg = new JpegFile(stream, JpegMetadataLoad.None);
 
     Assert.IsTrue(jpeg.XmpIsNull());
     Assert.AreEqual("Test", jpeg.Xmp.GetComment());
@@ -92,14 +125,14 @@ public class JpegFileTests {
   [TestMethod]
   public void JpegFile_MissingExif_CreatesExifMetadata() {
     using var stream = new MemoryStream(_createJpeg(_createSof(640, 480)));
-    var jpeg = new JpegFile(stream);
+    var jpeg = new JpegFile(stream, JpegMetadataLoad.None);
     Assert.IsNotNull(jpeg.Exif);
   }
 
   [TestMethod]
   public void JpegFile_MissingXmp_CreatesXmpMetadata() {
     using var stream = new MemoryStream(_createJpeg(_createSof(640, 480)));
-    var jpeg = new JpegFile(stream);
+    var jpeg = new JpegFile(stream, JpegMetadataLoad.None);
     Assert.IsNotNull(jpeg.Xmp);
   }
 
@@ -111,7 +144,7 @@ public class JpegFileTests {
         _createApp1Xmp(_getTestXmp()),
         _createSof(640, 480)));
 
-    var jpeg = new JpegFile(stream);
+    var jpeg = new JpegFile(stream, JpegMetadataLoad.None);
 
     Assert.IsTrue(jpeg.XmpIsNull());
     Assert.AreEqual((ushort)6, jpeg.Exif.GetOrientation());
@@ -125,7 +158,7 @@ public class JpegFileTests {
         _createApp1Xmp(_getTestXmp()),
         _createSof(640, 480)));
 
-    var jpeg = new JpegFile(stream);
+    var jpeg = new JpegFile(stream, JpegMetadataLoad.None);
 
     Assert.IsTrue(jpeg.ExifIsNull());
     Assert.AreEqual("Test", jpeg.Xmp.GetComment());
@@ -141,7 +174,7 @@ public class JpegFileTests {
         _createApp1Xmp(_getTestXmp()),
         _createSof(640, 480)));
 
-    var jpeg = new JpegFile(stream);
+    var jpeg = new JpegFile(stream, JpegMetadataLoad.None);
 
     Assert.AreEqual((ushort)6, jpeg.Exif.GetOrientation());
     Assert.AreEqual("Test", jpeg.Xmp.GetComment());
@@ -156,35 +189,10 @@ public class JpegFileTests {
         _createApp1Exif(6),
         _createSof(640, 480)));
 
-    var jpeg = new JpegFile(stream);
+    var jpeg = new JpegFile(stream, JpegMetadataLoad.None);
 
     Assert.AreEqual("Test", jpeg.Xmp.GetComment());
     Assert.AreEqual((ushort)6, jpeg.Exif.GetOrientation());
-  }
-
-  [TestMethod]
-  public void JpegFile_ReadsSizeWithoutExif() {
-    using var stream = new MemoryStream(_createJpeg(_createSof(1234, 567)));
-    var jpeg = new JpegFile(stream);
-    Assert.AreEqual(1234, jpeg.Width);
-    Assert.AreEqual(567, jpeg.Height);
-    Assert.IsTrue(jpeg.ExifIsNull());
-  }
-
-  [TestMethod]
-  public void JpegFile_ReadsSizeIndependentlyOfMetadata() {
-    using var stream = new MemoryStream(
-      _createJpeg(
-        _createApp1Xmp(_getTestXmp()),
-        _createApp1Exif(6),
-        _createApp(0xE2, 1000),
-        _createSof(1234, 567)));
-
-    var jpeg = new JpegFile(stream);
-
-    Assert.AreEqual(1234, jpeg.Width);
-    Assert.AreEqual(567, jpeg.Height);
-    Assert.IsTrue(jpeg.ExifIsNull());
   }
 
   [TestMethod]
@@ -195,7 +203,7 @@ public class JpegFileTests {
         _createApp1Exif(6),
         _createSof(640, 480)));
 
-    var jpeg = new JpegFile(stream);
+    var jpeg = new JpegFile(stream, JpegMetadataLoad.None);
 
     Assert.AreEqual((ushort)6, jpeg.Exif.GetOrientation());
   }
@@ -208,7 +216,7 @@ public class JpegFileTests {
         _createApp1Exif(3),
         _createSof(640, 480)));
 
-    var jpeg = new JpegFile(stream);
+    var jpeg = new JpegFile(stream, JpegMetadataLoad.None);
 
     Assert.AreEqual((ushort)6, jpeg.Exif.GetOrientation());
   }
@@ -221,7 +229,7 @@ public class JpegFileTests {
         _createApp1Xmp(_getTestXmp("Second")),
         _createSof(640, 480)));
 
-    var jpeg = new JpegFile(stream);
+    var jpeg = new JpegFile(stream, JpegMetadataLoad.None);
 
     Assert.AreEqual("First", jpeg.Xmp.GetComment());
   }

@@ -74,7 +74,6 @@ public class JpegFile {
           _xmp = _readXmp(stream, reader, segment);
       }
 
-      // TODO test if the position is actually different specially with extended xmp
       stream.Position = segment.PayloadPosition + segment.PayloadLength;
 
       if (_width.HasValue &&
@@ -82,6 +81,9 @@ public class JpegFile {
         (!needXmp || _xmp != null))
         break;
     }
+
+    if (needExif) _exifRead = true;
+    if (needXmp) _xmpRead = true;
   }
 
   private static void _validateJpeg(Stream stream, BinaryReader reader) {
@@ -170,7 +172,6 @@ public class JpegFile {
     var fullLength = 0;
 
     while (true) {
-      // TODO this starts to read the stream from the position after _readSegmentPayload(stream, mainSegment) was called
       if (_readSegment(stream, reader) is not { } segment) break;
 
       if (segment.Marker != _app1) continue;
@@ -235,24 +236,19 @@ public class JpegFile {
     }
 
     var utf8 = Encoding.UTF8.GetString(buffer, offset, length);
-
-    // TODO extract to method
-    if (utf8.Contains("<x:xmpmeta", StringComparison.Ordinal) ||
-      utf8.Contains("<rdf:RDF", StringComparison.Ordinal) ||
-      utf8.Contains("<?xpacket", StringComparison.Ordinal) ||
-      utf8.TrimStart().StartsWith('<'))
-      return utf8;
+    if (_looksLikeXml(utf8)) return utf8;
 
     var unicode = Encoding.Unicode.GetString(buffer, offset, length);
-
-    // TODO extract to method
-    if (unicode.Contains("<x:xmpmeta", StringComparison.Ordinal) ||
-      unicode.Contains("<rdf:RDF", StringComparison.Ordinal) ||
-      unicode.Contains("<?xpacket", StringComparison.Ordinal))
-      return unicode;
+    if (_looksLikeXml(unicode)) return unicode;
 
     return null;
   }
+
+  private static bool _looksLikeXml(string text) =>
+    text.Contains("<x:xmpmeta", StringComparison.Ordinal) ||
+    text.Contains("<rdf:RDF", StringComparison.Ordinal) ||
+    text.Contains("<?xpacket", StringComparison.Ordinal) ||
+    text.TrimStart().StartsWith('<');
 
   private static string? _findExtendedGuid(string xml) {
     var index = xml.IndexOf(_extXmpAttr, StringComparison.Ordinal);
@@ -265,20 +261,11 @@ public class JpegFile {
     return end > start ? xml[start..end] : null;
   }
 
-  // TODO try to use ByteU
   private static int _readBigEndianInt32(byte[] buffer, ref int position) {
     if (position + 4 > buffer.Length)
       throw new InvalidDataException("Invalid XMP extended segment.");
 
-    var value =
-      (buffer[position] << 24) |
-      (buffer[position + 1] << 16) |
-      (buffer[position + 2] << 8) |
-      buffer[position + 3];
-
-    position += 4;
-
-    return value;
+    return ByteU.ReadBigEndianInt32(buffer, ref position);
   }
 
   private static bool _hasCompleteExtendedXmp(List<(int Offset, byte[] Data)> chunks, int fullLength) {
@@ -338,11 +325,9 @@ public class JpegFile {
   private ExifMetadata _getExif() {
     if (_exif != null) return _exif;
 
-    // TODO _exifRead flag is set only here and not in _read method 
     if (!_exifRead) {
       using var stream = _open();
       _read(stream, JpegMetadataLoad.Exif);
-      _exifRead = true;
     }
 
     return _exif ??= new ExifMetadata(null);
@@ -354,7 +339,6 @@ public class JpegFile {
     if (!_xmpRead) {
       using var stream = _open();
       _read(stream, JpegMetadataLoad.Xmp);
-      _xmpRead = true;
     }
 
     return _xmp ??= new XmpMetadata(null);

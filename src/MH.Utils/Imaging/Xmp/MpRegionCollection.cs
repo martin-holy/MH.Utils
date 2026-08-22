@@ -24,7 +24,7 @@ public sealed class MpRegionCollection(XmpDocument doc) : IReadOnlyList<MpRegion
   IEnumerator IEnumerable.GetEnumerator() =>
     GetEnumerator();
 
-  public MpRegion Add(string name, string? rectangle = null) {
+  public MpRegion Add(string? name, string? rectangle = null) {
     var bag = _getOrCreateBag();
     var element = new XElement(XmpNs.Rdf + "li");
     bag.Add(element);

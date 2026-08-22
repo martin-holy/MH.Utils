@@ -27,7 +27,7 @@ public static class ExifOrientationExtensions {
     };
 
   // Orientation from "System.Photo.Orientation" have Rotate90 and Rotate270 swapped
-  public static ExifOrientation? ToExifOrientation(this Orientation? value) =>
+  public static ExifOrientation? ToExifOrientation(this Orientation value) =>
     value switch {
       Orientation.Normal => ExifOrientation.Normal,
       Orientation.Rotate90 => ExifOrientation.Rotate90,

@@ -405,6 +405,7 @@ public class JpegFile {
     _read(testStream, load);
   }
 
+  internal bool SizeIsNull() => _width == null || _height == null;
   internal bool XmpIsNull() => _xmp == null;
   internal bool ExifIsNull() => _exif == null;
 }

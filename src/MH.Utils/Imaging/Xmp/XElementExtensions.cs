@@ -7,10 +7,15 @@ public enum XmpPropertyStorage { Attribute, Element }
 
 public static class XElementExtensions {
   public static XElement GetOrCreateXmpDescription(this XElement resource) {
-    if (resource.Element(XmpNs.Rdf + "Description") is { } description)
+    var dscName = XmpNs.Rdf + "Description";
+
+    if (resource.Name == dscName)
+      return resource;
+
+    if (resource.Element(dscName) is { } description)
       return description;
 
-    description = new XElement(XmpNs.Rdf + "Description");
+    description = new XElement(dscName);
 
     // Move all XMP attributes from the resource.
     foreach (var attribute in resource.Attributes().ToArray()) {

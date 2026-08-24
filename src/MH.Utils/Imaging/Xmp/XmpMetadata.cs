@@ -10,7 +10,10 @@ namespace MH.Utils.Imaging.Xmp;
 public class XmpMetadata {
   private const int _app1MaxPayload = 65533;
   private const int _paddingChunk = 2048;
+  private const string _xmpMetaStart = "<x:xmpmeta";
+  private const string _xapMetaStart = "<x:xapmeta";
   private const string _xmpMetaEnd = "</x:xmpmeta>";
+  private const string _xapMetaEnd = "</x:xapmeta>";
   private const string _defaultEnd = "\r\n<?xpacket end=\"w\"?>";
   private static string _createDefaultBegin() => $"<?xpacket begin=\"﻿\" id=\"{Guid.NewGuid():N}\"?>\r\n";
 
@@ -29,7 +32,7 @@ public class XmpMetadata {
 
     _originalPacketSize = Encoding.UTF8.GetByteCount(packet);
 
-    var xml = _extractXml(packet);
+    var xml = _extractXmp(packet);
     _packetBegin = _extractPacketBegin(packet, xml.Start);
     _packetEnd = _extractPacketEnd(packet, xml.End);
     Doc = new(xml.Xml);
@@ -96,17 +99,22 @@ public class XmpMetadata {
     return _people;
   }
 
-  private static XmlSection _extractXml(string packet) {
-    var start = packet.IndexOf("<x:xmpmeta", StringComparison.Ordinal);
-    if (start < 0) throw new InvalidDataException("Missing x:xmpmeta.");
+  private static XmlSection _extractXmp(string packet) {
+    var start = packet.IndexOf(_xmpMetaStart, StringComparison.Ordinal);
+    var endTag = _xmpMetaEnd;
 
-    var end = packet.IndexOf(_xmpMetaEnd, start, StringComparison.Ordinal);
-    if (end < 0) throw new InvalidDataException("Missing </x:xmpmeta>.");
-    end += _xmpMetaEnd.Length;
+    if (start < 0) {
+      start = packet.IndexOf(_xapMetaStart, StringComparison.Ordinal);
+      endTag = _xapMetaEnd;
+    }
 
-    var xml = packet[start..end];
+    if (start < 0) throw new InvalidDataException("Missing xmpmeta/xapmeta.");
 
-    return new(start, end, xml);
+    var end = packet.IndexOf(endTag, start, StringComparison.Ordinal);
+    if (end < 0) throw new InvalidDataException("Missing xmpmeta/xapmeta end tag.");
+    end += endTag.Length;
+
+    return new(start, end, packet[start..end]);
   }
 
   private static string _extractPacketBegin(string packet, int xmlStart) {

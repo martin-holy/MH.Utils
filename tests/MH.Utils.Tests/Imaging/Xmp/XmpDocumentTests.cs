@@ -32,7 +32,7 @@ public class XmpDocumentTests {
 
     var document = new XmpDocument(xml);
 
-    Assert.AreEqual("Martin", document.GetValue(XmpNs.MpReg, "PersonDisplayName"));
+    Assert.AreEqual("Martin", document.GetValue(XmpNs.MpReg + "PersonDisplayName"));
 
     Assert.IsFalse(document.IsModified);
   }
@@ -43,7 +43,7 @@ public class XmpDocumentTests {
 
     Assert.IsFalse(document.IsModified);
 
-    document.SetValue(XmpNs.MpReg, "PersonDisplayName", "Martin");
+    document.SetValue(XmpNs.MpReg + "PersonDisplayName", "Martin");
 
     Assert.IsTrue(document.IsModified);
   }
@@ -61,20 +61,20 @@ public class XmpDocumentTests {
   public void GetAndSetValue_UseExtensionMethods() {
     var document = new XmpDocument(null);
 
-    document.SetValue(XmpNs.MpReg, "PersonDisplayName", "Martin");
+    document.SetValue(XmpNs.MpReg + "PersonDisplayName", "Martin");
 
-    Assert.AreEqual("Martin", document.GetValue(XmpNs.MpReg, "PersonDisplayName"));
+    Assert.AreEqual("Martin", document.GetValue(XmpNs.MpReg + "PersonDisplayName"));
 
-    document.SetValue(XmpNs.MpReg, "PersonDisplayName", null);
+    document.SetValue(XmpNs.MpReg + "PersonDisplayName", null);
 
-    Assert.IsNull(document.GetValue(XmpNs.MpReg, "PersonDisplayName"));
+    Assert.IsNull(document.GetValue(XmpNs.MpReg + "PersonDisplayName"));
   }
 
   [TestMethod]
   public void GetAndSetArray_UseExtensionMethods() {
     var document = new XmpDocument(null);
 
-    document.SetArray(XmpNs.MpReg, "TestArray", ["one", "two"]);
+    document.SetArray(XmpNs.MpReg + "TestArray", ["one", "two"]);
 
     CollectionAssert.AreEqual(new[] { "one", "two" }, document.GetArray(XmpNs.MpReg + "TestArray")!.ToArray());
   }
@@ -83,18 +83,18 @@ public class XmpDocumentTests {
   public void GetInt_ReturnsParsedInteger() {
     var document = new XmpDocument(null);
 
-    document.SetValue(XmpNs.Xmp, "Rating", "5");
+    document.SetValue(XmpNs.Xmp + "Rating", "5");
 
-    Assert.AreEqual(5, document.GetInt(XmpNs.Xmp, "Rating"));
+    Assert.AreEqual(5, document.GetInt(XmpNs.Xmp + "Rating"));
   }
 
   [TestMethod]
   public void GetInt_ReturnsNullForInvalidValue() {
     var document = new XmpDocument(null);
 
-    document.SetValue(XmpNs.Xmp, "Rating", "abc");
+    document.SetValue(XmpNs.Xmp + "Rating", "abc");
 
-    Assert.IsNull(document.GetInt(XmpNs.Xmp, "Rating"));
+    Assert.IsNull(document.GetInt(XmpNs.Xmp + "Rating"));
   }
 
   [TestMethod]
@@ -128,7 +128,7 @@ public class XmpDocumentTests {
   public void GetDescription_FindsDescriptionContainingNamespaceProperty() {
     var document = new XmpDocument(null);
 
-    document.SetValue(XmpNs.MpReg, "PersonDisplayName", "Martin");
+    document.SetValue(XmpNs.MpReg + "PersonDisplayName", "Martin");
 
     var description = document.GetDescription(XmpNs.MpReg);
 
@@ -141,9 +141,9 @@ public class XmpDocumentTests {
   public void SetLangAlt_CreatesXDefault() {
     var document = new XmpDocument(null);
 
-    document.SetLangAlt(XmpNs.Dc, "title", "Martin's pictures");
+    document.SetLangAlt(XmpNs.Dc + "title", "Martin's pictures");
 
-    var value = document.GetLangAlt(XmpNs.Dc, "title");
+    var value = document.GetLangAlt(XmpNs.Dc + "title");
 
     Assert.AreEqual("Martin's pictures", value);
 
@@ -162,9 +162,9 @@ public class XmpDocumentTests {
   public void SetLangAlt_UpdatesExistingXDefault() {
     var document = new XmpDocument(null);
 
-    document.SetLangAlt(XmpNs.Dc, "title", "First");
+    document.SetLangAlt(XmpNs.Dc + "title", "First");
 
-    document.SetLangAlt(XmpNs.Dc, "title", "Second");
+    document.SetLangAlt(XmpNs.Dc + "title", "Second");
 
     var description = document.GetDescription(XmpNs.Dc);
 
@@ -193,16 +193,16 @@ public class XmpDocumentTests {
 
     description.Add(property);
 
-    Assert.AreEqual("English", document.GetLangAlt(XmpNs.Dc, "title"));
+    Assert.AreEqual("English", document.GetLangAlt(XmpNs.Dc + "title"));
   }
 
   [TestMethod]
   public void SetLangAlt_Null_RemovesProperty() {
     var document = new XmpDocument(null);
 
-    document.SetLangAlt(XmpNs.Dc, "title", "Hello");
+    document.SetLangAlt(XmpNs.Dc + "title", "Hello");
 
-    document.SetLangAlt(XmpNs.Dc, "title", null);
+    document.SetLangAlt(XmpNs.Dc + "title", null);
 
     var description = document.GetDescription(XmpNs.Dc);
 
@@ -236,7 +236,7 @@ public class XmpDocumentTests {
   public void ToXml_ReturnsDocumentXml() {
     var document = new XmpDocument(null);
 
-    document.SetValue(XmpNs.MpReg, "PersonDisplayName", "Martin");
+    document.SetValue(XmpNs.MpReg + "PersonDisplayName", "Martin");
 
     var xml = document.ToXml();
 

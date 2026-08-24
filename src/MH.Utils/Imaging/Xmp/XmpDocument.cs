@@ -52,11 +52,11 @@ public sealed class XmpDocument(string? xml) {
   public IEnumerable<string>? GetArray(XName name) =>
     Document.GetXmpStringArray(name);
 
-  public void SetArray(XNamespace ns, string name, string[]? values) =>
-    Document.SetXmpArray(ns + name, values);
+  public void SetArray(XName name, string[]? values) =>
+    Document.SetXmpArray(name, values);
 
-  public int? GetInt(XNamespace ns, string name) {
-    var value = GetValue(ns, name);
+  public int? GetInt(XName name) {
+    var value = GetValue(name);
 
     if (int.TryParse(value, out var result))
       return result;
@@ -64,15 +64,15 @@ public sealed class XmpDocument(string? xml) {
     return null;
   }
 
-  public string? GetValue(XNamespace ns, string name) =>
-    Document.GetXmpProperty(ns + name);
+  public string? GetValue(XName name) =>
+    Document.GetXmpProperty(name);
 
-  public void SetValue(XNamespace ns, string name, string? value, XmpValueStyle style = XmpValueStyle.Auto) {
-    Document.SetXmpProperty(ns + name, value, style);
+  public void SetValue(XName name, string? value, XmpValueStyle style = XmpValueStyle.Auto) {
+    Document.SetXmpProperty(name, value, style);
   }
 
-  public string? GetLangAlt(XNamespace ns, string name) {
-    if (GetDescription(ns)?.Element(ns + name) is not { } property) return null;
+  public string? GetLangAlt(XName name) {
+    if (GetDescription(name.Namespace)?.Element(name) is not { } property) return null;
 
     var rdf = XmpNs.Rdf;
     var xml = XNamespace.Xml;
@@ -92,13 +92,13 @@ public sealed class XmpDocument(string? xml) {
       .FirstOrDefault();
   }
 
-  public void SetLangAlt(XNamespace ns, string name, string? value) {
-    var description = GetOrCreateDescription(ns);
+  public void SetLangAlt(XName name, string? value) {
+    var description = GetOrCreateDescription(name.Namespace);
 
     // Remove an invalid attribute representation.
-    description.Attribute(ns + name)?.Remove();
+    description.Attribute(name)?.Remove();
 
-    var property = description.Element(ns + name);
+    var property = description.Element(name);
 
     if (value == null) {
       property?.Remove();
@@ -109,7 +109,7 @@ public sealed class XmpDocument(string? xml) {
     var xml = XNamespace.Xml;
 
     if (property == null) {
-      property = new XElement(ns + name);
+      property = new XElement(name);
       description.Add(property);
     }
 

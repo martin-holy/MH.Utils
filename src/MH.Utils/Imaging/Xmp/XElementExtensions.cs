@@ -6,6 +6,19 @@ namespace MH.Utils.Imaging.Xmp;
 public enum XmpPropertyStorage { Attribute, Element }
 
 public static class XElementExtensions {
+  public static string GetAvailablePrefix(this XElement element, XNamespace ns) {
+    if (XmpNs.GetPreferredPrefix(ns) is { } preferred
+      && element.GetNamespaceOfPrefix(preferred) == null)
+      return preferred;
+
+    for (var i = 1; ; i++) {
+      var prefix = "ns" + i;
+
+      if (element.GetNamespaceOfPrefix(prefix) == null)
+        return prefix;
+    }
+  }
+
   public static XElement GetOrCreateXmpDescription(this XElement resource) {
     var dscName = XmpNs.Rdf + "Description";
 
@@ -53,14 +66,11 @@ public static class XElementExtensions {
     if (description == null
       || description.HasElements
       || description.Attributes()
-        .Any(a => !a.IsNamespaceDeclaration && !_isRdfAttribute(a.Name)))
+        .Any(a => !a.IsNamespaceDeclaration && a.Name.Namespace != XmpNs.Rdf))
       return;
 
     description.Remove();
   }
-
-  private static bool _isRdfAttribute(XName name) =>
-    name.Namespace == XmpNs.Rdf;
 
   public static XElement? GetXmpResource(this XElement element, XName name) {
     if (element.Attribute(name) != null

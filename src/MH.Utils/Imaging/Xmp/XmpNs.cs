@@ -1,4 +1,4 @@
-﻿using System;
+﻿using System.Collections.Generic;
 using System.Xml.Linq;
 
 namespace MH.Utils.Imaging.Xmp;
@@ -15,15 +15,19 @@ public static class XmpNs {
   public static readonly XNamespace MpRi = "http://ns.microsoft.com/photo/1.2/t/RegionInfo#";
   public static readonly XNamespace MpReg = "http://ns.microsoft.com/photo/1.2/t/Region#";
 
-  public static string GetPrefix(XNamespace ns) =>
-    ns == X ? "x" :
-    ns == Xmp ? "xmp" :
-    ns == Dc ? "dc" :
-    ns == Exif ? "exif" :
-    ns == Tiff ? "tiff" :
-    ns == Rdf ? "rdf" :
-    ns == Mp ? "MP" :
-    ns == MpRi ? "MPRI" :
-    ns == MpReg ? "MPReg" :
-    throw new ArgumentException($"Unknown XMP namespace '{ns.NamespaceName}'.", nameof(ns));
+  private static readonly Dictionary<XNamespace, string> _prefixes = new() {
+    [X] = "x",
+    [Xmp] = "xmp",
+    [Dc] = "dc",
+    [Exif] = "exif",
+    [Tiff] = "tiff",
+    [Rdf] = "rdf",
+    [MicrosoftPhoto] = "MicrosoftPhoto",
+    [Mp] = "MP",
+    [MpRi] = "MPRI",
+    [MpReg] = "MPReg"
+  };
+
+  public static string? GetPreferredPrefix(XNamespace ns) =>
+    _prefixes.TryGetValue(ns, out var prefix) ? prefix : null;
 }

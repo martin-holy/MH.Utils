@@ -22,19 +22,19 @@ public class JpegFileBenchmarks {
     | GetXmpResource       | 96.74 us  | 14.33 us  | 0.785 us  | 21.2402 | 43.46 KB  |
     | GetXmpDoc            | 100.09 us | 187.28 us | 10.265 us | 20.9961 | 43.29 KB  |
     | GetDescAttrOrElement | 92.38 us  | 12.03 us  | 0.659 us  | 20.9961 | 43.38 KB  |*/
-  [Benchmark]
+  //[Benchmark]
   public void GetXmpResource() {
     var jpeg = new JpegFile(_path, JpegMetadataLoad.Xmp);
-    _ = jpeg.Xmp.Doc!.Document.GetXmpResource(XmpNs.Xmp + "CreatorTool");
+    _ = jpeg.Xmp.Doc!.Document.Root!.GetXmpPropertyParent(XmpNs.Xmp + "CreatorTool");
   }
 
-  [Benchmark]
+  //[Benchmark]
   public void GetXmpDoc() {
     var jpeg = new JpegFile(_path, JpegMetadataLoad.Xmp);
     _ = jpeg.Xmp.Doc!.Document;
   }
 
-  [Benchmark]
+  //[Benchmark]
   public void GetDescAttrOrElement() {
     var jpeg = new JpegFile(_path, JpegMetadataLoad.Xmp);
     var name = XmpNs.Xmp + "CreatorTool";
@@ -47,7 +47,7 @@ public class JpegFileBenchmarks {
     | KeywordsLinq         | 97.48 us | 26.394 us | 1.447 us | 21.2402 |  43.46 KB |
     | KeywordsListContains | 96.72 us |  7.249 us | 0.397 us | 20.9961 |  43.38 KB |
     | KeywordsListHashSet  | 94.33 us | 15.681 us | 0.860 us | 20.9961 |  43.38 KB |*/
-  //[Benchmark]
+  [Benchmark]
   public void KeywordsLinq() {
     var jpeg = new JpegFile(_path, JpegMetadataLoad.Xmp);
     _ = jpeg.Xmp.GetKeywords();
@@ -226,8 +226,8 @@ public class JpegFileBenchmarks {
   private static int? _getGeoNameId(ImageMetadata metadata) =>
     metadata.Jpeg.Xmp.Doc is not { } doc
       ? null
-      : doc.GetInt(_nsMhu, "GeoNameId") ??
-        doc.GetInt(_nsGeoNames, "GeoNameId"); // this is old namespace I used before
+      : doc.GetInt(_nsMhu + "GeoNameId") ??
+        doc.GetInt(_nsGeoNames + "GeoNameId"); // this is old namespace I used before
 
   private class MediaItemMetadata(string filePath) {
     public string FilePath { get; set; } = filePath;

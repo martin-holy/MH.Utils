@@ -51,13 +51,13 @@ public class XmpMetadata {
   }
 
   public void SetWidth(ushort? value) {
-    EnsureDoc().SetValue(XmpNs.Tiff + "ImageWidth", value?.ToString());
-    EnsureDoc().SetValue(XmpNs.Exif + "PixelXDimension", value?.ToString());
+    EnsureDoc().SetProperty(XmpNs.Tiff + "ImageWidth", value?.ToString());
+    EnsureDoc().SetProperty(XmpNs.Exif + "PixelXDimension", value?.ToString());
   }
 
   public void SetHeight(ushort? value) {
-    EnsureDoc().SetValue(XmpNs.Tiff + "ImageLength", value?.ToString());
-    EnsureDoc().SetValue(XmpNs.Exif + "PixelYDimension", value?.ToString());
+    EnsureDoc().SetProperty(XmpNs.Tiff + "ImageLength", value?.ToString());
+    EnsureDoc().SetProperty(XmpNs.Exif + "PixelYDimension", value?.ToString());
   }
 
   public string? GetComment() =>
@@ -70,7 +70,7 @@ public class XmpMetadata {
     Doc?.GetInt(XmpNs.Xmp + "Rating");
 
   public void SetRating(int? value) =>
-    EnsureDoc().SetValue(XmpNs.Xmp + "Rating", value?.ToString());
+    EnsureDoc().SetProperty(XmpNs.Xmp + "Rating", value?.ToString());
 
   public string[]? GetKeywords() {
     var items = Doc?
@@ -175,7 +175,7 @@ public class XmpMetadata {
 
   private void _setMetadataDate() {
     var dt = DateTimeOffset.Now.ToString("yyyy-MM-dd'T'HH:mm:sszzz", CultureInfo.InvariantCulture);
-    EnsureDoc().SetValue(XmpNs.Xmp + "ModifyDate", dt);
+    EnsureDoc().SetProperty(XmpNs.Xmp + "ModifyDate", dt);
   }
 
   private int _calculatePacketSize(int beginLength, int bodyLength, int endLength) {

@@ -64,12 +64,12 @@ public sealed class XmpDocument(string? xml) {
     Rdf.SetXmpArray(name, values);
 
   public int? GetInt(XName name) =>
-    int.TryParse(GetValue(name), out var result) ? result : null;
+    int.TryParse(GetProperty(name), out var result) ? result : null;
 
-  public string? GetValue(XName name) =>
+  public string? GetProperty(XName name) =>
     Rdf.GetXmpProperty(name);
 
-  public void SetValue(XName name, string? value, XmpValueStyle style = XmpValueStyle.Auto) =>
+  public void SetProperty(XName name, string? value, XmpValueStyle style = XmpValueStyle.Auto) =>
     Rdf.SetXmpProperty(name, value, style);
 
   public void RemoveEmptyDescriptions() {

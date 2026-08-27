@@ -54,7 +54,7 @@ public sealed class MpRegionCollection(XmpDocument doc) : IReadOnlyList<MpRegion
   }
 
   private XElement? _getBag() {
-    var description = _doc.GetDescription(XmpNs.Mp);
+    var description = _doc.Rdf.GetXmpDescription(XmpNs.Mp);
     var regionInfo = description?.Element(XmpNs.Mp + "RegionInfo");
     var regions = regionInfo?.Descendants(XmpNs.MpRi + "Regions").FirstOrDefault();
 
@@ -62,22 +62,10 @@ public sealed class MpRegionCollection(XmpDocument doc) : IReadOnlyList<MpRegion
   }
 
   private XElement _getOrCreateBag() {
-    var desc = _doc.GetOrCreateDescription(XmpNs.Mp);
-
-    if (desc.Element(XmpNs.Mp + "RegionInfo") is not { } regionInfo) {
-      regionInfo = new XElement(XmpNs.Mp + "RegionInfo");
-      desc.Add(regionInfo);
-    }
-
-    if (regionInfo.Element(XmpNs.MpRi + "Regions") is not { } regions) {
-      regions = new XElement(XmpNs.MpRi + "Regions");
-      regionInfo.Add(regions);
-    }
-
-    if (regions.Element(XmpNs.Rdf + "Bag") is not { } bag) {
-      bag = new XElement(XmpNs.Rdf + "Bag");
-      regions.Add(bag);
-    }
+    var desc = _doc.Rdf.GetOrCreateXmpDescription(XmpNs.Mp);
+    var regionInfo = desc.GetOrCreateXmpElement(XmpNs.Mp + "RegionInfo");
+    var regions = regionInfo.GetOrCreateXmpElement(XmpNs.MpRi + "Regions");
+    var bag = regions.GetOrCreateXmpElement(XmpNs.Rdf + "Bag");
 
     return bag;
   }

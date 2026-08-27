@@ -61,10 +61,10 @@ public class XmpMetadata {
   }
 
   public string? GetComment() =>
-    Doc?.GetLangAlt(XmpNs.Dc + "description");
+    Doc?.Rdf.GetXmpLangAlt(XmpNs.Dc + "description");
 
   public void SetComment(string? value) =>
-    EnsureDoc().SetLangAlt(XmpNs.Dc + "description", value);
+    EnsureDoc().Rdf.SetXmpLangAlt(XmpNs.Dc + "description", value);
 
   public int? GetRating() =>
     Doc?.GetInt(XmpNs.Xmp + "Rating");

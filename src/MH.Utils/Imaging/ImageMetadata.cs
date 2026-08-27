@@ -11,6 +11,7 @@ public class ImageMetadata(string filePath, JpegMetadataLoad load = JpegMetadata
 
   public bool IsExifModified => Jpeg.Exif.IsModified;
   public bool IsXmpModified => Jpeg.Xmp.Doc?.IsModified == true;
+  public bool IsModified => IsExifModified || IsXmpModified;
 
   public JpegFile Jpeg => _jpeg ??= new JpegFile(filePath, load);
 
@@ -95,9 +96,4 @@ public class ImageMetadata(string filePath, JpegMetadataLoad load = JpegMetadata
 
   public bool Write(string srcPath) =>
     Jpeg.Write(srcPath);
-
-  public bool WriteIfModified(string srcPath) {
-    if (!IsExifModified && !IsXmpModified) return false;
-    return Write(srcPath);
-  }
 }

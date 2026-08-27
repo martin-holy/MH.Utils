@@ -207,7 +207,7 @@ public class MpRegionCollectionTests {
     var regionsElement = new XElement(XmpNs.MpRi + "Regions", bag);
     var regionInfo = new XElement(XmpNs.Mp + "RegionInfo", regionsElement);
 
-    document.GetOrCreateDescription(XmpNs.Mp).Add(regionInfo);
+    document.Rdf.GetOrCreateXmpDescription(XmpNs.Mp).Add(regionInfo);
 
     var regions = new MpRegionCollection(document);
     var region = regions[0];
@@ -218,7 +218,7 @@ public class MpRegionCollectionTests {
     Assert.AreEqual("Martin", region.PersonDisplayName);
     Assert.AreEqual("0,0,1,1", region.Rectangle);
 
-    var description = li.GetXmpDescription();
+    var description = li.Element(XmpNs.Rdf + "Description");
     Assert.IsNotNull(description);
     Assert.AreEqual("Martin", (string?)description!.Attribute(XmpNs.MpReg + "PersonDisplayName"));
     Assert.AreEqual("0,0,1,1", (string?)description.Attribute(XmpNs.MpReg + "Rectangle"));

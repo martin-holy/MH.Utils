@@ -165,11 +165,11 @@ public class XmpExtensionsTests {
       new XAttribute(XmpNs.MpReg + "PersonDisplayName", "Martin"),
       new XAttribute(XmpNs.MpReg + "Rectangle", "0,0,1,1"));
 
-    var property = element.SetXmpPropertyElement(_rectangleKeywords);
+    var property = element.GetOrCreateXmpPropertyElement(_rectangleKeywords);
 
     Assert.IsNotNull(property);
 
-    var description = element.GetXmpDescription();
+    var description = element.Element(XmpNs.Rdf + "Description");
 
     Assert.IsNotNull(description);
 
@@ -190,9 +190,9 @@ public class XmpExtensionsTests {
       new XElement(XmpNs.MpReg + "PersonDisplayName", "Martin"),
       new XElement(XmpNs.MpReg + "Rectangle", "0,0,1,1"));
 
-    element.SetXmpPropertyElement(_rectangleKeywords);
+    element.GetOrCreateXmpPropertyElement(_rectangleKeywords);
 
-    var description = element.GetXmpDescription();
+    var description = element.Element(XmpNs.Rdf + "Description");
 
     Assert.IsNotNull(description);
 
@@ -211,9 +211,9 @@ public class XmpExtensionsTests {
       new XAttribute(XmpNs.MpReg + "PersonDisplayName", "Martin"),
       new XElement(XmpNs.MpReg + "Rectangle", "0,0,1,1"));
 
-    element.SetXmpPropertyElement(_rectangleKeywords);
+    element.GetOrCreateXmpPropertyElement(_rectangleKeywords);
 
-    var description = element.GetXmpDescription();
+    var description = element.Element(XmpNs.Rdf + "Description");
 
     Assert.IsNotNull(description);
 
@@ -232,10 +232,10 @@ public class XmpExtensionsTests {
       new XElement(XmpNs.Rdf + "Description",
         new XAttribute(XmpNs.MpReg + "PersonDisplayName", "Martin")));
 
-    var description = element.GetXmpDescription();
-    var property = element.SetXmpPropertyElement(_rectangleKeywords);
+    var description = element.Element(XmpNs.Rdf + "Description");
+    var property = element.GetOrCreateXmpPropertyElement(_rectangleKeywords);
 
-    Assert.AreSame(description, element.GetXmpDescription());
+    Assert.AreSame(description, element.Element(XmpNs.Rdf + "Description"));
 
     Assert.AreSame(property, description!.Element(_rectangleKeywords));
 
@@ -298,7 +298,7 @@ public class XmpExtensionsTests {
 
     element.SetXmpArray(_rectangleKeywords, ["keyword1", "keyword2"]);
 
-    var description = element.GetXmpDescription();
+    var description = element.Element(XmpNs.Rdf + "Description");
 
     Assert.IsNotNull(description);
 
@@ -327,5 +327,30 @@ public class XmpExtensionsTests {
     CollectionAssert.AreEqual(
       new[] { "keyword1", "keyword2" },
       bag!.Elements(XmpNs.Rdf + "li").Select(x => x.Value).ToArray());
+  }
+
+  [TestMethod]
+  public void GetAvailablePrefix_KnownNamespace_ReturnsPreferredPrefix() {
+    var element = new XElement("root");
+
+    Assert.AreEqual("MicrosoftPhoto", element.GetAvailablePrefix(XmpNs.MicrosoftPhoto));
+  }
+
+  [TestMethod]
+  public void GetAvailablePrefix_CustomNamespace_ReturnsGeneratedPrefix() {
+    var element = new XElement("root");
+    XNamespace customNs = "MyCustomNamespace";
+
+    Assert.AreEqual("ns1", element.GetAvailablePrefix(customNs));
+  }
+
+  [TestMethod]
+  public void GetAvailablePrefix_CustomNamespace_WhenNs1IsUsed_ReturnsNextPrefix() {
+    var element = new XElement("root",
+      new XAttribute(XNamespace.Xmlns + "ns1", "SomeOtherNamespace"));
+
+    XNamespace customNs = "MyCustomNamespace";
+
+    Assert.AreEqual("ns2", element.GetAvailablePrefix(customNs));
   }
 }

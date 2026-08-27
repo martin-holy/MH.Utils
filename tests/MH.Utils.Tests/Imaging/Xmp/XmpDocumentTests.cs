@@ -25,9 +25,10 @@ public class XmpDocumentTests {
   [TestMethod]
   public void Document_ParsesExistingXml() {
     var xml = new XDocument(
-      new XElement(XmpNs.Rdf + "RDF",
-        new XElement(XmpNs.Rdf + "Description",
-          new XAttribute(XmpNs.MpReg + "PersonDisplayName", "Martin"))))
+      new XElement(XmpNs.X + "xmpmeta",
+        new XElement(XmpNs.Rdf + "RDF",
+          new XElement(XmpNs.Rdf + "Description",
+            new XAttribute(XmpNs.MpReg + "PersonDisplayName", "Martin")))))
       .ToString();
 
     var document = new XmpDocument(xml);
@@ -100,24 +101,25 @@ public class XmpDocumentTests {
   [TestMethod]
   public void GetOrCreateDescription_CreatesDescriptionForNamespace() {
     var document = new XmpDocument(null);
-    var description = document.GetOrCreateDescription(XmpNs.MpReg);
+    var description = document.Rdf.GetOrCreateXmpDescription(XmpNs.MpReg);
+    description.EnsureXmpNamespacePrefix(XmpNs.MpReg);
 
     Assert.IsNotNull(description);
 
     Assert.AreEqual(1, document.Document.Descendants(XmpNs.Rdf + "Description").Count());
 
-    Assert.IsNotNull(description.Attribute(XNamespace.Xmlns + XmpNs.GetPrefix(XmpNs.MpReg)));
+    Assert.IsNotNull(description.Attribute(XNamespace.Xmlns + XmpNs.GetPreferredPrefix(XmpNs.MpReg)!));
 
-    Assert.AreEqual(XmpNs.MpReg.NamespaceName, (string?)description.Attribute(XNamespace.Xmlns + XmpNs.GetPrefix(XmpNs.MpReg)));
+    Assert.AreEqual(XmpNs.MpReg.NamespaceName, (string?)description.Attribute(XNamespace.Xmlns + XmpNs.GetPreferredPrefix(XmpNs.MpReg)!));
   }
 
   [TestMethod]
   public void GetOrCreateDescription_ReusesExistingDescription() {
     var document = new XmpDocument(null);
 
-    var first = document.GetOrCreateDescription(XmpNs.MpReg);
+    var first = document.Rdf.GetOrCreateXmpDescription(XmpNs.MpReg);
 
-    var second = document.GetOrCreateDescription(XmpNs.MpReg);
+    var second = document.Rdf.GetOrCreateXmpDescription(XmpNs.MpReg);
 
     Assert.AreSame(first, second);
 
@@ -130,7 +132,7 @@ public class XmpDocumentTests {
 
     document.SetValue(XmpNs.MpReg + "PersonDisplayName", "Martin");
 
-    var description = document.GetDescription(XmpNs.MpReg);
+    var description = document.Rdf.GetXmpDescription(XmpNs.MpReg);
 
     Assert.IsNotNull(description);
 
@@ -141,13 +143,13 @@ public class XmpDocumentTests {
   public void SetLangAlt_CreatesXDefault() {
     var document = new XmpDocument(null);
 
-    document.SetLangAlt(XmpNs.Dc + "title", "Martin's pictures");
+    document.Rdf.SetXmpLangAlt(XmpNs.Dc + "title", "Martin's pictures");
 
-    var value = document.GetLangAlt(XmpNs.Dc + "title");
+    var value = document.Rdf.GetXmpLangAlt(XmpNs.Dc + "title");
 
     Assert.AreEqual("Martin's pictures", value);
 
-    var description = document.GetDescription(XmpNs.Dc);
+    var description = document.Rdf.GetXmpDescription(XmpNs.Dc);
 
     var alt = description!.Element(XmpNs.Dc + "title")!.Element(XmpNs.Rdf + "Alt");
 
@@ -162,11 +164,11 @@ public class XmpDocumentTests {
   public void SetLangAlt_UpdatesExistingXDefault() {
     var document = new XmpDocument(null);
 
-    document.SetLangAlt(XmpNs.Dc + "title", "First");
+    document.Rdf.SetXmpLangAlt(XmpNs.Dc + "title", "First");
 
-    document.SetLangAlt(XmpNs.Dc + "title", "Second");
+    document.Rdf.SetXmpLangAlt(XmpNs.Dc + "title", "Second");
 
-    var description = document.GetDescription(XmpNs.Dc);
+    var description = document.Rdf.GetXmpDescription(XmpNs.Dc);
 
     var items = description!
       .Element(XmpNs.Dc + "title")!
@@ -182,7 +184,7 @@ public class XmpDocumentTests {
   public void GetLangAlt_PrefersXDefault() {
     var document = new XmpDocument(null);
 
-    var description = document.GetOrCreateDescription(XmpNs.Dc);
+    var description = document.Rdf.GetOrCreateXmpDescription(XmpNs.Dc);
 
     var property = new XElement(XmpNs.Dc + "title",
       new XElement(XmpNs.Rdf + "Alt",
@@ -193,18 +195,18 @@ public class XmpDocumentTests {
 
     description.Add(property);
 
-    Assert.AreEqual("English", document.GetLangAlt(XmpNs.Dc + "title"));
+    Assert.AreEqual("English", document.Rdf.GetXmpLangAlt(XmpNs.Dc + "title"));
   }
 
   [TestMethod]
   public void SetLangAlt_Null_RemovesProperty() {
     var document = new XmpDocument(null);
 
-    document.SetLangAlt(XmpNs.Dc + "title", "Hello");
+    document.Rdf.SetXmpLangAlt(XmpNs.Dc + "title", "Hello");
 
-    document.SetLangAlt(XmpNs.Dc + "title", null);
+    document.Rdf.SetXmpLangAlt(XmpNs.Dc + "title", null);
 
-    var description = document.GetDescription(XmpNs.Dc);
+    var description = document.Rdf.GetXmpDescription(XmpNs.Dc);
 
     Assert.IsNull(description);
   }
@@ -243,5 +245,41 @@ public class XmpDocumentTests {
     Assert.IsFalse(string.IsNullOrWhiteSpace(xml));
     Assert.IsTrue(xml.Contains("PersonDisplayName"));
     Assert.IsTrue(xml.Contains("Martin"));
+  }
+
+  [TestMethod]
+  public void SetArray_CustomNamespace_GeneratesPrefix() {
+    var doc = new XmpDocument(null);
+    XNamespace customNs = "MyCustomNamespace";
+
+    doc.SetArray(customNs + "myCustomProperty", ["value1", "value2"]);
+
+    var description = doc.Rdf.GetOrCreateXmpDescription(customNs);
+    description.GetOrCreateXmpPropertyElement(customNs + "myCustomProperty");
+
+    Assert.AreEqual("ns1", description.GetPrefixOfNamespace(customNs));
+
+    var property = description.Element(customNs + "myCustomProperty");
+
+    Assert.IsNotNull(property);
+    Assert.AreEqual("MyCustomNamespace", property.Name.Namespace.NamespaceName);
+    Assert.AreEqual("ns1", property.GetPrefixOfNamespace(customNs));
+  }
+
+  [TestMethod]
+  public void SetXmpPropertyElement_CustomNamespace_GeneratesPrefix() {
+    var doc = new XmpDocument(null);
+    XNamespace customNs = "MyCustomNamespace";
+
+    var description = doc.Rdf.GetOrCreateXmpDescription(customNs);
+    description.GetOrCreateXmpPropertyElement(customNs + "myCustomProperty");
+
+    Assert.AreEqual("ns1", description.GetPrefixOfNamespace(customNs));
+
+    var property = description.Element(customNs + "myCustomProperty");
+
+    Assert.IsNotNull(property);
+    Assert.AreEqual("MyCustomNamespace", property.Name.Namespace.NamespaceName);
+    Assert.AreEqual("ns1", property.GetPrefixOfNamespace(customNs));
   }
 }

@@ -5,22 +5,20 @@ using System.Xml.Linq;
 
 namespace MH.Utils.Imaging.Xmp;
 
-public enum XmpArrayType { Bag, Seq, Alt }
-
 public static class XContainerExtensions {
-  public static string? GetXmpProperty(this XContainer container, XName name) {
+  /*public static string? GetXmpProperty(this XContainer container, XName name) {
     var resource = container.GetXmpResource(name);
 
     return resource == null
       ? null
       : (string?)resource.Attribute(name)
         ?? (string?)resource.Element(name);
-  }
+  }*/
 
-  public static XElement? GetXmpPropertyElement(this XContainer container, XName name) =>
-    container.GetXmpResource(name)?.Element(name);
+  /*public static XElement? GetXmpPropertyElement(this XContainer container, XName name) =>
+    container.GetXmpResource(name)?.Element(name);*/
 
-  public static void SetXmpProperty(this XContainer container, XName name, string? value,
+  /*public static void SetXmpProperty(this XContainer container, XName name, string? value,
     XmpValueStyle style = XmpValueStyle.Auto) {
 
     var resource = container.GetXmpResource(name);
@@ -69,36 +67,41 @@ public static class XContainerExtensions {
       default:
         throw new ArgumentOutOfRangeException(nameof(style));
     }
-  }
+  }*/
 
-  public static XElement SetXmpPropertyElement(this XContainer container, XName name) {
+  /*public static XElement SetXmpPropertyElement(this XContainer container, XName name) {
     var resource = container.GetOrCreateXmpResource();
     var description = resource.GetOrCreateXmpDescription();
 
     if (description.Element(name) is { } property)
       return property;
 
+    if (description.GetPrefixOfNamespace(name.Namespace) == null) {
+      var prefix = description.GetAvailablePrefix(name.Namespace);
+      description.Add(new XAttribute(XNamespace.Xmlns + prefix, name.Namespace.NamespaceName));
+    }
+
     property = new XElement(name);
     description.Add(property);
 
     return property;
-  }
+  }*/
 
-  public static IEnumerable<XElement>? GetXmpArray(this XContainer container, XName name) {
+  /*public static IEnumerable<XElement>? GetXmpArray(this XContainer container, XName name) {
     var property = container.GetXmpPropertyElement(name);
 
     return property?
       .Elements()
       .FirstOrDefault(_isXmpArrayContainer)?
       .Elements(XmpNs.Rdf + "li");
-  }
+  }*/
 
-  private static bool _isXmpArrayContainer(XElement element) =>
+  /*private static bool _isXmpArrayContainer(XElement element) =>
     element.Name == XmpNs.Rdf + "Bag" ||
     element.Name == XmpNs.Rdf + "Seq" ||
-    element.Name == XmpNs.Rdf + "Alt";
+    element.Name == XmpNs.Rdf + "Alt";*/
 
-  public static void SetXmpArray(this XContainer container, XName name,
+  /*public static XElement? SetXmpArray(this XContainer container, XName name,
     IEnumerable<string>? values, XmpArrayType type = XmpArrayType.Bag) {
 
     var items = values?
@@ -110,7 +113,7 @@ public static class XContainerExtensions {
     if (items == null || items.Length == 0) {
       property?.Remove();
       property?.Parent?.RemoveEmptyXmpDescription();
-      return;
+      return null;
     }
 
     property ??= container.SetXmpPropertyElement(name);
@@ -122,6 +125,8 @@ public static class XContainerExtensions {
       array.Add(new XElement(XmpNs.Rdf + "li", item));
 
     property.Add(array);
+
+    return property;
   }
 
   private static XName _getXmpArrayName(XmpArrayType type) =>
@@ -130,9 +135,9 @@ public static class XContainerExtensions {
       XmpArrayType.Seq => XmpNs.Rdf + "Seq",
       XmpArrayType.Alt => XmpNs.Rdf + "Alt",
       _ => throw new ArgumentOutOfRangeException(nameof(type))
-    };
+    };*/
 
-  public static XElement? GetXmpResource(this XContainer container, XName name) {
+  /*public static XElement? GetXmpResource(this XContainer container, XName name) {
     if (container is XElement element)
       return element.GetXmpResource(name);
 
@@ -145,9 +150,9 @@ public static class XContainerExtensions {
     }
 
     return null;
-  }
+  }*/
 
-  public static XElement GetOrCreateXmpResource(this XContainer container) {
+  /*public static XElement GetOrCreateXmpResource(this XContainer container) {
     if (container is XElement element)
       return element;
 
@@ -171,10 +176,10 @@ public static class XContainerExtensions {
     }
 
     throw new InvalidOperationException($"Unsupported XContainer type '{container.GetType().Name}'.");
-  }
+  }*/
 
-  public static IEnumerable<string>? GetXmpStringArray(this XContainer container, XName name) =>
+  /*public static IEnumerable<string>? GetXmpStringArray(this XContainer container, XName name) =>
     container
       .GetXmpArray(name)?
-      .Select(x => x.Value);
+      .Select(x => x.Value);*/
 }

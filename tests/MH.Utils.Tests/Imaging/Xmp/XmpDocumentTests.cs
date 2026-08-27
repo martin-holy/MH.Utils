@@ -33,7 +33,7 @@ public class XmpDocumentTests {
 
     var document = new XmpDocument(xml);
 
-    Assert.AreEqual("Martin", document.GetValue(XmpNs.MpReg + "PersonDisplayName"));
+    Assert.AreEqual("Martin", document.GetProperty(XmpNs.MpReg + "PersonDisplayName"));
 
     Assert.IsFalse(document.IsModified);
   }
@@ -44,7 +44,7 @@ public class XmpDocumentTests {
 
     Assert.IsFalse(document.IsModified);
 
-    document.SetValue(XmpNs.MpReg + "PersonDisplayName", "Martin");
+    document.SetProperty(XmpNs.MpReg + "PersonDisplayName", "Martin");
 
     Assert.IsTrue(document.IsModified);
   }
@@ -62,13 +62,13 @@ public class XmpDocumentTests {
   public void GetAndSetValue_UseExtensionMethods() {
     var document = new XmpDocument(null);
 
-    document.SetValue(XmpNs.MpReg + "PersonDisplayName", "Martin");
+    document.SetProperty(XmpNs.MpReg + "PersonDisplayName", "Martin");
 
-    Assert.AreEqual("Martin", document.GetValue(XmpNs.MpReg + "PersonDisplayName"));
+    Assert.AreEqual("Martin", document.GetProperty(XmpNs.MpReg + "PersonDisplayName"));
 
-    document.SetValue(XmpNs.MpReg + "PersonDisplayName", null);
+    document.SetProperty(XmpNs.MpReg + "PersonDisplayName", null);
 
-    Assert.IsNull(document.GetValue(XmpNs.MpReg + "PersonDisplayName"));
+    Assert.IsNull(document.GetProperty(XmpNs.MpReg + "PersonDisplayName"));
   }
 
   [TestMethod]
@@ -84,7 +84,7 @@ public class XmpDocumentTests {
   public void GetInt_ReturnsParsedInteger() {
     var document = new XmpDocument(null);
 
-    document.SetValue(XmpNs.Xmp + "Rating", "5");
+    document.SetProperty(XmpNs.Xmp + "Rating", "5");
 
     Assert.AreEqual(5, document.GetInt(XmpNs.Xmp + "Rating"));
   }
@@ -93,7 +93,7 @@ public class XmpDocumentTests {
   public void GetInt_ReturnsNullForInvalidValue() {
     var document = new XmpDocument(null);
 
-    document.SetValue(XmpNs.Xmp + "Rating", "abc");
+    document.SetProperty(XmpNs.Xmp + "Rating", "abc");
 
     Assert.IsNull(document.GetInt(XmpNs.Xmp + "Rating"));
   }
@@ -130,7 +130,7 @@ public class XmpDocumentTests {
   public void GetDescription_FindsDescriptionContainingNamespaceProperty() {
     var document = new XmpDocument(null);
 
-    document.SetValue(XmpNs.MpReg + "PersonDisplayName", "Martin");
+    document.SetProperty(XmpNs.MpReg + "PersonDisplayName", "Martin");
 
     var description = document.Rdf.GetXmpDescription(XmpNs.MpReg);
 
@@ -238,7 +238,7 @@ public class XmpDocumentTests {
   public void ToXml_ReturnsDocumentXml() {
     var document = new XmpDocument(null);
 
-    document.SetValue(XmpNs.MpReg + "PersonDisplayName", "Martin");
+    document.SetProperty(XmpNs.MpReg + "PersonDisplayName", "Martin");
 
     var xml = document.ToXml();
 

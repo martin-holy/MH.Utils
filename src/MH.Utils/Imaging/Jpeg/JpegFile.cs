@@ -365,12 +365,19 @@ public class JpegFile {
       Xmp = xmp
     };
 
+    return Write(srcPath, writer);
+  }
+
+  public static bool RemoveMetadata(string srcPath) =>
+    Write(srcPath, new JpegMetadataWriter(), true);
+
+  public static bool Write(string srcPath, JpegMetadataWriter writer, bool removeMetadata = false) {
     var tmpPath = srcPath + ".tmp";
 
     try {
       using (var input = File.OpenRead(srcPath))
       using (var output = File.Create(tmpPath))
-        writer.Write(input, output);
+        writer.Write(input, output, removeMetadata);
 
       File.Delete(srcPath);
       File.Move(tmpPath, srcPath);

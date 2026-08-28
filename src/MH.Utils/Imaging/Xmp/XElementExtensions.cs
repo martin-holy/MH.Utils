@@ -349,7 +349,7 @@ public static class XElementExtensions {
       .FirstOrDefault();
   }
 
-  public static void SetXmpLangAlt(this XElement element, XName name, string? value) {
+  public static XElement? SetXmpLangAlt(this XElement element, XName name, string? value) {
     // TODO don't create desc if value is null
     var desc = element.GetOrCreateXmpDescription(name.Namespace);
 
@@ -361,7 +361,7 @@ public static class XElementExtensions {
     if (value == null) {
       property?.Remove();
       desc.RemoveEmptyXmpElement();
-      return;
+      return null;
     }
 
     property ??= desc.CreateXmpElement(name);
@@ -382,5 +382,7 @@ public static class XElementExtensions {
     else {
       item.Value = value;
     }
+
+    return property;
   }
 }

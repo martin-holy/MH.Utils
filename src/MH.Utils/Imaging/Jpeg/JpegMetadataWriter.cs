@@ -23,11 +23,14 @@ public sealed class JpegMetadataWriter {
   private bool _exifHandled;
   private bool _xmpHandled;
   private bool _metadataWritten;
+  private bool _removeMetadata;
 
   public byte[]? Exif { get; set; }
   public byte[]? Xmp { get; set; }
 
-  public void Write(Stream input, Stream output) {
+  public void Write(Stream input, Stream output, bool removeMetadata = false) {
+    _removeMetadata = removeMetadata;
+
     using var br = new BinaryReader(input, Encoding.ASCII, true);
 
     // SOI
@@ -144,7 +147,9 @@ public sealed class JpegMetadataWriter {
 
   private void _processExif(Stream input, Stream output, int payloadLen) {
     if (Exif == null) {
-      _copySegment(input, output, 0xE1, (ushort)(payloadLen + 2));
+      if (!_removeMetadata)
+        _copySegment(input, output, 0xE1, (ushort)(payloadLen + 2));
+
       _exifHandled = true;
       return;
     }
@@ -156,7 +161,9 @@ public sealed class JpegMetadataWriter {
 
   private void _processXmp(Stream input, Stream output, int payloadLength) {
     if (Xmp == null) {
-      _copySegment(input, output, 0xE1, (ushort)(payloadLength + 2));
+      if (!_removeMetadata)
+        _copySegment(input, output, 0xE1, (ushort)(payloadLength + 2));
+
       _xmpHandled = true;
       return;
     }

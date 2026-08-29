@@ -32,8 +32,9 @@ public class ImageMetadataTests {
     }
 
     XNamespace customNs = "customNamespace";
+    XNamespace customNs2 = "customNamespace2";
     metadata.Jpeg.Xmp.EnsureDoc().SetArray(customNs + "myCustomArrayProperty", ["value1", "value2"]);
-    metadata.Jpeg.Xmp.EnsureDoc().SetProperty(customNs + "myCustomProperty", "custom value", XmpValueStyle.Attribute);
+    metadata.Jpeg.Xmp.EnsureDoc().SetProperty(customNs2 + "myCustomProperty", "custom value", XmpValueStyle.Element);
 
     // TODO custom exif property
     
@@ -64,10 +65,15 @@ public class ImageMetadataTests {
           .Distinct(StringComparer.OrdinalIgnoreCase)
           .ToArray();
 
-        Debug.WriteLine($"Person: {person.PersonDisplayName}, rect: {person.Rectangle}, keywords: {string.Join(", ", keywords ?? [])}");
+        Debug.WriteLine($"Person: {person.PersonDisplayName}" +
+          $", rect: {person.Rectangle}" +
+          $", keywords: {string.Join(", ", keywords ?? [])}");
       }
 
+    if (metadata.Jpeg.Xmp.Doc is not { } doc) return;
     XNamespace customNs = "customNamespace";
-    Debug.WriteLine($"Custom XMP property: {metadata.Jpeg.Xmp.Doc?.GetProperty(customNs + "myCustomProperty")}");
+    XNamespace customNs2 = "customNamespace2";
+    Debug.WriteLine($"Custom XMP array: {string.Join(", ", doc.GetArray(customNs + "myCustomArrayProperty") ?? [])}");
+    Debug.WriteLine($"Custom XMP property: {doc.GetProperty(customNs2 + "myCustomProperty")}");
   }
 }

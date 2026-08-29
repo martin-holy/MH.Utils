@@ -1290,7 +1290,7 @@ public class XmpExtensionsTests {
 
     Assert.AreSame(resource, result.Parent);
     Assert.AreEqual(XmpNs.Rdf + "Description", result.Name);
-    Assert.AreEqual("", (string?)result.Attribute(XmpNs.Rdf + "about"));
+    Assert.IsNull(result.Attribute(XmpNs.Rdf + "about"));
   }
 
   [TestMethod]

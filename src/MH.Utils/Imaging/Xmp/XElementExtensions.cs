@@ -72,12 +72,7 @@ public static class XElementExtensions {
 
     element.Attribute(name)?.Remove();
     element.Element(name)?.Remove();
-
-    if (element.Element(XmpNs.Rdf + "Description") is { } desc) {
-      desc.Attribute(name)?.Remove();
-      desc.Element(name)?.Remove();
-      desc.RemoveEmptyXmpElement();
-    }
+    element.RemoveEmptyXmpElement();
   }
 
   public static XElement GetOrCreateXmpPropertyElement(this XElement element, XName name) =>
@@ -161,8 +156,8 @@ public static class XElementExtensions {
     element.Remove();
   }
 
-  public static XElement CreateXmpElement(this XElement parent, XName name) {
-    var element = new XElement(name);
+  public static XElement CreateXmpElement(this XElement parent, XName name, object? value = null) {
+    var element = new XElement(name, value);
     parent.EnsureXmpNamespacePrefix(name.Namespace);
     parent.Add(element);
 
@@ -245,11 +240,14 @@ public static class XElementExtensions {
       _ => throw new ArgumentOutOfRangeException(nameof(type))
     };
 
+  public static bool HasXmpAttributes(this XElement element) =>
+    element.Attributes().Any(a => !a.IsNamespaceDeclaration);
+
   public static void SetXmpAttribute(this XElement parent, XName name, string value) {
     var desc = parent.Element(XmpNs.Rdf + "Description");
 
     if (desc?.Element(name) is { } descElement) {
-      if (descElement.Attributes().Any(a => !a.IsNamespaceDeclaration)) {
+      if (descElement.HasXmpAttributes()) {
         descElement.Value = value;
         return;
       }
@@ -265,7 +263,7 @@ public static class XElementExtensions {
     }
 
     if (parent.Element(name) is { } element) {
-      if (element.Attributes().Any(a => !a.IsNamespaceDeclaration)) {
+      if (element.HasXmpAttributes()) {
         element.Value = value;
         return;
       }
@@ -306,7 +304,7 @@ public static class XElementExtensions {
       atr?.Remove();
       elm?.Remove();
 
-      desc!.Add(new XElement(name, value));
+      desc!.CreateXmpElement(name, value);
       return;
     }
 
@@ -321,14 +319,12 @@ public static class XElementExtensions {
       atr.Remove();
 
       var target = desc ?? parent.GetOrCreateXmpDescription(name.Namespace);
-      target.EnsureXmpNamespacePrefix(name.Namespace);
-      target.Add(new XElement(name, value));
+      target.CreateXmpElement(name, value);
 
       return;
     }
 
-    // New property.
-    (desc ?? parent).Add(new XElement(name, value));
+    (desc ?? parent).CreateXmpElement(name, value);
   }
 
   public static string? GetXmpLangAlt(this XElement element, XName name) {
@@ -350,20 +346,20 @@ public static class XElementExtensions {
   }
 
   public static XElement? SetXmpLangAlt(this XElement element, XName name, string? value) {
-    // TODO don't create desc if value is null
-    var desc = element.GetOrCreateXmpDescription(name.Namespace);
+    var desc = element.GetXmpDescription(name.Namespace);
 
     // Remove an invalid attribute representation.
-    desc.Attribute(name)?.Remove();
+    desc?.Attribute(name)?.Remove();
 
-    var property = desc.Element(name);
+    var property = desc?.Element(name);
 
     if (value == null) {
       property?.Remove();
-      desc.RemoveEmptyXmpElement();
+      desc?.RemoveEmptyXmpElement();
       return null;
     }
 
+    desc ??= element.GetOrCreateXmpDescription(name.Namespace);
     property ??= desc.CreateXmpElement(name);
 
     if (property.Element(XmpNs.Rdf + "Alt") is not { } alt) {

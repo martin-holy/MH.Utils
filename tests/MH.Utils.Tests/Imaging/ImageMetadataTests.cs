@@ -15,7 +15,7 @@ public class ImageMetadataTests {
   }
 
   [TestMethod]
-  public void RealFile_Write() {
+  public void RealFile_WriteMetadata() {
     var filePath = @"d:\Dev\.NET\MH.Utils\tests\test_image.jpg";
 
     var metadata = new ImageMetadata(filePath) {
@@ -25,7 +25,7 @@ public class ImageMetadataTests {
       Keywords = ["Animal/Lizard", "Outdoor"]
     };
 
-    var people = metadata.Jpeg.Xmp.EnsurePeople();
+    var people = metadata.EnsurePeople();
     if (!people.Any(x => x.PersonDisplayName == "Alejandro")) {
       var person = people.Add("Alejandro", "0.66875, 0.341667, 0.17125, 0.228333");
       person.Element.SetXmpArray(XmpNs.MpReg + "RectangleKeywords", ["Head"]);
@@ -42,7 +42,7 @@ public class ImageMetadataTests {
   }
 
   [TestMethod]
-  public void RealFile_Read() {
+  public void RealFile_ReadMetadata() {
     var filePath = @"d:\Dev\.NET\MH.Utils\tests\test_image.jpg";
 
     var metadata = new ImageMetadata(filePath, JpegMetadataLoad.All);

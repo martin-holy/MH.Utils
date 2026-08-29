@@ -94,6 +94,9 @@ public class ImageMetadata(string filePath, JpegMetadataLoad load = JpegMetadata
   private MpRegionCollection? _getPeople() =>
     Jpeg.Xmp.GetPeople();
 
+  public MpRegionCollection EnsurePeople() =>
+    Jpeg.Xmp.EnsurePeople();
+
   public bool Write(string srcPath) =>
     Jpeg.Write(srcPath);
 }

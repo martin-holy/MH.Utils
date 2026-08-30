@@ -74,11 +74,9 @@ var metadata = new ImageMetadata("photo.jpg");
 var doc = metadata.Jpeg.Xmp.EnsureDoc();
 
 XNamespace customNs = "customNamespace";
-XNamespace customNs2 = "customNamespace2";
-metadata.Jpeg.Xmp.EnsureDoc().SetArray(
-  customNs + "myCustomArrayProperty", ["value1", "value2"]);
-metadata.Jpeg.Xmp.EnsureDoc().SetProperty(
-  customNs2 + "myCustomProperty", "custom value", XmpValueStyle.Element);
+doc.SetProperty(customNs + "myAttributeProperty", "attribute value");
+doc.SetProperty(customNs + "myElementProperty", "element value", XmpValueStyle.Element);
+doc.SetArray(customNs + "myArrayProperty", ["value1", "value2"]);
 
 metadata.Write("photo.jpg");
 ```

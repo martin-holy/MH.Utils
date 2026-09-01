@@ -1,5 +1,6 @@
-﻿using System.Collections.Generic;
-using System;
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 namespace MH.Utils.Imaging;
@@ -10,9 +11,11 @@ public static class ImagingU {
   public delegate long ImageHashFunc(string srcPath);
   public delegate byte[] GetBitmapHashPixelsFunc(string filePath, int bytes);
   public delegate void ResizeJpgAction(string src, string dest, int px, bool withMetadata, bool withThumbnail, int quality);
-    
+  public delegate void EncodeJpegToAction(Stream output, string filePath, int quality, int width = 0, int height = 0);
+
   public static GetBitmapHashPixelsFunc GetBitmapHashPixels { get; set; } = null!;
   public static ResizeJpgAction ResizeJpg { get; set; } = null!;
+  public static EncodeJpegToAction EncodeJpegTo { get; set; } = null!;
 
   public static void GetThumbSize(double width, double height, int desiredSize, out int outWidth, out int outHeight) {
     // don't make the thumb bigger than image it self

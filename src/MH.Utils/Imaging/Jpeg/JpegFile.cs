@@ -29,6 +29,7 @@ public class JpegFile {
   private const string _extXmpAttr = "HasExtendedXMP=\"";
 
   private readonly string? _filePath;
+  private readonly byte[]? _data;
 
   private ushort? _width;
   private ushort? _height;
@@ -45,8 +46,18 @@ public class JpegFile {
 
   public JpegFile(string filePath, JpegMetadataLoad load = JpegMetadataLoad.None) {
     _filePath = filePath;
-    using var stream = File.OpenRead(filePath);
-    _read(stream, load);
+    using var source = File.OpenRead(filePath);
+    _read(source, load);
+  }
+
+  public JpegFile(Stream stream, JpegMetadataLoad load = JpegMetadataLoad.None) {
+    using var data = new MemoryStream();
+    stream.CopyTo(data);
+
+    _data = data.ToArray();
+
+    using var source = new MemoryStream(_data, writable: false);
+    _read(source, load);
   }
 
   private void _read(Stream stream, JpegMetadataLoad load) {
@@ -345,8 +356,8 @@ public class JpegFile {
   }
 
   private Stream _open() {
-    if (_testData is not null)
-      return new MemoryStream(_testData, writable: false);
+    if (_data is not null)
+      return new MemoryStream(_data, writable: false);
 
     if (_filePath is null)
       throw new InvalidOperationException("The JPEG file has no source path.");
@@ -354,38 +365,51 @@ public class JpegFile {
     return File.OpenRead(_filePath);
   }
 
+  public static bool RemoveMetadata(string srcPath) =>
+    Write(srcPath, new JpegMetadataWriter(), true);
+
   public bool Write(string srcPath) {
-    var exif = _exif?.IsModified == true ? _exif.ToTiff() : null;
-    var xmp = _xmp?.Doc?.IsModified == true ? _xmp.ToPacket() : null;
-
-    if (exif == null && xmp == null) return true;
-
-    var writer = new JpegMetadataWriter {
-      Exif = exif,
-      Xmp = xmp
-    };
+    if (_createWriterIfModified() is not { } writer) return true;
 
     return Write(srcPath, writer);
   }
 
-  public static bool RemoveMetadata(string srcPath) =>
-    Write(srcPath, new JpegMetadataWriter(), true);
+  public bool Write(Stream source, string destPath) {
+    if (_createWriterIfModified() is not { } writer) return true;
 
-  public static bool Write(string srcPath, JpegMetadataWriter writer, bool removeMetadata = false) {
-    var tmpPath = srcPath + ".tmp";
+    return Write(source, destPath, writer);
+  }
+
+  private JpegMetadataWriter? _createWriterIfModified() {
+    var exif = _exif?.IsModified == true ? _exif.ToTiff() : null;
+    var xmp = _xmp?.Doc?.IsModified == true ? _xmp.ToPacket() : null;
+
+    if (exif == null && xmp == null) return null;
+
+    return new JpegMetadataWriter { Exif = exif, Xmp = xmp };
+  }
+
+  public static bool Write(string srcPath, JpegMetadataWriter writer, bool removeMetadata = false) =>
+    _write(File.OpenRead(srcPath), srcPath, writer, removeMetadata, true);
+
+  public static bool Write(Stream input, string destPath, JpegMetadataWriter writer, bool removeMetadata = false) =>
+    _write(input, destPath, writer, removeMetadata, false);
+
+  private static bool _write(Stream input, string destPath, JpegMetadataWriter writer, bool removeMetadata, bool canCloseInput) {
+    var tmpPath = destPath + ".tmp";
 
     try {
-      using (var input = File.OpenRead(srcPath))
       using (var output = File.Create(tmpPath))
         writer.Write(input, output, removeMetadata);
 
-      File.Delete(srcPath);
-      File.Move(tmpPath, srcPath);
+      if (canCloseInput) input.Close();
+
+      File.Move(tmpPath, destPath, true);
 
       return true;
     }
     catch (Exception ex) {
-      Log.Error(ex, srcPath);
+      Log.Error(ex, destPath);
 
       try {
         if (File.Exists(tmpPath))
@@ -398,20 +422,6 @@ public class JpegFile {
   }
 
   // --- for tests ---
-
-  private readonly byte[]? _testData;
-
-  internal JpegFile(Stream stream, JpegMetadataLoad load = JpegMetadataLoad.None) {
-    using var input = stream;
-
-    var data = new MemoryStream();
-    input.CopyTo(data);
-    _testData = data.ToArray();
-
-    using var testStream = new MemoryStream(_testData, writable: false);
-    _read(testStream, load);
-  }
-
   internal bool SizeIsNull() => _width == null || _height == null;
   internal bool XmpIsNull() => _xmp == null;
   internal bool ExifIsNull() => _exif == null;

@@ -2,18 +2,17 @@
 using MH.Utils.Imaging.Jpeg;
 using MH.Utils.Imaging.Xmp;
 using System;
+using System.IO;
 using System.Linq;
 
 namespace MH.Utils.Imaging;
 
-public class ImageMetadata(string filePath, JpegMetadataLoad load = JpegMetadataLoad.None) {
-  private JpegFile? _jpeg;
-
+public class ImageMetadata {
   public bool IsExifModified => Jpeg.Exif.IsModified;
   public bool IsXmpModified => Jpeg.Xmp.Doc?.IsModified == true;
   public bool IsModified => IsExifModified || IsXmpModified;
 
-  public JpegFile Jpeg => _jpeg ??= new JpegFile(filePath, load);
+  public JpegFile Jpeg { get; }
 
   public ushort? Width { get => _getWidth(); set => _setWidth(value); }
   public ushort? Height { get => _getHeight(); set => _setHeight(value); }
@@ -23,6 +22,14 @@ public class ImageMetadata(string filePath, JpegMetadataLoad load = JpegMetadata
   public int? Rating { get => _getRating(); set => _setRating(value); }
   public string[]? Keywords { get => _getKeywords(); set => _setKeywords(value); }
   public MpRegionCollection? People { get => _getPeople(); }
+
+  public ImageMetadata(string filePath, JpegMetadataLoad load = JpegMetadataLoad.None) {
+    Jpeg = new JpegFile(filePath, load);
+  }
+
+  public ImageMetadata(Stream stream, JpegMetadataLoad load = JpegMetadataLoad.None) {
+    Jpeg = new JpegFile(stream, load);
+  }
 
   private ushort? _getWidth() =>
     Jpeg.Width;
@@ -99,4 +106,7 @@ public class ImageMetadata(string filePath, JpegMetadataLoad load = JpegMetadata
 
   public bool Write(string srcPath) =>
     Jpeg.Write(srcPath);
+
+  public bool Write(Stream source, string destPath) =>
+    Jpeg.Write(source, destPath);
 }

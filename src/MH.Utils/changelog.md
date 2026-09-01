@@ -12,6 +12,7 @@
 	- [N] JpegFile
 	- [N] XContainerExtensions
 	- [N] XElementExtensions
+	- [N] ImagingU: EncodeJpegTo method
 
 5.0.1:
 	- [B] FlatTree: Expander visibility

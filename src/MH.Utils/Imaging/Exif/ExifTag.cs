@@ -10,6 +10,7 @@ public enum ExifTag : ushort {
   InteropIfd = 0xA005,
 
   Rating = 0x4746,
+  DateTimeOriginal = 0x9003,
   UserComment = 0x9286,
   XpComment = 0x9C9C,
   PixelXDimension = 0xA002,

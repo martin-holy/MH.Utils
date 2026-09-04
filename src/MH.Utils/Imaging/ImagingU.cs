@@ -11,7 +11,7 @@ public static class ImagingU {
   public delegate long ImageHashFunc(string srcPath);
   public delegate byte[] GetBitmapHashPixelsFunc(string filePath, int bytes);
   public delegate void ResizeJpgAction(string src, string dest, int px, bool withMetadata, bool withThumbnail, int quality);
-  public delegate void EncodeJpegToAction(Stream output, string filePath, int quality, int width = 0, int height = 0);
+  public delegate void EncodeJpegToAction(Stream output, string filePath, int quality, bool withMetadata = true, bool withThumbnail = true, int width = 0, int height = 0);
 
   public static GetBitmapHashPixelsFunc GetBitmapHashPixels { get; set; } = null!;
   public static ResizeJpgAction ResizeJpg { get; set; } = null!;

@@ -17,6 +17,7 @@ public class ImageMetadata {
   public ushort? Width { get => _getWidth(); set => _setWidth(value); }
   public ushort? Height { get => _getHeight(); set => _setHeight(value); }
   public ExifOrientation? Orientation { get => _getOrientation(); set => _setOrientation(value); }
+  public DateTime? DateTimeOriginal { get => _getDateTimeOriginal(); }
   public string? Comment { get => _getComment(); set => _setComment(value); }
   public GpsCoordinate? GpsCoordinate { get => _getGpsCoordinate(); set => _setGpsCoordinate(value); }
   public int? Rating { get => _getRating(); set => _setRating(value); }
@@ -59,6 +60,9 @@ public class ImageMetadata {
 
     Jpeg.Exif.SetOrientation((ushort?)value);
   }
+
+  private DateTime? _getDateTimeOriginal() =>
+    Jpeg.Exif.GetDateTimeOriginal();
 
   private string? _getComment() =>
     Jpeg.Xmp.GetComment() ?? Jpeg.Exif.GetComment();

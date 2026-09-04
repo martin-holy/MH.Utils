@@ -14,8 +14,8 @@ public class ImageMetadata {
 
   public JpegFile Jpeg { get; }
 
-  public ushort? Width { get => _getWidth(); set => _setWidth(value); }
-  public ushort? Height { get => _getHeight(); set => _setHeight(value); }
+  public ushort Width { get => _getWidth(); set => _setWidth(value); }
+  public ushort Height { get => _getHeight(); set => _setHeight(value); }
   public ExifOrientation? Orientation { get => _getOrientation(); set => _setOrientation(value); }
   public DateTime? DateTimeOriginal { get => _getDateTimeOriginal(); }
   public string? Comment { get => _getComment(); set => _setComment(value); }
@@ -32,7 +32,7 @@ public class ImageMetadata {
     Jpeg = new JpegFile(stream, load);
   }
 
-  private ushort? _getWidth() =>
+  private ushort _getWidth() =>
     Jpeg.Width;
 
   private void _setWidth(ushort? value) {
@@ -42,7 +42,7 @@ public class ImageMetadata {
     Jpeg.Xmp.SetWidth(value);
   }
 
-  private ushort? _getHeight() =>
+  private ushort _getHeight() =>
     Jpeg.Height;
 
   private void _setHeight(ushort? value) {

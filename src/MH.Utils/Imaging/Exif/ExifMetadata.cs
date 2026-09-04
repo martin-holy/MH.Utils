@@ -3,6 +3,7 @@ using MH.Utils.Imaging.Tiff.Extensions;
 using MH.Utils.IO;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
 
 namespace MH.Utils.Imaging.Exif;
@@ -52,6 +53,19 @@ public class ExifMetadata(TiffReader? reader) {
     _setUShort(TiffFile.Ifd0, ExifTag.Orientation, value);
 
     IsModified = true;
+  }
+
+  public DateTime? GetDateTimeOriginal() {
+    if (Reader?.GetExifIfd().FindEntry(ExifTag.DateTimeOriginal) is not { Type: (ushort)TiffType.Ascii } entry)
+      return null;
+
+    var span = Reader.GetSpan(entry.ValueOrOffset, (int)entry.Count);
+    var value = Encoding.ASCII.GetString(span).TrimEnd('\0');
+
+    if (DateTime.TryParseExact(value, "yyyy:MM:dd HH:mm:ss", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
+      return date;
+
+    return null;
   }
 
   public string? GetComment() =>

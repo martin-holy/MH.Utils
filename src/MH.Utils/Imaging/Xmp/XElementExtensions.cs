@@ -279,7 +279,9 @@ public static class XElementExtensions {
     }
 
     // New attribute. If a Description already exists, put it there.
-    (desc ?? parent).SetAttributeValue(name, value);
+    if (desc != null) parent = desc;
+    parent.EnsureXmpNamespacePrefix(name.Namespace);
+    parent.SetAttributeValue(name, value);
   }
 
   public static void SetXmpElement(this XElement parent, XName name, string value) {

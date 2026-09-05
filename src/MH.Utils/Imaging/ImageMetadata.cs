@@ -14,15 +14,15 @@ public class ImageMetadata {
 
   public JpegFile Jpeg { get; }
 
-  public ushort Width { get => _getWidth(); set => _setWidth(value); }
-  public ushort Height { get => _getHeight(); set => _setHeight(value); }
+  public ushort Width => _getWidth();
+  public ushort Height => _getHeight();
   public ExifOrientation? Orientation { get => _getOrientation(); set => _setOrientation(value); }
   public DateTime? DateTimeOriginal { get => _getDateTimeOriginal(); }
   public string? Comment { get => _getComment(); set => _setComment(value); }
   public GpsCoordinate? GpsCoordinate { get => _getGpsCoordinate(); set => _setGpsCoordinate(value); }
   public int? Rating { get => _getRating(); set => _setRating(value); }
   public string[]? Keywords { get => _getKeywords(); set => _setKeywords(value); }
-  public MpRegionCollection? People { get => _getPeople(); }
+  public MpRegionCollection? People => _getPeople();
 
   public ImageMetadata(string filePath, JpegMetadataLoad load = JpegMetadataLoad.None) {
     Jpeg = new JpegFile(filePath, load);
@@ -35,22 +35,8 @@ public class ImageMetadata {
   private ushort _getWidth() =>
     Jpeg.Width;
 
-  private void _setWidth(ushort? value) {
-    if (Width == value) return;
-
-    Jpeg.Exif.SetWidth(value);
-    Jpeg.Xmp.SetWidth(value);
-  }
-
   private ushort _getHeight() =>
     Jpeg.Height;
-
-  private void _setHeight(ushort? value) {
-    if (Height == value) return;
-
-    Jpeg.Exif.SetHeight(value);
-    Jpeg.Xmp.SetHeight(value);
-  }
 
   private ExifOrientation? _getOrientation() =>
     (ExifOrientation?)Jpeg.Exif.GetOrientation();
@@ -107,6 +93,14 @@ public class ImageMetadata {
 
   public MpRegionCollection EnsurePeople() =>
     Jpeg.Xmp.EnsurePeople();
+
+  public void UpdateDimensions() {
+    var width = Jpeg.Width;
+    var height = Jpeg.Height;
+
+    Jpeg.Exif.UpdateDimensions(width, height);
+    Jpeg.Xmp.UpdateDimensions(width, height);
+  }
 
   public bool Write(string srcPath) =>
     Jpeg.Write(srcPath);

@@ -22,28 +22,23 @@ public class ExifMetadata(TiffReader? reader) {
   public UserCommentEncoding UserCommentEncoding { get; private set; }
   public bool IsModified { get; private set; }
 
-  public ushort? GetWidth() =>
-    Reader?.GetIfd0().GetUShort(ExifTag.ImageWidth, Reader.IsLittleEndian);
+  public void UpdateDimensions(ushort width, ushort height) {
+    if (Reader == null) return;
 
-  public void SetWidth(ushort? value) {
-    _setUShort(TiffFile.Ifd0, ExifTag.ImageWidth, value);
+    var srcIfd0 = Reader.GetIfd0();
+    var destIfd0 = TiffFile.Ifd0;
+    _setIfExists(ExifTag.ImageWidth, width, srcIfd0, destIfd0);
+    _setIfExists(ExifTag.ImageHeight, height, srcIfd0, destIfd0);
 
-    if (TiffFile.ExifIfd != null || value != null)
-      _setUShort(TiffFile.GetOrCreateExifIfd(), ExifTag.PixelXDimension, value);
-
-    IsModified = true;
+    if (TiffFile.ExifIfd is not { } destExifIfd) return;
+    var srcExifIfd = Reader.GetExifIfd();
+    _setIfExists(ExifTag.PixelXDimension, width, srcExifIfd, destExifIfd);
+    _setIfExists(ExifTag.PixelYDimension, height, srcExifIfd, destExifIfd);
   }
 
-  public ushort? GetHeight() =>
-    Reader?.GetIfd0().GetUShort(ExifTag.ImageHeight, Reader.IsLittleEndian);
-
-  public void SetHeight(ushort? value) {
-    _setUShort(TiffFile.Ifd0, ExifTag.ImageHeight, value);
-
-    if (TiffFile.ExifIfd != null || value != null)
-      _setUShort(TiffFile.GetOrCreateExifIfd(), ExifTag.PixelYDimension, value);
-
-    IsModified = true;
+  private void _setIfExists(ExifTag tag, ushort value, TiffEntryData[] src, TiffIfd dest) {
+    if (src.GetUShort(tag, Reader!.IsLittleEndian) is { } current && current != value)
+      _setUShort(dest, tag, value);
   }
 
   public ushort? GetOrientation() =>

@@ -30,4 +30,7 @@ public static class XmpNs {
 
   public static string? GetPreferredPrefix(XNamespace ns) =>
     _prefixes.TryGetValue(ns, out var prefix) ? prefix : null;
+
+  public static void SetPrefix(XNamespace ns, string prefix) =>
+    _prefixes[ns] = prefix;
 }

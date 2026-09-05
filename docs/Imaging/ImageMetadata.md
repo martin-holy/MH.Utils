@@ -56,6 +56,7 @@ var metadata = new ImageMetadata("photo.jpg", JpegMetadataLoad.All);
 
 if (metadata.Jpeg.Xmp.Doc is { } doc) {
   XNamespace customNs = "customNamespace";
+  XmpNs.SetPrefix(customNs, "cn");
 
   Debug.WriteLine(doc.GetProperty(customNs + "myAttributeProperty"));
   Debug.WriteLine(doc.GetProperty(customNs + "myElementProperty"));
@@ -74,6 +75,7 @@ var metadata = new ImageMetadata("photo.jpg");
 var doc = metadata.Jpeg.Xmp.EnsureDoc();
 
 XNamespace customNs = "customNamespace";
+XmpNs.SetPrefix(customNs, "cn");
 doc.SetProperty(customNs + "myAttributeProperty", "attribute value");
 doc.SetProperty(customNs + "myElementProperty", "element value", XmpValueStyle.Element);
 doc.SetArray(customNs + "myArrayProperty", ["value1", "value2"]);

@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Xml.Linq;
 
 namespace MH.Utils.Imaging.Xmp;
 
@@ -50,14 +51,22 @@ public class XmpMetadata {
     return Doc;
   }
 
-  public void SetWidth(ushort? value) {
-    EnsureDoc().SetProperty(XmpNs.Tiff + "ImageWidth", value?.ToString());
-    EnsureDoc().SetProperty(XmpNs.Exif + "PixelXDimension", value?.ToString());
+  public void UpdateDimensions(ushort width, ushort height) {
+    if (Doc == null) return;
+
+    var elm = Doc.Rdf;
+    var w = width.ToString(CultureInfo.InvariantCulture);
+    var h = height.ToString(CultureInfo.InvariantCulture);
+
+    _setIfExists(elm, XmpNs.Tiff + "ImageWidth", w);
+    _setIfExists(elm, XmpNs.Tiff + "ImageLength", h);
+    _setIfExists(elm, XmpNs.Exif + "PixelXDimension", w);
+    _setIfExists(elm, XmpNs.Exif + "PixelYDimension", h);
   }
 
-  public void SetHeight(ushort? value) {
-    EnsureDoc().SetProperty(XmpNs.Tiff + "ImageLength", value?.ToString());
-    EnsureDoc().SetProperty(XmpNs.Exif + "PixelYDimension", value?.ToString());
+  private static void _setIfExists(XElement element, XName name, string value) {
+    if (element.GetXmpProperty(name) is { } current && !string.Equals(current, value, StringComparison.Ordinal))
+      element.SetXmpProperty(name, value);
   }
 
   public string? GetComment() =>

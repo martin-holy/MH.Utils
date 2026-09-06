@@ -46,6 +46,15 @@ public static class ImagingU {
     if (outWidth % 2 != 0) outWidth++;
   }
 
+  public static void GetScaledSizeToPx(int px, int width, int height, out int scaleW, out int scaleH) {
+    var gcd = MathU.GreatestCommonDivisor(width, height);
+    var rw = width / gcd;
+    var rh = height / gcd;
+    var q = Math.Sqrt((double)px / (rw * rh));
+    scaleW = (int)(q * rw);
+    scaleH = (int)(q * rh);
+  }
+
   public static long GetBitmapAvgHash(string filePath) =>
     GetBitmapAvgHash(GetBitmapHashPixels(filePath, 8));
 

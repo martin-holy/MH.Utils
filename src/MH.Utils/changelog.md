@@ -13,6 +13,7 @@
 	- [N] XContainerExtensions
 	- [N] XElementExtensions
 	- [N] ImagingU: EncodeJpegTo method
+	- [N] ImagingU: GetScaledSizeToPx method
 
 5.0.1:
 	- [B] FlatTree: Expander visibility

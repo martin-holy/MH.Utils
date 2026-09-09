@@ -47,7 +47,7 @@ public class JpegFileBenchmarks {
     | KeywordsLinq         | 97.48 us | 26.394 us | 1.447 us | 21.2402 |  43.46 KB |
     | KeywordsListContains | 96.72 us |  7.249 us | 0.397 us | 20.9961 |  43.38 KB |
     | KeywordsListHashSet  | 94.33 us | 15.681 us | 0.860 us | 20.9961 |  43.38 KB |*/
-  [Benchmark]
+  //[Benchmark]
   public void KeywordsLinq() {
     var jpeg = new JpegFile(_path, JpegMetadataLoad.Xmp);
     _ = jpeg.Xmp.GetKeywords();
@@ -157,7 +157,7 @@ public class JpegFileBenchmarks {
   /*| Method  | Mean     | Error    | StdDev   | Gen0    | Allocated |
     |-------- |---------:|---------:|---------:|--------:|----------:|
     | ReadAll | 189.9 us | 812.0 us | 44.51 us | 38.5742 |  79.96 KB |*/
-  //[Benchmark]
+  [Benchmark]
   public void ReadAllToMim() {
     var mim = new MediaItemMetadata(_path);
     _readAll(mim);
@@ -166,12 +166,8 @@ public class JpegFileBenchmarks {
   private static void _readAll(MediaItemMetadata mim) {
     var metadata = new ImageMetadata(mim.FilePath, JpegMetadataLoad.All);
 
-    var width = metadata.Width;
-    var height = metadata.Height;
-    if (!width.HasValue || !height.HasValue) return;
-
-    mim.Width = width.Value;
-    mim.Height = height.Value;
+    mim.Width = metadata.Width;
+    mim.Height = metadata.Height;
     mim.Rating = metadata.Rating ?? 0;
     mim.Comment = StringUtils.NormalizeComment(metadata.Comment);
     mim.Orientation = metadata.Orientation.ToMsOrientation() ?? Orientation.Normal;

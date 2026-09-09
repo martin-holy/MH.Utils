@@ -179,7 +179,7 @@ public class MpRegionCollectionTests {
     region.PersonDisplayName = null;
 
     Assert.IsNull(region.PersonDisplayName);
-    Assert.IsNull(document.Document.Descendants(XmpNs.Rdf + "li").Single().Attribute(XmpNs.MpReg + "PersonDisplayName"));
+    Assert.IsNull(document.Document.Descendants(XmpNs.Rdf + "li").SingleOrDefault()?.Attribute(XmpNs.MpReg + "PersonDisplayName"));
   }
 
   [TestMethod]

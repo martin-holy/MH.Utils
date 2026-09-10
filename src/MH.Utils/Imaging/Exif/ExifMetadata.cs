@@ -8,18 +8,18 @@ using System.Text;
 
 namespace MH.Utils.Imaging.Exif;
 
-public enum UserCommentEncoding { None, Ascii, Unicode, Jis, Undefined }
-
 public class ExifMetadata(TiffReader? reader) {
-  public static ReadOnlySpan<byte> AsciiHeader => "ASCII\0\0\0"u8;
-  public static ReadOnlySpan<byte> UnicodeHeader => "UNICODE\0"u8;
-  public static ReadOnlySpan<byte> JisHeader => "JIS\0\0\0\0\0"u8;
+  private enum UserCommentEncoding { None, Ascii, Unicode, Jis, Undefined }
+  
+  private static ReadOnlySpan<byte> _asciiHeader => "ASCII\0\0\0"u8;
+  private static ReadOnlySpan<byte> _unicodeHeader => "UNICODE\0"u8;
+  private static ReadOnlySpan<byte> _jisHeader => "JIS\0\0\0\0\0"u8;
 
   private TiffFile? _tiffFile;
+  private UserCommentEncoding _userCommentEncoding;
 
   public TiffFile TiffFile => _getTiffFile();
   public TiffReader? Reader { get; } = reader;
-  public UserCommentEncoding UserCommentEncoding { get; private set; }
   public bool IsModified { get; private set; }
 
   public void UpdateDimensions(ushort width, ushort height) {
@@ -77,24 +77,24 @@ public class ExifMetadata(TiffReader? reader) {
       return null;
 
     if (entry.Count < 8) {
-      UserCommentEncoding = UserCommentEncoding.Undefined;
+      _userCommentEncoding = UserCommentEncoding.Undefined;
       return string.Empty;
     }
 
     var span = Reader.GetSpan(entry.ValueOrOffset, (int)entry.Count);
 
-    if (span[..8].SequenceEqual(AsciiHeader)) {
-      UserCommentEncoding = UserCommentEncoding.Ascii;
+    if (span[..8].SequenceEqual(_asciiHeader)) {
+      _userCommentEncoding = UserCommentEncoding.Ascii;
       return Encoding.ASCII.GetString(span[8..]).TrimEnd('\0');
     }
 
-    if (span[..8].SequenceEqual(UnicodeHeader)) {
-      UserCommentEncoding = UserCommentEncoding.Unicode;
+    if (span[..8].SequenceEqual(_unicodeHeader)) {
+      _userCommentEncoding = UserCommentEncoding.Unicode;
       return Reader.ReadUtf16(span[8..]).TrimEnd('\0');
     }
 
-    if (span[..8].SequenceEqual(JisHeader)) {
-      UserCommentEncoding = UserCommentEncoding.Jis;
+    if (span[..8].SequenceEqual(_jisHeader)) {
+      _userCommentEncoding = UserCommentEncoding.Jis;
       Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
       return Encoding.GetEncoding("shift_jis").GetString(span[8..]).TrimEnd('\0');
     }
@@ -125,7 +125,7 @@ public class ExifMetadata(TiffReader? reader) {
       return;
     }
 
-    var encoding = _normalizeEncoding(value, UserCommentEncoding);
+    var encoding = _normalizeEncoding(value, _userCommentEncoding);
 
     var text = encoding switch {
       UserCommentEncoding.Ascii => Encoding.ASCII.GetBytes(value),
@@ -137,9 +137,9 @@ public class ExifMetadata(TiffReader? reader) {
     };
 
     ReadOnlySpan<byte> header = encoding switch {
-      UserCommentEncoding.Ascii => AsciiHeader,
-      UserCommentEncoding.Unicode => UnicodeHeader,
-      UserCommentEncoding.Jis => JisHeader,
+      UserCommentEncoding.Ascii => _asciiHeader,
+      UserCommentEncoding.Unicode => _unicodeHeader,
+      UserCommentEncoding.Jis => _jisHeader,
       _ => stackalloc byte[8]
     };
 

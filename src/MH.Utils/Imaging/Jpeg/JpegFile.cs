@@ -365,6 +365,7 @@ public class JpegFile {
     return File.OpenRead(_filePath);
   }
 
+  // TODO extend to remove exif|xmp|thumbnail
   public static bool RemoveMetadata(string srcPath) =>
     Write(srcPath, new JpegMetadataWriter(), true);
 

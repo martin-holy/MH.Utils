@@ -10,3 +10,4 @@
 - **Base Classes**: Fundamental classes like `ObservableObject` and `RelayCommand` for MVVM design patterns.
 - **Interfaces**: Common interfaces for tree-like structures and data adapters.
 - **Drag and Drop Helpers**: Simplified drag-and-drop functionality for UI applications.
+- **JPEG metadata** – Cross-platform JPEG metadata handling with EXIF, XMP, custom properties, and metadata-only editing without re-encoding image data.

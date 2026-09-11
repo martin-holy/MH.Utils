@@ -1,6 +1,6 @@
 5.1.0 (not released):
 	- [N] ByteU: CheckBounds
-	- [N] ImageMetadata: Read and lossless Write of JPEG Exif and XMP
+	- [N] Read and lossless Write of JPEG Exif and XMP
 	- [B] XmpU: WriteToJpeg on windows
 	- [B] FlatTree: Insert items on expand
 	- [N] GpsU: ToDms and FromDms methods
@@ -8,10 +8,6 @@
 	- [N] BinarySpanReader
 	- [N] BinarySpanWriter
 	- [N] BinaryStreamWriter
-	- [N] ExifOrientation
-	- [N] JpegFile
-	- [N] XContainerExtensions
-	- [N] XElementExtensions
 	- [N] ImagingU: EncodeJpegTo method
 	- [N] ImagingU: GetScaledSizeToPx method
 

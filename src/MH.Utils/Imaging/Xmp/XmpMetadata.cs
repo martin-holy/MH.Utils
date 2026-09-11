@@ -9,7 +9,6 @@ using System.Xml.Linq;
 namespace MH.Utils.Imaging.Xmp;
 
 public class XmpMetadata {
-  private const int _app1MaxPayload = 65533;
   private const int _paddingChunk = 2048;
   private const string _xmpMetaStart = "<x:xmpmeta";
   private const string _xapMetaStart = "<x:xapmeta";
@@ -152,11 +151,12 @@ public class XmpMetadata {
     var end = Encoding.UTF8.GetBytes(_packetEnd!);
 
     int targetSize = _calculatePacketSize(begin.Length, body.Length, end.Length);
+    int padding = targetSize - begin.Length - body.Length - end.Length;
 
     using var stream = new MemoryStream(targetSize);
     stream.Write(begin);
     stream.Write(body);
-    _writePadding(stream, targetSize - stream.Length);
+    _writePadding(stream, padding);
     stream.Write(end);
 
     return stream.ToArray();
@@ -189,28 +189,15 @@ public class XmpMetadata {
 
   private int _calculatePacketSize(int beginLength, int bodyLength, int endLength) {
     int fixedSize = beginLength + bodyLength + endLength;
-    int packetSize = Math.Max(_originalPacketSize, fixedSize);
 
-    if (packetSize > _app1MaxPayload)
-      return _app1MaxPayload;
-
-    if (packetSize >= fixedSize)
-      return packetSize;
+    if (fixedSize <= _originalPacketSize)
+      return _originalPacketSize;
 
     return _growPacketSize(fixedSize);
   }
 
-  private static int _growPacketSize(int requiredSize) {
-    int packetSize = requiredSize;
-
-    while (packetSize < _app1MaxPayload) {
-      packetSize += _paddingChunk;
-
-      if (packetSize >= requiredSize) break;
-    }
-
-    return Math.Min(packetSize, _app1MaxPayload);
-  }
+  private static int _growPacketSize(int requiredSize) =>
+    ((requiredSize + _paddingChunk - 1) / _paddingChunk) * _paddingChunk;
 
   private static void _writePadding(Stream stream, long count) {
     if (count <= 0) return;

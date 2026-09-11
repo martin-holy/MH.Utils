@@ -9,7 +9,7 @@ using System.Xml.Linq;
 namespace MH.Utils.Imaging.Xmp;
 
 public class XmpMetadata {
-  private const int _paddingChunk = 2048;
+  private const int _paddingChunk = 1024;
   private const string _xmpMetaStart = "<x:xmpmeta";
   private const string _xapMetaStart = "<x:xapmeta";
   private const string _xmpMetaEnd = "</x:xmpmeta>";

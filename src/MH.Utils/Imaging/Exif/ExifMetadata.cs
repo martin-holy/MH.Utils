@@ -82,24 +82,36 @@ public class ExifMetadata(TiffReader? reader) {
     }
 
     var span = Reader.GetSpan(entry.ValueOrOffset, (int)entry.Count);
+    var header = span[..8];
+    var data = span[8..];
 
-    if (span[..8].SequenceEqual(_asciiHeader)) {
+    if (header.SequenceEqual(_asciiHeader)) {
+      if (!_isAscii(data)) return null;
+
       _userCommentEncoding = UserCommentEncoding.Ascii;
-      return Encoding.ASCII.GetString(span[8..]).TrimEnd('\0');
+      return Encoding.ASCII.GetString(data).TrimEnd('\0');
     }
 
-    if (span[..8].SequenceEqual(_unicodeHeader)) {
+    if (header.SequenceEqual(_unicodeHeader)) {
       _userCommentEncoding = UserCommentEncoding.Unicode;
-      return Reader.ReadUtf16(span[8..]).TrimEnd('\0');
+      return Reader.ReadUtf16(data).TrimEnd('\0');
     }
 
-    if (span[..8].SequenceEqual(_jisHeader)) {
+    if (header.SequenceEqual(_jisHeader)) {
       _userCommentEncoding = UserCommentEncoding.Jis;
       Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-      return Encoding.GetEncoding("shift_jis").GetString(span[8..]).TrimEnd('\0');
+      return Encoding.GetEncoding("shift_jis").GetString(data).TrimEnd('\0');
     }
 
     return null;
+  }
+
+  private static bool _isAscii(ReadOnlySpan<byte> data) {
+    foreach (var b in data)
+      if (b > 0x7F)
+        return false;
+
+    return true;
   }
 
   public void SetComment(string? value) {

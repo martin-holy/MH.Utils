@@ -10,10 +10,6 @@ namespace MH.Utils.Imaging.Xmp;
 
 public class XmpMetadata {
   private const int _paddingChunk = 1024;
-  private const string _xmpMetaStart = "<x:xmpmeta";
-  private const string _xapMetaStart = "<x:xapmeta";
-  private const string _xmpMetaEnd = "</x:xmpmeta>";
-  private const string _xapMetaEnd = "</x:xapmeta>";
   private const string _defaultEnd = "\r\n<?xpacket end=\"w\"?>";
   private static string _createDefaultBegin() => $"<?xpacket begin=\"﻿\" id=\"{Guid.NewGuid():N}\"?>\r\n";
 
@@ -108,12 +104,20 @@ public class XmpMetadata {
   }
 
   private static XmlSection _extractXmp(string packet) {
-    var start = packet.IndexOf(_xmpMetaStart, StringComparison.Ordinal);
-    var endTag = _xmpMetaEnd;
+    var nsPos = packet.IndexOf(XmpNs.X.NamespaceName, StringComparison.Ordinal);
+    if (nsPos < 0) throw new InvalidDataException("Missing xmpmeta/xapmeta namespace.");
+
+    var xmlnsPos = packet.LastIndexOf("xmlns:", nsPos, StringComparison.Ordinal);
+    if (xmlnsPos < 0) throw new InvalidDataException("Missing xmpmeta/xapmeta namespace prefix.");
+
+    var prefix = packet[(xmlnsPos + 6)..(nsPos - 2)];
+
+    var start = packet.IndexOf("<" + prefix + ":xmpmeta", StringComparison.Ordinal);
+    var endTag = "</" + prefix + ":xmpmeta>";
 
     if (start < 0) {
-      start = packet.IndexOf(_xapMetaStart, StringComparison.Ordinal);
-      endTag = _xapMetaEnd;
+      start = packet.IndexOf("<" + prefix + ":xapmeta", StringComparison.Ordinal);
+      endTag = "</" + prefix + ":xapmeta>";
     }
 
     if (start < 0) throw new InvalidDataException("Missing xmpmeta/xapmeta.");

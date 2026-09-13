@@ -168,16 +168,16 @@ public class JpegFile {
 
   private static XmpMetadata? _readXmp(Stream stream, BinaryReader reader, JpegSegment mainSegment) {
     var mainPayload = mainSegment.ReadPayload(stream);
-    var xmlOffset = _xmpHeader.Length;
+    var xmpOffset = _xmpHeader.Length;
 
-    if (xmlOffset < mainPayload.Length && mainPayload[xmlOffset] == 0)
-      xmlOffset++;
+    if (xmpOffset < mainPayload.Length && mainPayload[xmpOffset] == 0)
+      xmpOffset++;
 
-    if (_tryDecodeXml(mainPayload, xmlOffset, mainPayload.Length - xmlOffset) is not { } mainXml)
+    if (_tryDecodeXmp(mainPayload, xmpOffset, mainPayload.Length - xmpOffset) is not { } mainXmp)
       return null;
 
-    if (_findExtendedGuid(mainXml) is not { } extendedGuid)
-      return new XmpMetadata(mainXml);
+    if (_findExtendedGuid(mainXmp) is not { } extendedGuid)
+      return new XmpMetadata(mainXmp);
 
     var chunks = new List<(int Offset, byte[] Data)>();
     var fullLength = 0;
@@ -220,19 +220,19 @@ public class JpegFile {
     }
 
     if (chunks.Count == 0)
-      return new XmpMetadata(mainXml);
+      return new XmpMetadata(mainXmp);
 
     var full = new byte[fullLength];
 
     foreach (var (offset, data) in chunks)
       Buffer.BlockCopy(data, 0, full, offset, data.Length);
 
-    return _tryDecodeXml(full, 0, full.Length) is { } extendedXml
-      ? new XmpMetadata(extendedXml)
-      : new XmpMetadata(mainXml);
+    return _tryDecodeXmp(full, 0, full.Length) is { } extendedXmp
+      ? new XmpMetadata(extendedXmp)
+      : new XmpMetadata(mainXmp);
   }
 
-  private static string? _tryDecodeXml(byte[] buffer, int offset, int length) {
+  private static string? _tryDecodeXmp(byte[] buffer, int offset, int length) {
     if (length <= 0) return null;
 
     if (length >= 3 && buffer[offset] == 0xEF && buffer[offset + 1] == 0xBB && buffer[offset + 2] == 0xBF)
@@ -247,29 +247,26 @@ public class JpegFile {
     }
 
     var utf8 = Encoding.UTF8.GetString(buffer, offset, length);
-    if (_looksLikeXml(utf8)) return utf8;
+    if (_looksLikeXmp(utf8)) return utf8;
 
     var unicode = Encoding.Unicode.GetString(buffer, offset, length);
-    if (_looksLikeXml(unicode)) return unicode;
+    if (_looksLikeXmp(unicode)) return unicode;
 
     return null;
   }
 
-  private static bool _looksLikeXml(string text) =>
-    text.Contains("<x:xmpmeta", StringComparison.Ordinal) ||
-    text.Contains("<rdf:RDF", StringComparison.Ordinal) ||
-    text.Contains("<?xpacket", StringComparison.Ordinal) ||
-    text.TrimStart().StartsWith('<');
+  private static bool _looksLikeXmp(string text) =>
+    text.Contains("adobe:ns:meta/", StringComparison.Ordinal);
 
-  private static string? _findExtendedGuid(string xml) {
-    var index = xml.IndexOf(_extXmpAttr, StringComparison.Ordinal);
+  private static string? _findExtendedGuid(string xmp) {
+    var index = xmp.IndexOf(_extXmpAttr, StringComparison.Ordinal);
 
     if (index < 0) return null;
 
     var start = index + _extXmpAttr.Length;
-    var end = xml.IndexOf('"', start);
+    var end = xmp.IndexOf('"', start);
 
-    return end > start ? xml[start..end] : null;
+    return end > start ? xmp[start..end] : null;
   }
 
   private static int _readBigEndianInt32(byte[] buffer, ref int position) {

@@ -1,4 +1,4 @@
-5.1.0 (not released):
+5.1.0:
 	- [N] ByteU: CheckBounds
 	- [N] Read and lossless Write of JPEG Exif and XMP
 	- [B] XmpU: WriteToJpeg on windows

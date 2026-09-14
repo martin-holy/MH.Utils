@@ -56,7 +56,6 @@ var metadata = new ImageMetadata("photo.jpg", JpegMetadataLoad.All);
 
 if (metadata.Jpeg.Xmp.Doc is { } doc) {
   XNamespace customNs = "customNamespace";
-  XmpNs.SetPrefix(customNs, "cn");
 
   Debug.WriteLine(doc.GetProperty(customNs + "myAttributeProperty"));
   Debug.WriteLine(doc.GetProperty(customNs + "myElementProperty"));
@@ -93,4 +92,4 @@ JpegFile.RemoveMetadata("photo.jpg");
 
 ## Notes
 
-The library is currently under development. The API may change before the first stable release, and real-world JPEG samples and feedback are welcome.
+Real-world JPEG samples and feedback are welcome.

@@ -76,7 +76,6 @@ public class ImageMetadataTests {
     if (metadata.Jpeg.Xmp.Doc is not { } doc) return;
 
     XNamespace customNs = "customNamespace";
-    XmpNs.SetPrefix(customNs, "cn");
 
     Debug.WriteLine(doc.GetProperty(customNs + "myAttributeProperty"));
     Debug.WriteLine(doc.GetProperty(customNs + "myElementProperty"));

@@ -1,3 +1,6 @@
+5.2.0(not released):
+	- [N] JpegMetadataWriter: RemoveMetadataOptions
+
 5.1.0:
 	- [N] ByteU: CheckBounds
 	- [N] Read and lossless Write of JPEG Exif and XMP

@@ -11,7 +11,9 @@ namespace MH.Utils.Tests.Imaging;
 public class ImageMetadataTests {
   [TestMethod]
   public void RealFile_RemoveMetadata() {
-    JpegFile.RemoveMetadata(@"d:\Dev\.NET\MH.Utils\tests\test_image.jpg");
+    JpegFile.RemoveMetadata(
+      @"d:\Dev\.NET\MH.Utils\tests\test_image.jpg",
+      RemoveMetadataOptions.Exif | RemoveMetadataOptions.Xmp);
   }
 
   [TestMethod]

@@ -362,9 +362,8 @@ public class JpegFile {
     return File.OpenRead(_filePath);
   }
 
-  // TODO extend to remove exif|xmp|thumbnail
-  public static bool RemoveMetadata(string srcPath) =>
-    Write(srcPath, new JpegMetadataWriter(), true);
+  public static bool RemoveMetadata(string srcPath, RemoveMetadataOptions options) =>
+    Write(srcPath, new JpegMetadataWriter() { RemoveOptions = options });
 
   public bool Write(string srcPath) {
     if (_createWriterIfModified() is not { } writer) return true;
@@ -387,18 +386,18 @@ public class JpegFile {
     return new JpegMetadataWriter { Exif = exif, Xmp = xmp };
   }
 
-  public static bool Write(string srcPath, JpegMetadataWriter writer, bool removeMetadata = false) =>
-    _write(File.OpenRead(srcPath), srcPath, writer, removeMetadata, true);
+  public static bool Write(string srcPath, JpegMetadataWriter writer) =>
+    _write(File.OpenRead(srcPath), srcPath, writer, true);
 
-  public static bool Write(Stream input, string destPath, JpegMetadataWriter writer, bool removeMetadata = false) =>
-    _write(input, destPath, writer, removeMetadata, false);
+  public static bool Write(Stream input, string destPath, JpegMetadataWriter writer) =>
+    _write(input, destPath, writer, false);
 
-  private static bool _write(Stream input, string destPath, JpegMetadataWriter writer, bool removeMetadata, bool canCloseInput) {
+  private static bool _write(Stream input, string destPath, JpegMetadataWriter writer, bool canCloseInput) {
     var tmpPath = destPath + ".tmp";
 
     try {
       using (var output = File.Create(tmpPath))
-        writer.Write(input, output, removeMetadata);
+        writer.Write(input, output);
 
       if (canCloseInput) input.Close();
 

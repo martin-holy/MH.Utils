@@ -4,6 +4,14 @@ using System.Text;
 
 namespace MH.Utils.Imaging.Jpeg;
 
+[Flags]
+public enum RemoveMetadataOptions {
+  None = 0,
+  Exif = 1,
+  Xmp = 2,
+  All = Exif | Xmp
+}
+
 public sealed class JpegMetadataWriter {
   public static ReadOnlySpan<byte> ExifHeader => "Exif\0\0"u8;
   public static ReadOnlySpan<byte> XmpHeader => "http://ns.adobe.com/xap/1.0/\0"u8;
@@ -23,14 +31,12 @@ public sealed class JpegMetadataWriter {
   private bool _exifHandled;
   private bool _xmpHandled;
   private bool _metadataWritten;
-  private bool _removeMetadata;
 
   public byte[]? Exif { get; set; }
   public byte[]? Xmp { get; set; }
+  public RemoveMetadataOptions RemoveOptions { get; set; } = RemoveMetadataOptions.None;
 
-  public void Write(Stream input, Stream output, bool removeMetadata = false) {
-    _removeMetadata = removeMetadata;
-
+  public void Write(Stream input, Stream output) {
     using var br = new BinaryReader(input, Encoding.ASCII, true);
 
     // SOI
@@ -147,7 +153,7 @@ public sealed class JpegMetadataWriter {
 
   private void _processExif(Stream input, Stream output, int payloadLen) {
     if (Exif == null) {
-      if (!_removeMetadata)
+      if ((RemoveOptions & RemoveMetadataOptions.Exif) == 0)
         _copySegment(input, output, 0xE1, (ushort)(payloadLen + 2));
 
       _exifHandled = true;
@@ -161,7 +167,7 @@ public sealed class JpegMetadataWriter {
 
   private void _processXmp(Stream input, Stream output, int payloadLength) {
     if (Xmp == null) {
-      if (!_removeMetadata)
+      if ((RemoveOptions & RemoveMetadataOptions.Xmp) == 0)
         _copySegment(input, output, 0xE1, (ushort)(payloadLength + 2));
 
       _xmpHandled = true;

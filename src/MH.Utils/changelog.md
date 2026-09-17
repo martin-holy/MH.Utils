@@ -1,5 +1,8 @@
 5.2.0(not released):
-	- [N] JpegMetadataWriter: RemoveMetadataOptions
+	- [N] RemoveMetadataOptions enum
+	- [N] ExifMetadata: RemoveThumbnail method
+	- [B] JpegMetadataWriter: Remove Exif or Xmp
+	- [N] JpegFile: RemoveMetadata: removing thumbnail
 
 5.1.0:
 	- [N] ByteU: CheckBounds

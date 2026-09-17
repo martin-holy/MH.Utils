@@ -54,15 +54,15 @@ public sealed class JpegMetadataWriter {
         return;
       }
 
-      var segLen = ByteU.ReadBigEndianUInt16(br);
+      var segmentLength = ByteU.ReadBigEndianUInt16(br);
 
-      if (segLen < 2)
+      if (segmentLength < 2)
         throw new InvalidDataException("Invalid JPEG segment.");
 
-      var payloadLen = segLen - 2;
+      var payloadLength = segmentLength - 2;
 
       // ---------- APP1 ----------
-      if (marker == 0xE1 && _tryProcessApp1(input, output, payloadLen))
+      if (marker == 0xE1 && _tryProcessApp1(input, output, payloadLength))
         continue;
 
       // ---------- First non-APP ----------
@@ -72,8 +72,8 @@ public sealed class JpegMetadataWriter {
       // ---------- Copy segment ----------
       output.WriteByte(0xFF);
       output.WriteByte(marker);
-      ByteU.WriteBigEndianUInt16(output, segLen);
-      ByteU.CopyBytes(input, output, payloadLen);
+      ByteU.WriteBigEndianUInt16(output, segmentLength);
+      ByteU.CopyBytes(input, output, payloadLength);
     }
 
     throw new InvalidDataException("Unexpected end of JPEG.");
@@ -84,28 +84,23 @@ public sealed class JpegMetadataWriter {
 
   private void _writePendingMetadata(Stream stream) {
     if (_metadataWritten) return;
-
-    if (Exif != null && !_exifHandled)
-      _writeExif(stream);
-
-    if (Xmp != null && !_xmpHandled)
-      _writeXmp(stream);
-
+    if (!_exifHandled) _writeExif(stream);
+    if (!_xmpHandled) _writeXmp(stream);
     _metadataWritten = true;
   }
 
-  private bool _tryProcessApp1(Stream input, Stream output, int payloadLen) {
-    switch (_getApp1Type(input, payloadLen)) {
+  private bool _tryProcessApp1(Stream input, Stream output, int payloadLength) {
+    switch (_getApp1Type(input, payloadLength)) {
       case App1Type.Exif:
-        _processExif(input, output, payloadLen);
+        _processExif(input, output, payloadLength);
         return true;
 
       case App1Type.Xmp:
-        _processXmp(input, output, payloadLen);
+        _processXmp(input, output, payloadLength);
         return true;
 
       case App1Type.ExtendedXmp:
-        _processExtendedXmp(input, output, payloadLen);
+        _processExtendedXmp(input, output, payloadLength);
         return true;
 
       default:
@@ -143,29 +138,21 @@ public sealed class JpegMetadataWriter {
     return buffer.SequenceEqual(prefix);
   }
 
-  private void _processExif(Stream input, Stream output, int payloadLen) {
-    if (Exif == null) {
-      if ((RemoveOptions & RemoveMetadataOptions.Exif) == 0)
-        _copySegment(input, output, 0xE1, (ushort)(payloadLen + 2));
-      else
-        input.Seek(payloadLen, SeekOrigin.Current);
-
+  private void _processExif(Stream input, Stream output, int payloadLength) {
+    if (Exif == null && (RemoveOptions & RemoveMetadataOptions.Exif) == 0) {
+      _copySegment(input, output, 0xE1, (ushort)(payloadLength + 2));
       _exifHandled = true;
       return;
     }
 
-    input.Seek(payloadLen, SeekOrigin.Current);
+    input.Seek(payloadLength, SeekOrigin.Current);
     _writeExif(output);
     _exifHandled = true;
   }
 
   private void _processXmp(Stream input, Stream output, int payloadLength) {
-    if (Xmp == null) {
-      if ((RemoveOptions & RemoveMetadataOptions.Xmp) == 0)
-        _copySegment(input, output, 0xE1, (ushort)(payloadLength + 2));
-      else
-        input.Seek(payloadLength, SeekOrigin.Current);
-
+    if (Xmp == null && (RemoveOptions & RemoveMetadataOptions.Xmp) == 0) {
+      _copySegment(input, output, 0xE1, (ushort)(payloadLength + 2));
       _xmpHandled = true;
       return;
     }
@@ -184,11 +171,11 @@ public sealed class JpegMetadataWriter {
     input.Seek(payloadLength, SeekOrigin.Current);
   }
 
-  private static void _copySegment(Stream input, Stream output, byte marker, ushort segLen) {
+  private static void _copySegment(Stream input, Stream output, byte marker, ushort segmentLength) {
     output.WriteByte(0xFF);
     output.WriteByte(marker);
-    ByteU.WriteBigEndianUInt16(output, segLen);
-    ByteU.CopyBytes(input, output, segLen - 2);
+    ByteU.WriteBigEndianUInt16(output, segmentLength);
+    ByteU.CopyBytes(input, output, segmentLength - 2);
   }
 
   private static void _writeSegmentHeader(Stream stream, byte marker, ushort segmentLength) {
@@ -243,18 +230,20 @@ public sealed class JpegMetadataWriter {
     }
   }
 
-  private static void _writeExtendedChunk(Stream stream, byte[] guid, int fullLength, int offset, byte[] data, int dataOffset, int dataLength) {
+  private static void _writeExtendedChunk(
+    Stream stream, byte[] guid, int fullLength, int offset, byte[] data, int dataOffset, int dataLength) {
+
     stream.WriteByte(0xFF);
     stream.WriteByte(0xE1);
 
-    var payloadLen =
+    var payloadLength =
       XmpExtHeader.Length +
       32 + // GUID
       4 +  // full length
       4 +  // offset
       dataLength;
 
-    ByteU.WriteBigEndianUInt16(stream, (ushort)(payloadLen + 2));
+    ByteU.WriteBigEndianUInt16(stream, (ushort)(payloadLength + 2));
     stream.Write(XmpExtHeader.ToArray(), 0, XmpExtHeader.Length);
     stream.Write(guid, 0, 32);
     ByteU.WriteBigEndianUInt32(stream, (uint)fullLength);

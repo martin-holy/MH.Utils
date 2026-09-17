@@ -67,9 +67,9 @@ public class JpegFile {
 
     _validateJpeg(stream, reader);
 
-    var needSize = load.HasFlag(JpegMetadataLoad.Size);
-    var needExif = load.HasFlag(JpegMetadataLoad.Exif);
-    var needXmp = load.HasFlag(JpegMetadataLoad.Xmp);
+    var needSize = (load & JpegMetadataLoad.Size) != 0;
+    var needExif = (load & JpegMetadataLoad.Exif) != 0;
+    var needXmp = (load & JpegMetadataLoad.Xmp) != 0;
 
     while (stream.Position < stream.Length) {
       if (_readSegment(stream, reader) is not { } segment) break;

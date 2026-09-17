@@ -4,14 +4,6 @@ using System.Text;
 
 namespace MH.Utils.Imaging.Jpeg;
 
-[Flags]
-public enum RemoveMetadataOptions {
-  None = 0,
-  Exif = 1,
-  Xmp = 2,
-  All = Exif | Xmp
-}
-
 public sealed class JpegMetadataWriter {
   public static ReadOnlySpan<byte> ExifHeader => "Exif\0\0"u8;
   public static ReadOnlySpan<byte> XmpHeader => "http://ns.adobe.com/xap/1.0/\0"u8;

@@ -257,6 +257,14 @@ public class ExifMetadata(TiffReader? reader) {
     IsModified = true;
   }
 
+  public bool RemoveThumbnail() {
+    if (TiffFile.Ifd0.NextIfd?.FindEntry(ExifTag.ThumbnailOffset)?.Value is not JpegValue)
+      return false;
+
+    TiffFile.Ifd0.NextIfd = null;
+    return true;
+  }
+
   public byte[] ToTiff() {
     var layout = TiffLayoutBuilder.Build(TiffFile, Reader);
     TiffLayoutPlanner.Plan(layout);

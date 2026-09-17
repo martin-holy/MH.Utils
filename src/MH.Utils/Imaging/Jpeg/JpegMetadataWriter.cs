@@ -147,6 +147,8 @@ public sealed class JpegMetadataWriter {
     if (Exif == null) {
       if ((RemoveOptions & RemoveMetadataOptions.Exif) == 0)
         _copySegment(input, output, 0xE1, (ushort)(payloadLen + 2));
+      else
+        input.Seek(payloadLen, SeekOrigin.Current);
 
       _exifHandled = true;
       return;
@@ -161,6 +163,8 @@ public sealed class JpegMetadataWriter {
     if (Xmp == null) {
       if ((RemoveOptions & RemoveMetadataOptions.Xmp) == 0)
         _copySegment(input, output, 0xE1, (ushort)(payloadLength + 2));
+      else
+        input.Seek(payloadLength, SeekOrigin.Current);
 
       _xmpHandled = true;
       return;

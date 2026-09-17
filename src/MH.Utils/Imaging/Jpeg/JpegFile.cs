@@ -362,8 +362,25 @@ public class JpegFile {
     return File.OpenRead(_filePath);
   }
 
-  public static bool RemoveMetadata(string srcPath, RemoveMetadataOptions options) =>
-    Write(srcPath, new JpegMetadataWriter() { RemoveOptions = options });
+  public static bool RemoveMetadata(string srcPath, RemoveMetadataOptions options) {
+    var removeThumbnail = (options & RemoveMetadataOptions.Thumbnail) != 0;
+    var removeExif = (options & RemoveMetadataOptions.Exif) != 0;
+
+    if (removeThumbnail && !removeExif) {
+      var jpeg = new JpegFile(srcPath, JpegMetadataLoad.Exif);
+
+      if (jpeg.Exif.RemoveThumbnail()) {
+        var writer = new JpegMetadataWriter {
+          Exif = jpeg.Exif.ToTiff(),
+          RemoveOptions = options
+        };
+
+        return Write(srcPath, writer);
+      }
+    }
+
+    return Write(srcPath, new JpegMetadataWriter { RemoveOptions = options });
+  }
 
   public bool Write(string srcPath) {
     if (_createWriterIfModified() is not { } writer) return true;

@@ -3,6 +3,7 @@
 	- [N] ExifMetadata: RemoveThumbnail method
 	- [B] JpegMetadataWriter: Remove Exif or Xmp
 	- [N] JpegFile: RemoveMetadata: removing thumbnail
+	- [N] VideoMetadata: Reading Width, Height, Orientation, Duration and FrameRate from MP4 and MOV
 
 5.1.0:
 	- [N] ByteU: CheckBounds

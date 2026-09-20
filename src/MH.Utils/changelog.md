@@ -1,8 +1,8 @@
-5.2.0(not released):
+5.2.0:
 	- [N] RemoveMetadataOptions enum
 	- [N] ExifMetadata: RemoveThumbnail method
 	- [B] JpegMetadataWriter: Remove Exif or Xmp
-	- [N] JpegFile: RemoveMetadata: removing thumbnail
+	- [N] JpegFile: RemoveMetadata with remove thumbnail option
 	- [N] VideoMetadata: Reading Width, Height, Orientation, Duration and FrameRate from MP4 and MOV
 
 5.1.0:

@@ -13,4 +13,15 @@ internal static class IsoBmffTypes {
   public const uint Minf = 0x6D696E66;
   public const uint Stbl = 0x7374626C;
   public const uint Stts = 0x73747473;
+  public const uint Udta = 0x75647461;
+  public const uint Meta = 0x6D657461;
+  public const uint Ilst = 0x696C7374;
+  public const uint Edts = 0x65647473;
+  public const uint Dinf = 0x64696E66;
+  public const uint Dref = 0x64726566;
+  public const uint Mvex = 0x6D766578;
+  public const uint Tref = 0x74726566;
+  public const uint Schi = 0x73636869;
+  public const uint Sinf = 0x73696E66;
+  public const uint Keys = 0x6B657973;
 }

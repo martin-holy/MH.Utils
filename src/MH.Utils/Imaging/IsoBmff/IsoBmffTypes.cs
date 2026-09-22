@@ -1,4 +1,6 @@
-﻿namespace MH.Utils.Imaging.IsoBmff;
+﻿using System;
+
+namespace MH.Utils.Imaging.IsoBmff;
 
 internal static class IsoBmffTypes {
   public const uint Ftyp = 0x66747970;
@@ -26,4 +28,14 @@ internal static class IsoBmffTypes {
   public const uint Keys = 0x6B657973;
   public const uint Keyw = 0x6B657977;
   public const uint Data = 0x64617461;
+
+  public static string GetTypeName(uint type) {
+    Span<char> chars = [
+      (char)(byte)(type >> 24),
+      (char)(byte)(type >> 16),
+      (char)(byte)(type >> 8),
+      (char)(byte)type];
+
+    return new string(chars);
+  }
 }

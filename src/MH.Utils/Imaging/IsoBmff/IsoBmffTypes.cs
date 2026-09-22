@@ -24,4 +24,6 @@ internal static class IsoBmffTypes {
   public const uint Schi = 0x73636869;
   public const uint Sinf = 0x73696E66;
   public const uint Keys = 0x6B657973;
+  public const uint Keyw = 0x6B657977;
+  public const uint Data = 0x64617461;
 }

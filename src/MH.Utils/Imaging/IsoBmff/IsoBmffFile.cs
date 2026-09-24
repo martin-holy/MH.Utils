@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Buffers.Binary;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 
@@ -202,7 +203,35 @@ public sealed class IsoBmffFile {
     }
   }
 
-  private static bool _isContainer(uint type) {
+  internal List<IsoBmffBoxNode> ReadBoxes() {
+    var boxes = new List<IsoBmffBoxNode>();
+    _readBoxes(boxes, -1, 0, _stream.Length);
+    return boxes;
+  }
+
+  private void _readBoxes(List<IsoBmffBoxNode> boxes, int parent, long offset, long end) {
+    _stream.Position = offset;
+
+    while (_stream.Position < end) {
+      if (_reader.ReadBox(end) is not { } box)
+        break;
+
+      var index = boxes.Count;
+      boxes.Add(new IsoBmffBoxNode(box, parent));
+
+      if (_isContainer(box.Type)) {
+        var childrenOffset = _metadata.GetChildrenOffset(box);
+        var childrenStart = box.DataOffset + childrenOffset;
+
+        if (childrenStart < box.End)
+          _readBoxes(boxes, index, childrenStart, box.End);
+      }
+
+      _stream.Position = box.End;
+    }
+  }
+
+  internal static bool _isContainer(uint type) {
     return type is
       IsoBmffTypes.Moov or
       IsoBmffTypes.Trak or

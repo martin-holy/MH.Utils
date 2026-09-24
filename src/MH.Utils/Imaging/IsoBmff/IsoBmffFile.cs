@@ -56,7 +56,7 @@ public sealed class IsoBmffFile {
       if (box.Type == IsoBmffTypes.Moov)
         return box;
 
-      _stream.Position = box.Offset + box.Size;
+      _stream.Position = box.End;
     }
 
     return null;
@@ -64,7 +64,7 @@ public sealed class IsoBmffFile {
 
   internal IsoBmffBox? _findVideoTrack(IsoBmffBox moov) {
     _stream.Position = moov.DataOffset;
-    var end = moov.Offset + moov.Size;
+    var end = moov.End;
 
     while (_stream.Position < end) {
       if (_reader.ReadBox(end) is not { } box)
@@ -76,7 +76,7 @@ public sealed class IsoBmffFile {
           _reader.ReadUInt32BigEndian(hdlr.DataOffset + 8) == IsoBmffTypes.Vide)
         return box;
 
-      _stream.Position = box.Offset + box.Size;
+      _stream.Position = box.End;
     }
 
     return null;
@@ -175,7 +175,7 @@ public sealed class IsoBmffFile {
 
   [Conditional("DEBUG")]
   internal void DumpChildren(IsoBmffBox parent) {
-    _dumpBoxes(parent.DataOffset, parent.Offset + parent.Size, 0);
+    _dumpBoxes(parent.DataOffset, parent.End, 0);
   }
 
   [Conditional("DEBUG")]
@@ -196,10 +196,10 @@ public sealed class IsoBmffFile {
 
       if (_isContainer(box.Type)) {
         var childrenOffset = _metadata.GetChildrenOffset(box) + box.DataOffset;
-        _dumpBoxes(childrenOffset, box.Offset + box.Size, depth + 1);
+        _dumpBoxes(childrenOffset, box.End, depth + 1);
       }
 
-      _stream.Position = box.Offset + box.Size;
+      _stream.Position = box.End;
     }
   }
 

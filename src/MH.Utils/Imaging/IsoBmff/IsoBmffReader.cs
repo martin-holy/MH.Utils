@@ -59,7 +59,7 @@ internal sealed class IsoBmffReader(Stream stream) {
       if (box.Type == type)
         return box;
 
-      stream.Position = box.Offset + box.Size;
+      stream.Position = box.End;
     }
 
     return null;
@@ -67,7 +67,7 @@ internal sealed class IsoBmffReader(Stream stream) {
 
   public IsoBmffBox? FindChild(IsoBmffBox parent, uint type, long childrenOffset = 0) {
     var offset = parent.DataOffset + childrenOffset;
-    var end = parent.Offset + parent.Size;
+    var end = parent.End;
 
     if (offset > end)
       throw new InvalidDataException("Invalid ISO BMFF child offset.");
@@ -81,7 +81,7 @@ internal sealed class IsoBmffReader(Stream stream) {
       if (box.Type == type)
         return box;
 
-      stream.Position = box.Offset + box.Size;
+      stream.Position = box.End;
     }
 
     return null;

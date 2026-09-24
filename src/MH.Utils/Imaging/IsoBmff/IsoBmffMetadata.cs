@@ -39,7 +39,7 @@ internal sealed class IsoBmffMetadata(Stream stream, IsoBmffReader reader) {
 
   private void _readItems(IsoBmffBox ilst, IsoBmffBox? keys, List<IsoBmffMetadataEntry> result) {
     stream.Position = ilst.DataOffset;
-    var end = ilst.Offset + ilst.Size;
+    var end = ilst.End;
 
     while (stream.Position < end) {
       if (reader.ReadBox(end) is not { } item)
@@ -48,7 +48,7 @@ internal sealed class IsoBmffMetadata(Stream stream, IsoBmffReader reader) {
       if (_readItem(item, keys) is { } entry)
         result.Add(entry);
 
-      stream.Position = item.Offset + item.Size;
+      stream.Position = item.End;
     }
   }
 
@@ -112,16 +112,10 @@ internal sealed class IsoBmffMetadata(Stream stream, IsoBmffReader reader) {
   }
 
   internal long GetChildrenOffset(IsoBmffBox box) {
-    if (box.Type != IsoBmffTypes.Meta)
-      return 0;
+    if (box.Type != IsoBmffTypes.Meta) return 0;
 
-    var offset = box.DataOffset;
-    var end = box.Offset + box.Size;
-
-    stream.Position = offset;
-
-    if (reader.ReadBox(end) is { Type: IsoBmffTypes.Hdlr })
-      return 0;
+    stream.Position = box.DataOffset;
+    if (reader.ReadBox(box.End) is { Type: IsoBmffTypes.Hdlr }) return 0;
 
     return 4;
   }

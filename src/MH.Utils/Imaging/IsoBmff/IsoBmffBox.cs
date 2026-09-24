@@ -8,4 +8,6 @@ internal readonly struct IsoBmffBox(long offset, long headerSize, long size, uin
 
   public long DataOffset => Offset + HeaderSize;
   public long DataSize => Size - HeaderSize;
+  public long End => Offset + Size;
+  public string TypeName => IsoBmffTypes.GetTypeName(Type);
 }

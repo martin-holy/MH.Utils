@@ -22,7 +22,7 @@ public sealed class IsoBmffFile {
     _reader = new IsoBmffReader(_stream);
     _metadata = new IsoBmffMetadata(_stream, _reader);
 
-    var moov = _findMoov() ?? throw new InvalidDataException("ISO BMFF moov box not found.");
+    var moov = _reader.Find(IsoBmffTypes.Moov) ?? throw new InvalidDataException("ISO BMFF moov box not found.");
     var trak = _findVideoTrack(moov) ?? throw new InvalidDataException("Video track not found.");
     var tkhd = _reader.FindChild(trak, IsoBmffTypes.Tkhd) ?? throw new InvalidDataException("Video track has no tkhd box.");
 
@@ -42,24 +42,6 @@ public sealed class IsoBmffFile {
 
     Duration = duration;
     FrameRate = _readFrameRate(stts, timescale);
-  }
-
-  internal IsoBmffBox? _findMoov() {
-    var end = _stream.Length;
-
-    _stream.Position = 0;
-
-    while (_stream.Position < end) {
-      if (_reader.ReadBox(end) is not { } box)
-        break;
-
-      if (box.Type == IsoBmffTypes.Moov)
-        return box;
-
-      _stream.Position = box.End;
-    }
-
-    return null;
   }
 
   internal IsoBmffBox? _findVideoTrack(IsoBmffBox moov) {

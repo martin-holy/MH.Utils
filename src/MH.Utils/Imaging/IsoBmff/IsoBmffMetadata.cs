@@ -7,7 +7,10 @@ using System.Text;
 namespace MH.Utils.Imaging.IsoBmff;
 
 internal sealed class IsoBmffMetadata(Stream stream, IsoBmffReader reader) {
-  private static ReadOnlySpan<byte> _xmpUuid => "BE7ACFCB97A942E89C71999491E3AFAC"u8;
+  private static ReadOnlySpan<byte> _xmpUuid => [
+    0xBE, 0x7A, 0xCF, 0xCB, 0x97, 0xA9, 0x42, 0xE8,
+    0x9C, 0x71, 0x99, 0x94, 0x91, 0xE3, 0xAF, 0xAC
+  ];
   private bool _xmpRead;
   private XmpMetadata? _xmp;
 
@@ -124,8 +127,8 @@ internal sealed class IsoBmffMetadata(Stream stream, IsoBmffReader reader) {
     if (_xmp != null) return _xmp;
 
     if (!_xmpRead) {
-      /*if (_readXmp() is { } entry)
-        _xmp = new XmpMetadata(entry.Value);*/
+      if (reader.Find(IsoBmffTypes.Uuid) is { } uuid && _readXmp(uuid) is { } entry)
+        _xmp = new XmpMetadata(entry.Value);
 
       _xmpRead = true;
     }

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MH.Utils.Imaging.Xmp;
+using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -9,7 +10,15 @@ namespace MH.Utils.Imaging.IsoBmff;
 public sealed class IsoBmffFile {
   private readonly Stream _stream;
   internal readonly IsoBmffReader _reader;
-  internal readonly IsoBmffMetadata _metadata;
+  private readonly IsoBmffBox _moov;
+
+  private bool _itemListRead;
+  private bool _keysRead;
+  private bool _xmpRead;
+  private IsoBmffItemList? _itemList;
+  private IsoBmffKeys? _keys;
+  private IsoBmffMetadataEntry? _xmpEntry;
+  private XmpMetadata? _xmp;
 
   public int Width { get; }
   public int Height { get; }
@@ -20,10 +29,9 @@ public sealed class IsoBmffFile {
   public IsoBmffFile(Stream stream) {
     _stream = stream;
     _reader = new IsoBmffReader(_stream);
-    _metadata = new IsoBmffMetadata(_stream, _reader);
 
-    var moov = _reader.Find(IsoBmffTypes.Moov) ?? throw new InvalidDataException("ISO BMFF moov box not found.");
-    var trak = _findVideoTrack(moov) ?? throw new InvalidDataException("Video track not found.");
+    _moov = _reader.Find(IsoBmffTypes.Moov) ?? throw new InvalidDataException("ISO BMFF moov box not found.");
+    var trak = _findVideoTrack(_moov) ?? throw new InvalidDataException("Video track not found.");
     var tkhd = _reader.FindChild(trak, IsoBmffTypes.Tkhd) ?? throw new InvalidDataException("Video track has no tkhd box.");
 
     var (width, height) = _readDimensions(tkhd);
@@ -148,6 +156,49 @@ public sealed class IsoBmffFile {
     return (double)sampleCount * timescale / duration;
   }
 
+  internal IsoBmffItemList? _getItemList() {
+    if (_itemList != null) return _itemList;
+    if (!_itemListRead) {
+      _itemList = IsoBmffItemList.Find(_stream, _reader, _moov, _getBoxChildrenOffset);
+      _itemListRead = true;
+    }
+
+    return _itemList;
+  }
+
+  internal IsoBmffKeys? _getKeys() {
+    if (_keys != null) return _keys;
+    if (!_keysRead) {
+      _keys = IsoBmffKeys.Find(_stream, _reader, _moov, _getBoxChildrenOffset);
+      _keysRead = true;
+    }
+
+    return _keys;
+  }
+
+  internal XmpMetadata? _getXmp() {
+    if (_xmp != null) return _xmp;
+    if (!_xmpRead) {
+      _xmpEntry = IsoBmffXmp.Find(_stream, _reader);
+      
+      if (_xmpEntry != null)
+        _xmp = new XmpMetadata(_xmpEntry.Value);
+
+      _xmpRead = true;
+    }
+
+    return _xmp;
+  }
+
+  private long _getBoxChildrenOffset(IsoBmffBox box) {
+    if (box.Type != IsoBmffTypes.Meta) return 0;
+
+    _stream.Position = box.DataOffset;
+    if (_reader.ReadBox(box.End) is { Type: IsoBmffTypes.Hdlr }) return 0;
+
+    return 4;
+  }
+
   [Conditional("DEBUG")]
   internal void DumpBoxes() {
     _stream.Position = 0;
@@ -177,7 +228,7 @@ public sealed class IsoBmffFile {
         $"data={box.DataSize,10}");
 
       if (_isContainer(box.Type)) {
-        var childrenOffset = _metadata.GetChildrenOffset(box) + box.DataOffset;
+        var childrenOffset = _getBoxChildrenOffset(box) + box.DataOffset;
         _dumpBoxes(childrenOffset, box.End, depth + 1);
       }
 
@@ -202,7 +253,7 @@ public sealed class IsoBmffFile {
       boxes.Add(new IsoBmffBoxNode(box, parent));
 
       if (_isContainer(box.Type)) {
-        var childrenOffset = _metadata.GetChildrenOffset(box);
+        var childrenOffset = _getBoxChildrenOffset(box);
         var childrenStart = box.DataOffset + childrenOffset;
 
         if (childrenStart < box.End)

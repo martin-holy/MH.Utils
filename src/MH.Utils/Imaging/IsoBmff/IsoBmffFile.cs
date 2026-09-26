@@ -18,6 +18,7 @@ public sealed class IsoBmffFile {
   public int Orientation => _metadata.Orientation;
   public double? FrameRate => _metadata.FrameRate;
   public TimeSpan? Duration => _metadata.Duration;
+  public XmpMetadata Xmp => _getXmp();
 
   public IsoBmffFile(Stream stream) {
     _stream = stream;
@@ -25,7 +26,7 @@ public sealed class IsoBmffFile {
     _metadata = new(_stream, _reader);
   }
 
-  internal XmpMetadata? _getXmp() {
+  internal XmpMetadata _getXmp() {
     if (_xmp != null) return _xmp;
     if (!_xmpRead) {
       _xmpEntry = IsoBmffXmp.Find(_stream, _reader);
@@ -36,6 +37,6 @@ public sealed class IsoBmffFile {
       _xmpRead = true;
     }
 
-    return _xmp;
+    return _xmp ?? new XmpMetadata(null);
   }
 }

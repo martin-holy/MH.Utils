@@ -5,19 +5,19 @@ using System.IO;
 namespace MH.Utils.Imaging;
 
 public sealed class VideoMetadata {
-  public int Width { get; }
-  public int Height { get; }
-  public int Orientation { get; }
-  public double? FrameRate { get; }
-  public TimeSpan? Duration { get; }
+  private readonly IsoBmffFile _isoBmff;
+
+  public int Width => _isoBmff.Width;
+  public int Height => _isoBmff.Height;
+  public int Orientation => _isoBmff.Orientation;
+  public double? FrameRate => _isoBmff.FrameRate;
+  public TimeSpan? Duration => _isoBmff.Duration;
+  public string[]? Keywords { get => _getKeywords(); }
 
   public VideoMetadata(Stream stream) {
-    var file = new IsoBmffFile(stream);
-
-    Width = file.Width;
-    Height = file.Height;
-    Orientation = file.Orientation;
-    FrameRate = file.FrameRate;
-    Duration = file.Duration;
+    _isoBmff = new IsoBmffFile(stream);
   }
+
+  private string[]? _getKeywords() =>
+    _isoBmff.Xmp.GetKeywords() ?? _isoBmff._metadata.GetKeywords();
 }

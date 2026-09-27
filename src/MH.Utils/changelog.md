@@ -1,3 +1,6 @@
+5.3.0(not released):
+	- [U] VideoMetadata: Read Keywords
+
 5.2.0:
 	- [N] RemoveMetadataOptions enum
 	- [N] ExifMetadata: RemoveThumbnail method

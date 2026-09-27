@@ -77,6 +77,17 @@ internal class IsoBmffMetadata {
     return 4;
   }
 
+  public string? GetItemListKeywords() =>
+    _getItemList()?.GetKeywords();
+
+  public string? GetKeysKeywords() =>
+    _getKeys()?.GetKeywords();
+
+  public string[]? GetKeywords() {
+    var keywords = GetItemListKeywords() ?? GetKeysKeywords();
+    return keywords?.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+  }
+
   private IsoBmffBox? _findVideoTrack(IsoBmffBox moov) {
     _stream.Position = moov.DataOffset;
     var end = moov.End;

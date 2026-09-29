@@ -2,7 +2,7 @@
 
 namespace MH.Utils.Imaging.IsoBmff;
 
-internal readonly struct IsoBmffBoxNode(IsoBmffBox box, int parent) {
+internal class IsoBmffBoxNode(IsoBmffBox box, int parent) {
   public IsoBmffBox Box { get; } = box;
   public int Parent { get; } = parent;
 }

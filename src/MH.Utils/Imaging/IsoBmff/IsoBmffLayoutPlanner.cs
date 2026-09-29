@@ -1,21 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
+using System.Linq;
 
 namespace MH.Utils.Imaging.IsoBmff;
 
 internal enum IsoBmffMoveDirection { Up, Down }
 
-// TODO make it struct if possible
 internal sealed record IsoBmffMove(long SourceOffset, long DestinationOffset, long Length, IsoBmffMoveDirection Direction);
 
-// TODO make it struct if possible
-internal sealed record IsoBmffWrite(long Offset, byte[] Data);
+internal sealed record IsoBmffWrite(long Offset, long Length);
 
-internal sealed class IsoBmffBoxEdit(IsoBmffBoxNode box, long newSize) {
-  public IsoBmffBoxNode Box { get; } = box;
+internal sealed class IsoBmffBoxEdit(IsoBmffBoxNode boxNode, long newSize) {
+  public IsoBmffBoxNode BoxNode { get; } = boxNode;
   public long NewSize { get; } = newSize;
-  public long SizeDelta => NewSize - Box.Box.Size;
+  public long SizeDelta => NewSize - BoxNode.Box.Size;
 }
 
 internal sealed class IsoBmffLayoutPlan {
@@ -24,40 +22,78 @@ internal sealed class IsoBmffLayoutPlan {
   public bool RequiresRewrite { get; internal set; }
 }
 
-internal sealed class IsoBmffLayoutPlanner(List<IsoBmffBoxNode> boxes) {
+internal sealed record IsoBmffRegion(long Offset, long Size) {
+  public long End => Offset + Size;
+}
+
+// TODO the getBoxChildrenOffset func us using the original file stream!
+internal sealed class IsoBmffLayoutPlanner(List<IsoBmffBoxNode> boxes, Func<IsoBmffBox, long> getBoxChildrenOffset) {
   private readonly List<IsoBmffBoxNode> _boxes = boxes;
+  private readonly Func<IsoBmffBox, long> _getBoxChildrenOffset = getBoxChildrenOffset;
 
-  public IsoBmffLayoutPlan Plan(IsoBmffBoxEdit edit) {
-    var plan = new IsoBmffLayoutPlan();
+  public IsoBmffLayout PlanLayout(IsoBmffBoxEdit edit) {
     var deltas = _getSizeDeltas(edit);
-    var root = _getAffectedRoot(edit.Box, deltas);
-    var delta = deltas[root];
+    var root = _getRoot(edit.BoxNode);
+    var layout = new List<IsoBmffLayoutBox>();
 
-    if (delta == 0) return plan;
+    foreach (var box in _boxes) {
+      if (box.Parent >= 0)
+        continue;
 
-    var previous = _getPreviousSibling(root);
-    var next = _getNextSibling(root);
+      _addLayout(layout, box, box.Box.Offset, deltas);
+    }
 
-    if (delta > 0)
-      _planGrowth(plan, root, delta, previous, next);
-    else
-      _planShrink(plan, root, -delta, next);
-
-    return plan;
+    return new IsoBmffLayout(layout);
   }
 
   private Dictionary<IsoBmffBoxNode, long> _getSizeDeltas(IsoBmffBoxEdit edit) {
     var deltas = new Dictionary<IsoBmffBoxNode, long>();
-    var node = edit.Box;
+    var delta = edit.SizeDelta;
+    var node = edit.BoxNode;
 
-    while (node.Parent >= 0) {
-      deltas[node] = edit.NewSize - edit.Box.Box.Size;
+    while (true) {
+      deltas[node] = delta;
+
+      if (node.Parent < 0)
+        break;
+
       node = _boxes[node.Parent];
     }
 
-    deltas[node] = edit.NewSize - edit.Box.Box.Size;
-
     return deltas;
+  }
+
+  private IsoBmffBoxNode _getRoot(IsoBmffBoxNode node) {
+    while (node.Parent >= 0)
+      node = _boxes[node.Parent];
+
+    return node;
+  }
+
+  private void _addLayout(List<IsoBmffLayoutBox> layout, IsoBmffBoxNode node, long offset, Dictionary<IsoBmffBoxNode, long> deltas) {
+    var size = node.Box.Size;
+
+    if (deltas.TryGetValue(node, out var delta))
+      size += delta;
+
+    layout.Add(new IsoBmffLayoutBox(node, offset, size));
+
+    var children = _getChildren(node);
+    var childOffset = offset + node.Box.HeaderSize + _getBoxChildrenOffset(node.Box);
+
+    foreach (var child in children) {
+      var childDelta = deltas.TryGetValue(child, out var d) ? d : 0;
+      var childSize = child.Box.Size + childDelta;
+
+      _addLayout(layout, child, childOffset, deltas);
+      childOffset += childSize;
+    }
+  }
+
+  private List<IsoBmffBoxNode> _getChildren(IsoBmffBoxNode parent) {
+    var parentIndex = _boxes.IndexOf(parent);
+
+    return [.. _boxes.Where(x => x.Parent == parentIndex)];
   }
 
   // TODO deltas are not used
@@ -70,163 +106,135 @@ internal sealed class IsoBmffLayoutPlanner(List<IsoBmffBoxNode> boxes) {
     return node;
   }
 
-  private void _planGrowth(IsoBmffLayoutPlan plan, IsoBmffBoxNode root, long growth, IsoBmffBoxNode? previous, IsoBmffBoxNode? next) {
-    var afterFree = _isFree(next) ? next : null;
-    var beforeFree = _isFree(previous) ? previous : null;
+  private static IsoBmffRegion _getNewRegion(IsoBmffLayoutBox original, long newSize, IsoBmffLayoutBox? before, IsoBmffLayoutBox? after) {
+    var delta = newSize - original.Size;
 
-    var after = Math.Min(growth, afterFree?.Box.Size ?? 0);
-    var remaining = growth - after;
+    if (delta <= 0)
+      return new IsoBmffRegion(original.Offset, newSize);
 
-    var before = Math.Min(remaining, beforeFree?.Box.Size ?? 0);
-    remaining -= before;
+    var fromAfter = Math.Min(delta, after?.Size ?? 0);
+    var remaining = delta - fromAfter;
+    var fromBefore = Math.Min(remaining, before?.Size ?? 0);
 
-    if (remaining != 0) {
-      plan.RequiresRewrite = true;
-      return;
+    if (fromAfter + fromBefore != delta)
+      throw new InvalidOperationException("Not enough adjacent free space.");
+
+    return new IsoBmffRegion(original.Offset - fromBefore, newSize);
+  }
+
+  internal IsoBmffLayout CreateOriginalLayout() {
+    var result = new List<IsoBmffLayoutBox>();
+
+    foreach (var box in _boxes)
+      result.Add(new(box, box.Box.Offset, box.Box.Size));
+
+    return new IsoBmffLayout(result);
+  }
+
+  internal IsoBmffLayout CreateEditedLayout(IsoBmffLayout original, IsoBmffBoxEdit edit) {
+    var deltas = _getSizeDeltas(edit);
+    var root = _getRoot(edit.BoxNode);
+    var originalRoot = original[root];
+
+    var before = _getPreviousTopLevel(root);
+    var after = _getNextTopLevel(root);
+
+    var beforeLayout = before is not null ? original[before] : null;
+    var afterLayout = after is not null ? original[after] : null;
+
+    var beforeFree = _isFree(before) ? beforeLayout : null;
+    var afterFree = _isFree(after) ? afterLayout : null;
+
+    var newSize = originalRoot.Size + edit.SizeDelta;
+    var newOffset = originalRoot.Offset;
+
+    if (edit.SizeDelta > 0) {
+      var growth = edit.SizeDelta;
+      var fromAfter = Math.Min(growth, afterFree?.Size ?? 0);
+      var remaining = growth - fromAfter;
+      var fromBefore = Math.Min(remaining, beforeFree?.Size ?? 0);
+
+      remaining -= fromBefore;
+
+      if (remaining != 0)
+        throw new InvalidOperationException("Not enough adjacent free space.");
+
+      newOffset -= fromBefore;
     }
 
-    // First consume the free space after the root.
-    if (afterFree is not null && after != 0)
-      _shrinkFreeAfter(plan, afterFree.Value, after);
+    var result = new List<IsoBmffLayoutBox>();
 
-    // Then consume free space before the root.
-    if (beforeFree is not null && before != 0)
-      _shrinkFreeBefore(plan, beforeFree.Value, before);
+    foreach (var topLevel in _getTopLevelBoxes()) {
+      if (topLevel == root) {
+        _addEditedTree(result, topLevel, newOffset, deltas);
 
-    // Everything between the old root and the new root position has to be moved.
-    if (before != 0)
-      _moveRegionUp(plan, beforeFree!.Value.Box.End, root.Box.End, before);
+        continue;
+      }
 
-    // The actual changed root will subsequently be written at:
-    var newOffset = root.Box.Offset - before;
+      if (topLevel == beforeFree?.Node) {
+        var consumed = originalRoot.Offset - newOffset;
+        var size = beforeFree.Size - consumed;
 
-    plan.Writes.Add(new IsoBmffWrite(
-      newOffset,
-      new byte[checked((int)(root.Box.Size + growth))]));
-  }
+        if (size > 0)
+          result.Add(new(topLevel, beforeFree.Offset, size));
 
-  private void _planShrink(IsoBmffLayoutPlan plan, IsoBmffBoxNode root, long shrink, IsoBmffBoxNode? next) {
-    // For now create/extend free space after the root.
-    //
-    // This is deliberately only planning. The writer will generate
-    // the actual free box bytes.
+        continue;
+      }
 
-    if (next is not null && _isFree(next)) {
-      plan.Writes.Add(new IsoBmffWrite(
-        root.Box.End - shrink,
-        new byte[checked((int)(next.Value.Box.Size + shrink))]));
+      if (topLevel == afterFree?.Node) {
+        var consumed = newOffset + newSize - originalRoot.End;
+        var size = afterFree.Size - consumed;
 
-      return;
+        if (size > 0)
+          result.Add(new(topLevel, afterFree.Offset + consumed, size));
+
+        continue;
+      }
+
+      result.Add(original[topLevel]);
     }
 
-    plan.Writes.Add(new IsoBmffWrite(
-      root.Box.End - shrink,
-      new byte[checked((int)shrink)]));
+    return new IsoBmffLayout(result);
   }
 
-  private void _shrinkFreeAfter(IsoBmffLayoutPlan plan, IsoBmffBoxNode free, long amount) {
-    var newSize = free.Box.Size - amount;
+  private IsoBmffBoxNode? _getPreviousTopLevel(IsoBmffBoxNode node) {
+    var topLevel = _getTopLevelBoxes();
+    var index = topLevel.IndexOf(node);
 
-    if (newSize == 0) return;
-
-    plan.Writes.Add(new IsoBmffWrite(
-      free.Box.Offset + amount,
-      new byte[checked((int)newSize)]));
+    return index > 0
+      ? topLevel[index - 1]
+      : null;
   }
 
-  private void _shrinkFreeBefore(IsoBmffLayoutPlan plan, IsoBmffBoxNode free, long amount) {
-    var newSize = free.Box.Size - amount;
+  private IsoBmffBoxNode? _getNextTopLevel(IsoBmffBoxNode node) {
+    var topLevel = _getTopLevelBoxes();
+    var index = topLevel.IndexOf(node);
 
-    if (newSize == 0) return;
-
-    plan.Writes.Add(new IsoBmffWrite(
-      free.Box.Offset,
-      new byte[checked((int)newSize)]));
+    return index >= 0 && index + 1 < topLevel.Count
+      ? topLevel[index + 1]
+      : null;
   }
 
-  private void _moveRegionUp(IsoBmffLayoutPlan plan, long sourceStart, long sourceEnd, long amount) {
-    var length = sourceEnd - sourceStart;
+  private List<IsoBmffBoxNode> _getTopLevelBoxes() =>
+    [.. _boxes.Where(x => x.Parent < 0)];
 
-    if (length <= 0) return;
+  private void _addEditedTree(List<IsoBmffLayoutBox> result, IsoBmffBoxNode node, long offset, Dictionary<IsoBmffBoxNode, long> deltas) {
+    var size = node.Box.Size + (deltas.TryGetValue(node, out var delta) ? delta : 0);
 
-    plan.Moves.Add(new IsoBmffMove(
-      sourceStart,
-      sourceStart - amount,
-      length,
-      IsoBmffMoveDirection.Up));
-  }
+    result.Add(new IsoBmffLayoutBox(node, offset, size));
 
-  private IsoBmffBoxNode? _getPreviousSibling(IsoBmffBoxNode node) {
-    var index = _boxes.IndexOf(node);
+    var children = _getChildren(node);
 
-    for (var i = index - 1; i >= 0; i--) {
-      if (_boxes[i].Parent == node.Parent)
-        return _boxes[i];
+    if (children.Count == 0) return;
 
-      if (_boxes[i].Parent < node.Parent)
-        break;
+    var childOffset = offset + node.Box.HeaderSize + _getBoxChildrenOffset(node.Box);
+
+    foreach (var child in children) {
+      _addEditedTree(result, child, childOffset, deltas);
+      childOffset += result[^1].Size;
     }
-
-    return null;
-  }
-
-  private IsoBmffBoxNode? _getNextSibling(IsoBmffBoxNode node) {
-    var index = _boxes.IndexOf(node);
-
-    for (var i = index + 1; i < _boxes.Count; i++) {
-      if (_boxes[i].Parent == node.Parent)
-        return _boxes[i];
-
-      if (_boxes[i].Parent < node.Parent)
-        break;
-    }
-
-    return null;
   }
 
   private static bool _isFree(IsoBmffBoxNode? node) =>
     node?.Box.Type == IsoBmffTypes.Free;
-
-  private static void _move(Stream stream, long source, long destination, long length) {
-    if (length <= 0 || source == destination)
-      return;
-
-    const int bufferSize = 64 * 1024;
-    var buffer = new byte[Math.Min(bufferSize, checked((int)length))];
-
-    if (destination < source) {
-      // Moving up: source -> destination.
-      // Start at the beginning.
-      var position = 0L;
-
-      while (position < length) {
-        var count = (int)Math.Min(buffer.Length, length - position);
-
-        stream.Position = source + position;
-        stream.ReadExactly(buffer, 0, count);
-
-        stream.Position = destination + position;
-        stream.Write(buffer, 0, count);
-
-        position += count;
-      }
-    }
-    else {
-      // Moving down: source -> destination.
-      // Start at the end.
-      var position = length;
-
-      while (position > 0) {
-        var count = (int)Math.Min(buffer.Length, position);
-
-        position -= count;
-
-        stream.Position = source + position;
-        stream.ReadExactly(buffer, 0, count);
-
-        stream.Position = destination + position;
-        stream.Write(buffer, 0, count);
-      }
-    }
-  }
 }

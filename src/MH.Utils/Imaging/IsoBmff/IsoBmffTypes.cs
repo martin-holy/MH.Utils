@@ -29,6 +29,7 @@ internal static class IsoBmffTypes {
   public const uint Keyw = 0x6B657977;
   public const uint Data = 0x64617461;
   public const uint Uuid = 0x75756964;
+  public const uint Free = 0x66726565;
 
   public static string GetTypeName(uint type) {
     Span<char> chars = [

@@ -1,18 +1,16 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
+﻿using System.Collections.Generic;
 using System.Text;
 
 namespace MH.Utils.Imaging.IsoBmff;
 
-internal sealed class IsoBmffItemList(Stream stream, IsoBmffReader reader, IsoBmffBox ilst) {
+internal sealed class IsoBmffItemList(IsoBmffReader reader, IsoBmffBox ilst) {
   private List<IsoBmffMetadataEntry>? _entries;
 
-  public static IsoBmffItemList? Find(Stream stream, IsoBmffReader reader, IsoBmffBox moov, Func<IsoBmffBox, long> getBoxChildrenOffset) {
+  public static IsoBmffItemList? Find(IsoBmffReader reader, IsoBmffBox moov) {
     if (reader.FindChild(moov, IsoBmffTypes.Udta) is not { } udta) return null;
     if (reader.FindChild(udta, IsoBmffTypes.Meta) is not { } meta) return null;
-    if (reader.FindChild(meta, IsoBmffTypes.Ilst, getBoxChildrenOffset(meta)) is not { } ilst) return null;
-    return new IsoBmffItemList(stream, reader, ilst);
+    if (reader.FindChild(meta, IsoBmffTypes.Ilst, reader.GetBoxChildrenOffset(meta)) is not { } ilst) return null;
+    return new IsoBmffItemList(reader, ilst);
   }
 
   public string? GetKeywords() =>
@@ -38,16 +36,16 @@ internal sealed class IsoBmffItemList(Stream stream, IsoBmffReader reader, IsoBm
 
     var result = new List<IsoBmffMetadataEntry>();
 
-    stream.Position = ilst.DataOffset;
+    reader._stream.Position = ilst.DataOffset;
 
-    while (stream.Position < ilst.End) {
+    while (reader._stream.Position < ilst.End) {
       if (reader.ReadBox(ilst.End) is not { } item)
         break;
 
       if (_readItem(item) is { } entry)
         result.Add(entry);
 
-      stream.Position = item.End;
+      reader._stream.Position = item.End;
     }
 
     return _entries = result;
@@ -62,10 +60,10 @@ internal sealed class IsoBmffItemList(Stream stream, IsoBmffReader reader, IsoBm
 
     var length = checked((int)data.DataSize - 8);
 
-    stream.Position = data.DataOffset + 8;
+    reader._stream.Position = data.DataOffset + 8;
 
     var buffer = new byte[length];
-    stream.ReadExactly(buffer);
+    reader._stream.ReadExactly(buffer);
 
     // TODO it might now always be UTF8 string!
     return new IsoBmffMetadataEntry(key, Encoding.UTF8.GetString(buffer), item, data);

@@ -6,14 +6,16 @@ using System.IO;
 namespace MH.Utils.Imaging.IsoBmff;
 
 internal sealed class IsoBmffReader(Stream stream) {
-  public readonly byte[] _buffer = new byte[16];
+  private readonly byte[] _buffer = new byte[16];
+
+  internal readonly Stream _stream = stream;
 
   public IsoBmffBox? ReadBox(long parentEnd) {
-    var offset = stream.Position;
+    var offset = _stream.Position;
 
     if (parentEnd - offset < 8) return null;
 
-    stream.ReadExactly(_buffer.AsSpan(0, 8));
+    _stream.ReadExactly(_buffer.AsSpan(0, 8));
 
     var size32 = BinaryPrimitives.ReadUInt32BigEndian(_buffer);
     var type = BinaryPrimitives.ReadUInt32BigEndian(_buffer.AsSpan(4));
@@ -22,7 +24,7 @@ internal sealed class IsoBmffReader(Stream stream) {
     long size;
 
     if (size32 == 1) {
-      stream.ReadExactly(_buffer.AsSpan(8, 8));
+      _stream.ReadExactly(_buffer.AsSpan(8, 8));
 
       var size64 = BinaryPrimitives.ReadUInt64BigEndian(_buffer.AsSpan(8, 8));
       if (size64 > long.MaxValue)
@@ -48,18 +50,18 @@ internal sealed class IsoBmffReader(Stream stream) {
   }
 
   public IsoBmffBox? Find(uint type) {
-    var end = stream.Length;
+    var end = _stream.Length;
 
-    stream.Position = 0;
+    _stream.Position = 0;
 
-    while (stream.Position < end) {
+    while (_stream.Position < end) {
       if (ReadBox(end) is not { } box)
         break;
 
       if (box.Type == type)
         return box;
 
-      stream.Position = box.End;
+      _stream.Position = box.End;
     }
 
     return null;
@@ -72,56 +74,56 @@ internal sealed class IsoBmffReader(Stream stream) {
     if (offset > end)
       throw new InvalidDataException("Invalid ISO BMFF child offset.");
 
-    stream.Position = offset;
+    _stream.Position = offset;
 
-    while (stream.Position < end) {
+    while (_stream.Position < end) {
       if (ReadBox(end) is not { } box)
         break;
 
       if (box.Type == type)
         return box;
 
-      stream.Position = box.End;
+      _stream.Position = box.End;
     }
 
     return null;
   }
 
   public uint ReadUInt32BigEndian() {
-    stream.ReadExactly(_buffer.AsSpan(0, 4));
+    _stream.ReadExactly(_buffer.AsSpan(0, 4));
     return BinaryPrimitives.ReadUInt32BigEndian(_buffer);
   }
 
   public uint ReadUInt32BigEndian(long position) {
-    stream.Position = position;
+    _stream.Position = position;
     return ReadUInt32BigEndian();
   }
 
   public (uint, uint) ReadTwoUInt32BigEndian() {
-    stream.ReadExactly(_buffer.AsSpan(0, 8));
+    _stream.ReadExactly(_buffer.AsSpan(0, 8));
     return new (
       BinaryPrimitives.ReadUInt32BigEndian(_buffer),
       BinaryPrimitives.ReadUInt32BigEndian(_buffer.AsSpan(4)));
   }
 
   public ulong ReadUInt64BigEndian() {
-    stream.ReadExactly(_buffer.AsSpan(0, 8));
+    _stream.ReadExactly(_buffer.AsSpan(0, 8));
     return BinaryPrimitives.ReadUInt64BigEndian(_buffer);
   }
 
   public ulong ReadUInt64BigEndian(long position) {
-    stream.Position = position;
+    _stream.Position = position;
     return ReadUInt64BigEndian();
   }
 
   public byte ReadVersion(IsoBmffBox box) {
-    stream.Position = box.DataOffset;
-    stream.ReadExactly(_buffer.AsSpan(0, 4));
+    _stream.Position = box.DataOffset;
+    _stream.ReadExactly(_buffer.AsSpan(0, 4));
     return _buffer[0];
   }
 
   public void DumpRaw(IsoBmffBox box) {
-    stream.Position = box.DataOffset;
+    _stream.Position = box.DataOffset;
 
     var length = checked((int)box.DataSize);
 
@@ -129,7 +131,7 @@ internal sealed class IsoBmffReader(Stream stream) {
       throw new InvalidOperationException("Box is too large to dump.");
 
     Span<byte> buffer = stackalloc byte[length];
-    stream.ReadExactly(buffer);
+    _stream.ReadExactly(buffer);
 
     Debug.WriteLine(Convert.ToHexString(buffer));
   }

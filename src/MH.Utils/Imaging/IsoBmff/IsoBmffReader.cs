@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Buffers.Binary;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 
@@ -134,5 +135,98 @@ internal sealed class IsoBmffReader(Stream stream) {
     _stream.ReadExactly(buffer);
 
     Debug.WriteLine(Convert.ToHexString(buffer));
+  }
+
+  public long GetBoxChildrenOffset(IsoBmffBox box) {
+    if (box.Type != IsoBmffTypes.Meta) return 0;
+
+    _stream.Position = box.DataOffset;
+    if (ReadBox(box.End) is { Type: IsoBmffTypes.Hdlr }) return 0;
+
+    return 4;
+  }
+
+  [Conditional("DEBUG")]
+  internal void _dumpBoxes() {
+    _stream.Position = 0;
+
+    _dumpBoxes(0, _stream.Length, 0);
+  }
+
+  [Conditional("DEBUG")]
+  internal void _dumpChildren(IsoBmffBox parent) {
+    _dumpBoxes(parent.DataOffset, parent.End, 0);
+  }
+
+  [Conditional("DEBUG")]
+  private void _dumpBoxes(long offset, long end, int depth) {
+    _stream.Position = offset;
+
+    while (_stream.Position < end) {
+      if (ReadBox(end) is not { } box) return;
+
+      Debug.WriteLine(
+        $"{new string(' ', depth * 2)}" +
+        $"{IsoBmffTypes.GetTypeName(box.Type),-4} " +
+        $"0x{box.Type:X8} " +
+        $"offset={box.Offset,10} " +
+        $"size={box.Size,10} " +
+        $"header={box.HeaderSize,2} " +
+        $"data={box.DataSize,10}");
+
+      if (_isContainer(box.Type)) {
+        var childrenOffset = GetBoxChildrenOffset(box) + box.DataOffset;
+        _dumpBoxes(childrenOffset, box.End, depth + 1);
+      }
+
+      _stream.Position = box.End;
+    }
+  }
+
+  internal List<IsoBmffBoxNode> _readBoxes() {
+    var boxes = new List<IsoBmffBoxNode>();
+    _readBoxes(boxes, -1, 0, _stream.Length);
+    return boxes;
+  }
+
+  private void _readBoxes(List<IsoBmffBoxNode> boxes, int parent, long offset, long end) {
+    _stream.Position = offset;
+
+    while (_stream.Position < end) {
+      if (ReadBox(end) is not { } box)
+        break;
+
+      var index = boxes.Count;
+      boxes.Add(new IsoBmffBoxNode(box, parent));
+
+      if (_isContainer(box.Type)) {
+        var childrenOffset = GetBoxChildrenOffset(box);
+        var childrenStart = box.DataOffset + childrenOffset;
+
+        if (childrenStart < box.End)
+          _readBoxes(boxes, index, childrenStart, box.End);
+      }
+
+      _stream.Position = box.End;
+    }
+  }
+
+  internal static bool _isContainer(uint type) {
+    return type is
+      IsoBmffTypes.Moov or
+      IsoBmffTypes.Trak or
+      IsoBmffTypes.Mdia or
+      IsoBmffTypes.Minf or
+      IsoBmffTypes.Stbl or
+      IsoBmffTypes.Udta or
+      IsoBmffTypes.Meta or
+      IsoBmffTypes.Ilst or
+      IsoBmffTypes.Edts or
+      IsoBmffTypes.Dinf or
+      IsoBmffTypes.Dref or
+      IsoBmffTypes.Mvex or
+      IsoBmffTypes.Tref or
+      IsoBmffTypes.Sinf or
+      IsoBmffTypes.Schi;
   }
 }

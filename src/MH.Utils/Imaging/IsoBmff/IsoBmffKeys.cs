@@ -1,22 +1,21 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.Text;
 
 namespace MH.Utils.Imaging.IsoBmff;
 
-internal sealed class IsoBmffKeys(Stream stream, IsoBmffReader reader, IsoBmffBox keys, IsoBmffBox ilst) {
+internal sealed class IsoBmffKeys(IsoBmffReader reader, IsoBmffBox keys, IsoBmffBox ilst) {
   private List<IsoBmffMetadataEntry>? _entries;
 
-  public static IsoBmffKeys? Find(Stream stream, IsoBmffReader reader, IsoBmffBox moov, Func<IsoBmffBox, long> getBoxChildrenOffset) {
+  public static IsoBmffKeys? Find(IsoBmffReader reader, IsoBmffBox moov) {
     if (reader.FindChild(moov, IsoBmffTypes.Meta) is not { } meta) return null;
 
-    var childrenOffset = getBoxChildrenOffset(meta);
+    var childrenOffset = reader.GetBoxChildrenOffset(meta);
 
     if (reader.FindChild(meta, IsoBmffTypes.Keys, childrenOffset) is not { } keys) return null;
     if (reader.FindChild(meta, IsoBmffTypes.Ilst, childrenOffset) is not { } ilst) return null;
 
-    return new IsoBmffKeys(stream, reader, keys, ilst);
+    return new IsoBmffKeys(reader, keys, ilst);
   }
 
   public string? GetKeywords() =>
@@ -42,15 +41,15 @@ internal sealed class IsoBmffKeys(Stream stream, IsoBmffReader reader, IsoBmffBo
     var keyNames = _readKeys();
     var result = new List<IsoBmffMetadataEntry>();
 
-    stream.Position = ilst.DataOffset;
+    reader._stream.Position = ilst.DataOffset;
 
-    while (stream.Position < ilst.End) {
+    while (reader._stream.Position < ilst.End) {
       if (reader.ReadBox(ilst.End) is not { } item) break;
 
       if (item.Type <= 0xFFFF && item.Type < keyNames.Length && keyNames[item.Type] is { } key)
         _readValue(item, key, result);
 
-      stream.Position = item.End;
+      reader._stream.Position = item.End;
     }
 
     return _entries = result;
@@ -64,7 +63,7 @@ internal sealed class IsoBmffKeys(Stream stream, IsoBmffReader reader, IsoBmffBo
 
     var result = new string[(int)count + 1];
 
-    stream.Position = keys.DataOffset + 8;
+    reader._stream.Position = keys.DataOffset + 8;
 
     for (uint i = 1; i <= count; i++) {
       var size = reader.ReadUInt32BigEndian();
@@ -76,7 +75,7 @@ internal sealed class IsoBmffKeys(Stream stream, IsoBmffReader reader, IsoBmffBo
       var length = checked((int)size - 8);
       var buffer = new byte[length];
 
-      stream.ReadExactly(buffer);
+      reader._stream.ReadExactly(buffer);
 
       result[i] = $"{IsoBmffTypes.GetTypeName(namespaceType)}:{Encoding.UTF8.GetString(buffer)}";
     }
@@ -90,10 +89,10 @@ internal sealed class IsoBmffKeys(Stream stream, IsoBmffReader reader, IsoBmffBo
 
     var length = checked((int)data.DataSize - 8);
 
-    stream.Position = data.DataOffset + 8;
+    reader._stream.Position = data.DataOffset + 8;
 
     var buffer = new byte[length];
-    stream.ReadExactly(buffer);
+    reader._stream.ReadExactly(buffer);
 
     result.Add(new IsoBmffMetadataEntry(key, Encoding.UTF8.GetString(buffer), item, data));
   }

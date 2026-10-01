@@ -26,7 +26,6 @@ internal sealed record IsoBmffRegion(long Offset, long Size) {
   public long End => Offset + Size;
 }
 
-// TODO the getBoxChildrenOffset func us using the original file stream!
 internal sealed class IsoBmffLayoutPlanner(List<IsoBmffBoxNode> boxes, Func<IsoBmffBox, long> getBoxChildrenOffset) {
   private readonly List<IsoBmffBoxNode> _boxes = boxes;
   private readonly Func<IsoBmffBox, long> _getBoxChildrenOffset = getBoxChildrenOffset;
@@ -230,8 +229,9 @@ internal sealed class IsoBmffLayoutPlanner(List<IsoBmffBoxNode> boxes, Func<IsoB
     var childOffset = offset + node.Box.HeaderSize + _getBoxChildrenOffset(node.Box);
 
     foreach (var child in children) {
+      var childSize = child.Box.Size + (deltas.TryGetValue(child, out var childDelta) ? childDelta : 0);
       _addEditedTree(result, child, childOffset, deltas);
-      childOffset += result[^1].Size;
+      childOffset += childSize;
     }
   }
 

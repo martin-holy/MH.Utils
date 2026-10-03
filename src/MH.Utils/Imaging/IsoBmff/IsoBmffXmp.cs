@@ -28,7 +28,7 @@ internal class IsoBmffXmp {
     if (!xmp.StartsWith("<?xpacket", StringComparison.Ordinal))
       return null;
 
-    return new IsoBmffMetadataEntry("xmp", xmp, uuid, uuid);
+    return new IsoBmffMetadataEntry("xmp", xmp, uuid);
   }
 
   private static bool _isXmp(Stream stream, IsoBmffBox box) {

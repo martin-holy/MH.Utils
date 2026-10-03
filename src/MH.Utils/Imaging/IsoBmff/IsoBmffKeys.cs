@@ -94,6 +94,6 @@ internal sealed class IsoBmffKeys(IsoBmffReader reader, IsoBmffBox keys, IsoBmff
     var buffer = new byte[length];
     reader._stream.ReadExactly(buffer);
 
-    result.Add(new IsoBmffMetadataEntry(key, Encoding.UTF8.GetString(buffer), item, data));
+    result.Add(new IsoBmffMetadataEntry(key, Encoding.UTF8.GetString(buffer), item));
   }
 }

@@ -24,7 +24,7 @@ internal sealed class IsoBmffItemList(IsoBmffReader reader, IsoBmffBox ilst) {
     var entries = _getEntries();
 
     foreach (var entry in entries) {
-      if (entry.Item.Type == type)
+      if (entry.Item?.Type == type)
         return entry.Value;
     }
 
@@ -65,7 +65,7 @@ internal sealed class IsoBmffItemList(IsoBmffReader reader, IsoBmffBox ilst) {
     var buffer = new byte[length];
     reader._stream.ReadExactly(buffer);
 
-    // TODO it might now always be UTF8 string!
-    return new IsoBmffMetadataEntry(key, Encoding.UTF8.GetString(buffer), item, data);
+    // TODO it might not always be UTF8 string!
+    return new IsoBmffMetadataEntry(key, Encoding.UTF8.GetString(buffer), item);
   }
 }

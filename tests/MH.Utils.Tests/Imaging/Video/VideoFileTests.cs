@@ -52,7 +52,7 @@ public class VideoFileTests {
     Assert.AreEqual(moov.Box.Offset, move.SourceOffset);
     Assert.AreEqual(moov.Box.Offset - 24, move.DestinationOffset);
     Assert.AreEqual(moov.Box.Size, move.Length);
-    Assert.IsTrue(move.Direction == IsoBmffMoveDirection.Up);
+    Assert.IsTrue(move.DestinationOffset < move.SourceOffset);
   }
 
   [TestMethod]

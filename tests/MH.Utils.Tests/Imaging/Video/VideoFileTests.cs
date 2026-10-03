@@ -83,6 +83,129 @@ public class VideoFileTests {
     Assert.ThrowsException<InvalidOperationException>(() => planner.CreateEditedLayout(original, edit));
   }
 
+  [TestMethod]
+  public void MoveUp_NonOverlapping() {
+    var data = _createData(100);
+    var original = data.ToArray();
+    using var stream = new MemoryStream(data);
+    var move = new IsoBmffMove(60, 20, 20);
+    IsoBmffLayoutExecutor.ExecuteMoves(stream, [move]);
+    _assertMoved(data, original, 60, 20, 20);
+  }
+
+  [TestMethod]
+  public void MoveUp_Overlapping() {
+    var data = _createData(100);
+    var original = data.ToArray();
+    using var stream = new MemoryStream(data);
+    var move = new IsoBmffMove(20, 0, 60);
+    IsoBmffLayoutExecutor.ExecuteMoves(stream, [move]);
+    _assertMoved(data, original, 20, 0, 60);
+  }
+
+  [TestMethod]
+  public void MoveDown_NonOverlapping() {
+    var data = _createData(100);
+    var original = data.ToArray();
+    using var stream = new MemoryStream(data);
+    var move = new IsoBmffMove(20, 60, 20);
+    IsoBmffLayoutExecutor.ExecuteMoves(stream, [move]);
+    _assertMoved(data, original, 20, 60, 20);
+  }
+
+  [TestMethod]
+  public void MoveDown_Overlapping() {
+    var data = _createData(100);
+    var original = data.ToArray();
+    using var stream = new MemoryStream(data);
+    var move = new IsoBmffMove(0, 20, 60);
+    IsoBmffLayoutExecutor.ExecuteMoves(stream, [move]);
+    _assertMoved(data, original, 0, 20, 60);
+  }
+
+  [TestMethod]
+  public void MoveUp_LargerThanBuffer() {
+    const int length = 64 * 1024 + 123;
+    const int source = 100;
+    const int destination = 0;
+
+    var data = _createData(source + length);
+    var original = data.ToArray();
+    using var stream = new MemoryStream(data);
+    var move = new IsoBmffMove(source, destination, length);
+    IsoBmffLayoutExecutor.ExecuteMoves(stream, [move]);
+    _assertMoved(data, original, source, destination, length);
+  }
+
+  [TestMethod]
+  public void MoveDown_LargerThanBuffer() {
+    const int length = 64 * 1024 + 123;
+    const int source = 0;
+    const int destination = 100;
+
+    var data = _createData(destination + length);
+    var original = data.ToArray();
+    using var stream = new MemoryStream(data);
+    var move = new IsoBmffMove(source, destination, length);
+    IsoBmffLayoutExecutor.ExecuteMoves(stream, [move]);
+    _assertMoved(data, original, source, destination, length);
+  }
+
+  [TestMethod]
+  public void Move_ZeroLength_DoesNothing() {
+    var data = _createData(100);
+    var original = data.ToArray();
+    using var stream = new MemoryStream(data);
+    var move = new IsoBmffMove(20, 60, 0);
+    IsoBmffLayoutExecutor.ExecuteMoves(stream, [move]);
+    CollectionAssert.AreEqual(original, data);
+  }
+
+  [TestMethod]
+  public void Move_SameOffset_DoesNothing() {
+    var data = _createData(100);
+    var original = data.ToArray();
+    using var stream = new MemoryStream(data);
+    var move = new IsoBmffMove(20, 20, 40);
+    IsoBmffLayoutExecutor.ExecuteMoves(stream, [move]);
+    CollectionAssert.AreEqual(original, data);
+  }
+
+  [TestMethod]
+  public void ExecuteMoves_ExecutesMultipleMoves() {
+    var data = _createData(100);
+    var original = data.ToArray();
+    using var stream = new MemoryStream(data);
+
+    var moves = new[] {
+      new IsoBmffMove(0, 20, 20),
+      new IsoBmffMove(60, 40, 20)
+    };
+
+    IsoBmffLayoutExecutor.ExecuteMoves(stream, moves);
+
+    _assertMoved(data, original, 0, 20, 20);
+    _assertMoved(data, original, 60, 40, 20);
+  }
+
+  private static void _assertMoved(byte[] actual, byte[] original, int source, int destination, int length) {
+    for (var i = 0; i < length; i++) {
+      Assert.AreEqual(
+        original[source + i],
+        actual[destination + i],
+        $"Byte at destination {destination + i} is incorrect.");
+    }
+  }
+
+  private static byte[] _createData(int length) {
+    var data = new byte[length];
+
+    for (var i = 0; i < length; i++)
+      data[i] = (byte)(i % 251);
+
+    return data;
+  }
+
   private sealed record BoxSnapshot(uint Type, long Offset, long Size, int Parent);
 
   private static List<BoxSnapshot> _snapshot(List<IsoBmffBoxNode> boxes) =>

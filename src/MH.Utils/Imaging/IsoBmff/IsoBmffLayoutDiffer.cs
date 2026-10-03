@@ -15,15 +15,12 @@ internal static class IsoBmffLayoutDiffer {
       var old = original[box.Node];
 
       if (old.Offset != box.Offset) {
-        var direction = box.Offset > old.Offset ? IsoBmffMoveDirection.Down : IsoBmffMoveDirection.Up;
-        result.Moves.Add(new IsoBmffMove(old.Offset, box.Offset, old.Size, direction));
-
+        result.Moves.Add(new IsoBmffMove(old.Offset, box.Offset, old.Size));
         continue;
       }
 
       if (box.Node == edit.BoxNode) {
         result.Writes.Add(new IsoBmffWrite(box.Offset, box.Size));
-
         continue;
       }
 

@@ -4,9 +4,7 @@ using System.Linq;
 
 namespace MH.Utils.Imaging.IsoBmff;
 
-internal enum IsoBmffMoveDirection { Up, Down }
-
-internal sealed record IsoBmffMove(long SourceOffset, long DestinationOffset, long Length, IsoBmffMoveDirection Direction);
+internal sealed record IsoBmffMove(long SourceOffset, long DestinationOffset, long Length);
 
 internal sealed record IsoBmffWrite(long Offset, long Length);
 
@@ -93,32 +91,6 @@ internal sealed class IsoBmffLayoutPlanner(List<IsoBmffBoxNode> boxes, Func<IsoB
     var parentIndex = _boxes.IndexOf(parent);
 
     return [.. _boxes.Where(x => x.Parent == parentIndex)];
-  }
-
-  // TODO deltas are not used
-  private IsoBmffBoxNode _getAffectedRoot(IsoBmffBoxNode edit, Dictionary<IsoBmffBoxNode, long> deltas) {
-    var node = edit;
-
-    while (node.Parent >= 0)
-      node = _boxes[node.Parent];
-
-    return node;
-  }
-
-  private static IsoBmffRegion _getNewRegion(IsoBmffLayoutBox original, long newSize, IsoBmffLayoutBox? before, IsoBmffLayoutBox? after) {
-    var delta = newSize - original.Size;
-
-    if (delta <= 0)
-      return new IsoBmffRegion(original.Offset, newSize);
-
-    var fromAfter = Math.Min(delta, after?.Size ?? 0);
-    var remaining = delta - fromAfter;
-    var fromBefore = Math.Min(remaining, before?.Size ?? 0);
-
-    if (fromAfter + fromBefore != delta)
-      throw new InvalidOperationException("Not enough adjacent free space.");
-
-    return new IsoBmffRegion(original.Offset - fromBefore, newSize);
   }
 
   internal IsoBmffLayout CreateOriginalLayout() {

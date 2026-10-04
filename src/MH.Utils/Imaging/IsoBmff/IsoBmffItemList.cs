@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Text;
 
 namespace MH.Utils.Imaging.IsoBmff;
@@ -67,5 +68,58 @@ internal sealed class IsoBmffItemList(IsoBmffReader reader, IsoBmffBox ilst) {
 
     // TODO it might not always be UTF8 string!
     return new IsoBmffMetadataEntry(key, Encoding.UTF8.GetString(buffer), item);
+  }
+
+  public void SetKeywords(string? value, List<IsoBmffBoxNode> editedBoxes) {
+    var entries = _getEntries();
+
+    for (var i = 0; i < entries.Count; i++) {
+      var entry = entries[i];
+
+      if (entry.Item?.Type != IsoBmffTypes.Keyw)
+        continue;
+
+      if (value is null) {
+        _removeEntry(entry, editedBoxes);
+        entries.RemoveAt(i);
+      }
+      else {
+        entry.Value = value;
+      }
+
+      return;
+    }
+
+    if (value is null) return;
+
+    var valueSize = Encoding.UTF8.GetByteCount(value);
+    var item = new IsoBmffBox(-1, 8, 24 + valueSize, IsoBmffTypes.Keyw);
+    var data = new IsoBmffBox(-1, 8, 16 + valueSize, IsoBmffTypes.Data);
+    var ilstIndex = editedBoxes.FindIndex(x => x.Box.Equals(ilst));
+
+    if (ilstIndex < 0)
+      throw new InvalidOperationException("The ilst box was not found.");
+
+    var itemIndex = editedBoxes.Count;
+
+    editedBoxes.Add(new IsoBmffBoxNode(item, ilstIndex));
+    editedBoxes.Add(new IsoBmffBoxNode(data, itemIndex));
+
+    editedBoxes.UpdateParentSizes(ilstIndex, item.Size);
+
+    entries.Add(new IsoBmffMetadataEntry("keyw", value, item));
+  }
+
+  private static void _removeEntry(IsoBmffMetadataEntry entry, List<IsoBmffBoxNode> editedBoxes) {
+    if (entry.Item is not { } item) return;
+
+    var itemIndex = editedBoxes.FindIndex(x => x.Box.Equals(item));
+
+    if (itemIndex < 0) return;
+
+    for (var i = editedBoxes.Count - 1; i >= 0; i--) {
+      if (editedBoxes[i].Parent == itemIndex || i == itemIndex)
+        editedBoxes.RemoveAt(i);
+    }
   }
 }

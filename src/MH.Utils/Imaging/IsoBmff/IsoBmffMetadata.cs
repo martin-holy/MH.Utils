@@ -80,6 +80,11 @@ internal class IsoBmffMetadata {
     return keywords?.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
   }
 
+  public void SetKeywords(string? value) {
+    var itemList = _getOrCreateItemList();
+    itemList.SetKeywords(value, _getEditedBoxes());
+  }
+
   private IsoBmffBox? _findVideoTrack(IsoBmffBox moov) {
     _stream.Position = moov.DataOffset;
     var end = moov.End;

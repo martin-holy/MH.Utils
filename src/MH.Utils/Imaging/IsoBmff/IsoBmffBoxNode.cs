@@ -3,7 +3,7 @@
 namespace MH.Utils.Imaging.IsoBmff;
 
 internal class IsoBmffBoxNode(IsoBmffBox box, int parent) {
-  public IsoBmffBox Box { get; } = box;
+  public IsoBmffBox Box { get; set; } = box;
   public int Parent { get; } = parent;
 }
 

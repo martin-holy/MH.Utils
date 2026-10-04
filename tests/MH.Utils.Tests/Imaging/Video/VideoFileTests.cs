@@ -234,6 +234,33 @@ public class VideoFileTests {
     Assert.AreSame(itemList, secondItemList);
     Assert.AreEqual(boxes.Count, file._metadata._getEditedBoxes().Count);
     Assert.AreEqual(originalMoovSize + 28, boxes[moovIndex].Box.Size);
+
+    // Set Keywords
+    file._metadata.SetKeywords("hello");
+
+    boxes = file._metadata._getEditedBoxes();
+
+    var keywIndex = boxes.FindIndex(IsoBmffTypes.Keyw, ilstIndex);
+    var dataIndex = boxes.FindIndex(IsoBmffTypes.Data, keywIndex);
+
+    Assert.IsTrue(keywIndex >= 0);
+    Assert.IsTrue(dataIndex >= 0);
+
+    Assert.AreEqual(ilstIndex, boxes[keywIndex].Parent);
+    Assert.AreEqual(keywIndex, boxes[dataIndex].Parent);
+
+    Assert.AreEqual(-1, boxes[keywIndex].Box.Offset);
+    Assert.AreEqual(-1, boxes[dataIndex].Box.Offset);
+
+    Assert.AreEqual(29, boxes[keywIndex].Box.Size);
+    Assert.AreEqual(21, boxes[dataIndex].Box.Size);
+
+    Assert.AreEqual(37, boxes[ilstIndex].Box.Size);
+    Assert.AreEqual(49, boxes[metaIndex].Box.Size);
+    Assert.AreEqual(57, boxes[udtaIndex].Box.Size);
+    Assert.AreEqual(originalMoovSize + 57, boxes[moovIndex].Box.Size);
+
+    Assert.AreEqual("hello", itemList.GetKeywords());
   }
 
   private static void _assertMoved(byte[] actual, byte[] original, int source, int destination, int length) {

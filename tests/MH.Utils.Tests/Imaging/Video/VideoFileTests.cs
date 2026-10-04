@@ -188,6 +188,54 @@ public class VideoFileTests {
     _assertMoved(data, original, 60, 40, 20);
   }
 
+  [TestMethod]
+  public void ItemList_CreateStructure() {
+    using var stream = _createTestFile(withItemList: false);
+
+    var file = new IsoBmffFile(stream);
+
+    var boxes = file._metadata._getEditedBoxes();
+
+    var moovIndex = boxes.FindIndex(IsoBmffTypes.Moov);
+    Assert.IsTrue(moovIndex >= 0);
+
+    var originalMoovSize = boxes[moovIndex].Box.Size;
+
+    var itemList = file._metadata._getOrCreateItemList();
+
+    Assert.IsNotNull(itemList);
+
+    boxes = file._metadata._getEditedBoxes();
+
+    var udtaIndex = boxes.FindIndex(IsoBmffTypes.Udta, moovIndex);
+    var metaIndex = boxes.FindIndex(IsoBmffTypes.Meta, udtaIndex);
+    var ilstIndex = boxes.FindIndex(IsoBmffTypes.Ilst, metaIndex);
+
+    Assert.IsTrue(udtaIndex >= 0);
+    Assert.IsTrue(metaIndex >= 0);
+    Assert.IsTrue(ilstIndex >= 0);
+
+    Assert.AreEqual(moovIndex, boxes[udtaIndex].Parent);
+    Assert.AreEqual(udtaIndex, boxes[metaIndex].Parent);
+    Assert.AreEqual(metaIndex, boxes[ilstIndex].Parent);
+
+    Assert.AreEqual(-1, boxes[udtaIndex].Box.Offset);
+    Assert.AreEqual(-1, boxes[metaIndex].Box.Offset);
+    Assert.AreEqual(-1, boxes[ilstIndex].Box.Offset);
+
+    Assert.AreEqual(28, boxes[udtaIndex].Box.Size);
+    Assert.AreEqual(20, boxes[metaIndex].Box.Size);
+    Assert.AreEqual(8, boxes[ilstIndex].Box.Size);
+
+    Assert.AreEqual(originalMoovSize + 28, boxes[moovIndex].Box.Size);
+
+    var secondItemList = file._metadata._getOrCreateItemList();
+
+    Assert.AreSame(itemList, secondItemList);
+    Assert.AreEqual(boxes.Count, file._metadata._getEditedBoxes().Count);
+    Assert.AreEqual(originalMoovSize + 28, boxes[moovIndex].Box.Size);
+  }
+
   private static void _assertMoved(byte[] actual, byte[] original, int source, int destination, int length) {
     for (var i = 0; i < length; i++) {
       Assert.AreEqual(
@@ -211,7 +259,7 @@ public class VideoFileTests {
   private static List<BoxSnapshot> _snapshot(List<IsoBmffBoxNode> boxes) =>
     [.. boxes.Select(x => new BoxSnapshot(x.Box.Type, x.Box.Offset, x.Box.Size, x.Parent))];
 
-  private static MemoryStream _createTestFile(int beforeFreeSize = 32, int afterFreeSize = 32) {
+  private static MemoryStream _createTestFile(int beforeFreeSize = 32, int afterFreeSize = 32, bool withItemList = true) {
     var stream = new MemoryStream();
 
     _writeBox(stream, "ftyp", 24);
@@ -222,43 +270,10 @@ public class VideoFileTests {
     _writeContainer(stream, "moov", moov => {
       _writeBox(moov, "mvhd", 108);
 
-      _writeContainer(moov, "meta", meta => {
-        // meta is a FullBox: version + flags.
-        _writeUInt32(meta, 0);
+      if (withItemList)
+        _writeItemList(moov);
 
-        _writeBox(meta, "hdlr", 33);
-        _writeBox(meta, "keys", 43);
-
-        _writeContainer(meta, "ilst", ilst => {
-          _writeBox(ilst, "keyw", 28);
-        });
-      });
-
-      _writeContainer(moov, "trak", trak => {
-        _writeBox(trak, "tkhd", 92);
-
-        _writeContainer(trak, "mdia", mdia => {
-          _writeBox(mdia, "mdhd", 32);
-          _writeBox(mdia, "hdlr", 44);
-
-          _writeContainer(mdia, "minf", minf => {
-            _writeBox(minf, "vmhd", 20);
-
-            _writeContainer(minf, "dinf", dinf => {
-              _writeContainer(dinf, "dref", dref => {
-              });
-            });
-
-            _writeContainer(minf, "stbl", stbl => {
-              _writeBox(stbl, "stsd", 32);
-              _writeBox(stbl, "stts", 32);
-              _writeBox(stbl, "stsz", 32);
-              _writeBox(stbl, "stsc", 32);
-              _writeBox(stbl, "co64", 32);
-            });
-          });
-        });
-      });
+      _writeVideoTrack(moov);
     });
 
     if (afterFreeSize > 0)
@@ -268,6 +283,72 @@ public class VideoFileTests {
 
     stream.Position = 0;
     return stream;
+  }
+
+  private static void _writeItemList(Stream moov) {
+    _writeContainer(moov, "udta", udta => {
+      _writeContainer(udta, "meta", meta => {
+        _writeUInt32(meta, 0);
+
+        _writeBox(meta, "hdlr", 33);
+
+        _writeContainer(meta, "ilst", ilst => {
+          _writeBox(ilst, "keyw", 28);
+        });
+      });
+    });
+  }
+
+  private static void _writeVideoTrack(Stream moov) {
+    _writeContainer(moov, "trak", trak => {
+      _writeBox(trak, "tkhd", 92);
+
+      _writeContainer(trak, "mdia", mdia => {
+        _writeMdhd(mdia);
+
+        _writeContainer(mdia, "hdlr", hdlr => {
+          _writeUInt32(hdlr, 0); // version + flags
+          _writeUInt32(hdlr, 0); // pre_defined
+          _writeUInt32(hdlr, IsoBmffTypes.Vide);
+        });
+
+        _writeContainer(mdia, "minf", minf => {
+          _writeBox(minf, "vmhd", 20);
+
+          _writeContainer(minf, "dinf", dinf => {
+            _writeContainer(dinf, "dref", dref => {
+            });
+          });
+
+          _writeContainer(minf, "stbl", stbl => {
+            _writeBox(stbl, "stsd", 32);
+            _writeStts(stbl);
+            _writeBox(stbl, "stsz", 32);
+            _writeBox(stbl, "stsc", 32);
+            _writeBox(stbl, "co64", 32);
+          });
+        });
+      });
+    });
+  }
+
+  private static void _writeStts(Stream stbl) {
+    _writeContainer(stbl, "stts", stts => {
+      _writeUInt32(stts, 0);      // version + flags
+      _writeUInt32(stts, 1);      // entry count
+      _writeUInt32(stts, 30);     // sample count
+      _writeUInt32(stts, 3000);   // sample delta
+    });
+  }
+
+  private static void _writeMdhd(Stream mdia) {
+    _writeContainer(mdia, "mdhd", mdhd => {
+      _writeUInt32(mdhd, 0);       // version + flags
+      _writeUInt32(mdhd, 0);       // creation time
+      _writeUInt32(mdhd, 0);       // modification time
+      _writeUInt32(mdhd, 90000);   // timescale
+      _writeUInt32(mdhd, 900000);  // duration = 10 seconds
+    });
   }
 
   private static void _writeContainer(Stream stream, string type, Action<Stream> writeChildren) {

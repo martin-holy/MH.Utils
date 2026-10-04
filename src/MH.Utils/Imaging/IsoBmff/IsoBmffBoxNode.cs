@@ -28,4 +28,18 @@ internal static class IsoBmffBoxNodeExtensions {
     var index = FindIndex(boxes, type, parent);
     return index == -1 ? null : boxes[index].Box;
   }
+
+  public static void UpdateParentSizes(this IList<IsoBmffBoxNode> boxes, int parentIndex, long size) {
+    while (parentIndex >= 0) {
+      var parent = boxes[parentIndex];
+
+      parent.Box = new IsoBmffBox(
+        parent.Box.Offset,
+        parent.Box.HeaderSize,
+        parent.Box.Size + size,
+        parent.Box.Type);
+
+      parentIndex = parent.Parent;
+    }
+  }
 }

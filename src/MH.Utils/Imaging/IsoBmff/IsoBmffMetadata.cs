@@ -230,27 +230,12 @@ internal class IsoBmffMetadata {
     return _itemList = new IsoBmffItemList(_reader, ilst);
   }
 
-  private int _addBox(uint type, long size, int parentIndex, List<IsoBmffBoxNode> editedBoxes) {
+  private static int _addBox(uint type, long size, int parentIndex, List<IsoBmffBoxNode> editedBoxes) {
     var index = editedBoxes.Count;
 
     editedBoxes.Add(new IsoBmffBoxNode(new IsoBmffBox(-1, 8, size, type), parentIndex));
-
-    _updateParentSize(parentIndex, size, editedBoxes);
+    editedBoxes.UpdateParentSizes(parentIndex, size);
 
     return index;
-  }
-
-  private void _updateParentSize(int parentIndex, long size, List<IsoBmffBoxNode> editedBoxes) {
-    while (parentIndex >= 0) {
-      var parent = editedBoxes[parentIndex];
-
-      parent.Box = new IsoBmffBox(
-        parent.Box.Offset,
-        parent.Box.HeaderSize,
-        parent.Box.Size + size,
-        parent.Box.Type);
-
-      parentIndex = parent.Parent;
-    }
   }
 }

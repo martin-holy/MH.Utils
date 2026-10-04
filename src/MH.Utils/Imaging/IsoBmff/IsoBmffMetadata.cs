@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Buffers.Binary;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 namespace MH.Utils.Imaging.IsoBmff;
 
@@ -8,6 +10,7 @@ internal class IsoBmffMetadata {
   private readonly Stream _stream;
   private readonly IsoBmffReader _reader;
   private readonly IsoBmffBox _moov;
+  private List<IsoBmffBoxNode>? _editedBoxes;
 
   private bool _itemListRead;
   private bool _keysRead;
@@ -179,5 +182,70 @@ internal class IsoBmffMetadata {
     if (sampleCount == 0 || duration == 0) return null;
 
     return (double)sampleCount * timescale / duration;
+  }
+
+  internal List<IsoBmffBoxNode> _getEditedBoxes() {
+    if (_editedBoxes is not null)
+      return _editedBoxes;
+
+    _editedBoxes = _reader._readBoxes()
+      .Select(x => new IsoBmffBoxNode(x.Box, x.Parent))
+      .ToList();
+
+    return _editedBoxes;
+  }
+
+  internal IsoBmffItemList _getOrCreateItemList() {
+    if (_getItemList() is { } itemList) return itemList;
+
+    var editedBoxes = _getEditedBoxes();
+
+    var moovIndex = editedBoxes.FindIndex(IsoBmffTypes.Moov);
+
+    if (moovIndex < 0)
+      throw new InvalidOperationException("The moov box was not found.");
+
+    var udtaIndex = editedBoxes.FindIndex(IsoBmffTypes.Udta, moovIndex);
+
+    if (udtaIndex < 0)
+      udtaIndex = _addBox(IsoBmffTypes.Udta, 8, moovIndex, editedBoxes);
+
+    var metaIndex = editedBoxes.FindIndex(IsoBmffTypes.Meta, udtaIndex);
+
+    if (metaIndex < 0)
+      metaIndex = _addBox(IsoBmffTypes.Meta, 12, udtaIndex, editedBoxes);
+
+    var ilstIndex = editedBoxes.FindIndex(IsoBmffTypes.Ilst, metaIndex);
+
+    if (ilstIndex < 0)
+      ilstIndex = _addBox(IsoBmffTypes.Ilst, 8, metaIndex, editedBoxes);
+
+    var ilst = editedBoxes[ilstIndex].Box;
+
+    return _itemList = new IsoBmffItemList(_reader, ilst);
+  }
+
+  private int _addBox(uint type, long size, int parentIndex, List<IsoBmffBoxNode> editedBoxes) {
+    var index = editedBoxes.Count;
+
+    editedBoxes.Add(new IsoBmffBoxNode(new IsoBmffBox(-1, 8, size, type), parentIndex));
+
+    _updateParentSize(parentIndex, size, editedBoxes);
+
+    return index;
+  }
+
+  private void _updateParentSize(int parentIndex, long size, List<IsoBmffBoxNode> editedBoxes) {
+    while (parentIndex >= 0) {
+      var parent = editedBoxes[parentIndex];
+
+      parent.Box = new IsoBmffBox(
+        parent.Box.Offset,
+        parent.Box.HeaderSize,
+        parent.Box.Size + size,
+        parent.Box.Type);
+
+      parentIndex = parent.Parent;
+    }
   }
 }

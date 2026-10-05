@@ -93,7 +93,7 @@ internal sealed class IsoBmffItemList(IsoBmffReader reader, IsoBmffBox ilst) {
     if (value is null) return;
 
     var valueSize = Encoding.UTF8.GetByteCount(value);
-    var item = new IsoBmffBox(-1, 8, 24 + valueSize, IsoBmffTypes.Keyw);
+    var item = new IsoBmffBox(-1, 8, 8, IsoBmffTypes.Keyw);
     var data = new IsoBmffBox(-1, 8, 16 + valueSize, IsoBmffTypes.Data);
     var ilstIndex = editedBoxes.FindIndex(ilst);
 
@@ -101,9 +101,8 @@ internal sealed class IsoBmffItemList(IsoBmffReader reader, IsoBmffBox ilst) {
       throw new InvalidOperationException("The ilst box was not found.");
 
     var itemIndex = editedBoxes.InsertBox(item, ilstIndex);
-    editedBoxes.InsertBox(data, itemIndex);
 
-    editedBoxes.UpdateParentSizes(ilstIndex, item.Size);
+    editedBoxes.InsertBox(data, itemIndex);
 
     entries.Add(new IsoBmffMetadataEntry("keyw", value, item));
   }

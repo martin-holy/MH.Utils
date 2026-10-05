@@ -80,7 +80,7 @@ internal sealed class IsoBmffItemList(IsoBmffReader reader, IsoBmffBox ilst) {
         continue;
 
       if (value is null) {
-        _removeEntry(entry, editedBoxes);
+        editedBoxes.RemoveBox(editedBoxes.FindIndex(entry.Item));
         entries.RemoveAt(i);
       }
       else {
@@ -134,16 +134,5 @@ internal sealed class IsoBmffItemList(IsoBmffReader reader, IsoBmffBox ilst) {
       editedBoxes.UpdateParentSizes(editedBoxes[itemIndex].Parent, delta);
 
     entry.Value = value;
-  }
-
-  private static void _removeEntry(IsoBmffMetadataEntry entry, List<IsoBmffBoxNode> editedBoxes) {
-    var itemIndex = editedBoxes.FindIndex(entry.Item);
-
-    if (itemIndex < 0) return;
-
-    for (var i = editedBoxes.Count - 1; i >= 0; i--) {
-      if (editedBoxes[i].Parent == itemIndex || i == itemIndex)
-        editedBoxes.RemoveAt(i);
-    }
   }
 }

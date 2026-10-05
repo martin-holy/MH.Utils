@@ -74,6 +74,9 @@ internal static class IsoBmffBoxNodeExtensions {
     return index;
   }
 
+  public static int InsertBox(this List<IsoBmffBoxNode> boxes, uint type, long size, int parentIndex) =>
+    boxes.InsertBox(new IsoBmffBox(-1, 8, size, type), parentIndex);
+
   private static bool _isDescendantOf(IsoBmffBoxNode node, int ancestorIndex, List<IsoBmffBoxNode> boxes) {
     var parent = node.Parent;
 

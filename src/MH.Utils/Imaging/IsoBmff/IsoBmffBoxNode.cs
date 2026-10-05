@@ -32,11 +32,13 @@ internal static class IsoBmffBoxNodeExtensions {
     return -1;
   }
 
+  // TODO not used
   public static IsoBmffBoxNode? FindNode(this IList<IsoBmffBoxNode> boxes, uint type, int parent = -1) {
     var index = FindIndex(boxes, type, parent);
     return index == -1 ? null : boxes[index];
   }
 
+  // TODO not used
   public static IsoBmffBox? FindBox(this IList<IsoBmffBoxNode> boxes, uint type, int parent = -1) {
     var index = FindIndex(boxes, type, parent);
     return index == -1 ? null : boxes[index].Box;
@@ -67,6 +69,7 @@ internal static class IsoBmffBoxNodeExtensions {
         boxes[i].Parent++;
 
     boxes.Insert(index, new IsoBmffBoxNode(box, parentIndex));
+    boxes.UpdateParentSizes(parentIndex, box.Size);
 
     return index;
   }

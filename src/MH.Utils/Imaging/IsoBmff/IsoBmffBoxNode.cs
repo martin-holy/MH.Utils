@@ -19,6 +19,19 @@ internal static class IsoBmffBoxNodeExtensions {
     return -1;
   }
 
+  public static int FindIndex(this IList<IsoBmffBoxNode> boxes, IsoBmffBox? box) {
+    if (box is not { } boxValue) return -1;
+
+    for (var i = 0; i < boxes.Count; i++) {
+      var node = boxes[i];
+
+      if (node.Box.Offset == boxValue.Offset && node.Box.Type == boxValue.Type)
+        return i;
+    }
+
+    return -1;
+  }
+
   public static IsoBmffBoxNode? FindNode(this IList<IsoBmffBoxNode> boxes, uint type, int parent = -1) {
     var index = FindIndex(boxes, type, parent);
     return index == -1 ? null : boxes[index];

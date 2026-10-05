@@ -1,9 +1,45 @@
 ﻿using MH.Utils.Imaging.IsoBmff;
+using System.Diagnostics;
+using System.Text;
 
 namespace MH.Utils.Tests.Imaging.Video;
 
 [TestClass]
 public class VideoFileTests {
+  //[TestMethod]
+  public void DebugTest() {
+    var path = @"e:\!test\vid\input.mp4";
+    //var path = @"e:\!test\vid\keywords-default.mp4";
+    //var path = @"e:\!test\vid\keywords-itemlist.mp4";
+    //var path = @"e:\!test\vid\keywords-keys.mp4";
+    //var path = @"e:\!test\vid\keywords-xmp.mp4";
+    //var path = @"e:\Pictures\01 Digital_Foto\-=Sklad\vid\new\20240929_162412.mp4"; // rotated 90
+    using var stream = File.OpenRead(path);
+    var file = new IsoBmffFile(stream);
+
+    if (file._metadata._getItemList() is { } itemList)
+      Debug.WriteLine($"ItemList Keywords: {itemList.GetKeywords()}");
+
+    if (file._metadata._getKeys() is { } keys)
+      Debug.WriteLine($"Keys Keywords: {keys.GetKeywords()}");
+
+    Debug.WriteLine($"Metadata Keywords: {string.Join(", ", file._metadata.GetKeywords() ?? [])}");
+
+    if (file._getXmp() is { } xmp)
+      Debug.WriteLine($"XMP Keywords: {string.Join(", ", xmp.GetKeywords() ?? [])}");
+
+    //file.DumpBoxes();
+    //var boxes = file.ReadBoxes();
+
+    /*if (file._reader.Find(IsoBmffTypes.Moov) is { } moov) {
+      var metadata = file._metadata.Read(moov);
+      var xmp = file._metadata.Xmp;
+
+      foreach (var entry in metadata)
+        Debug.WriteLine($"key: {entry.Key}, value: {entry.Value}");
+    }*/
+  }
+
   [TestMethod]
   public void Layout_GrowIntoFreeAfter() {
     using var stream = _createTestFile(0, 64);
@@ -189,6 +225,49 @@ public class VideoFileTests {
   }
 
   [TestMethod]
+  public void InsertBox_PreservesHierarchyOrder() {
+    var boxes = new List<IsoBmffBoxNode> {
+      new(new IsoBmffBox(0, 8, 100, IsoBmffTypes.Moov), -1),
+      new(new IsoBmffBox(8, 8, 20, IsoBmffTypes.Mvhd), 0),
+      new(new IsoBmffBox(28, 8, 40, IsoBmffTypes.Udta), 0),
+      new(new IsoBmffBox(36, 12, 30, IsoBmffTypes.Meta), 2),
+      new(new IsoBmffBox(48, 8, 20, IsoBmffTypes.Ilst), 3),
+      new(new IsoBmffBox(68, 8, 50, IsoBmffTypes.Trak), 0),
+    };
+
+    var keywIndex = boxes.InsertBox(new IsoBmffBox(-1, 8, 29, IsoBmffTypes.Keyw), 4);
+    var dataIndex = boxes.InsertBox(new IsoBmffBox(-1, 8, 21, IsoBmffTypes.Data), keywIndex);
+
+    Assert.AreEqual(5, keywIndex);
+    Assert.AreEqual(6, dataIndex);
+
+    Assert.AreEqual(IsoBmffTypes.Moov, boxes[0].Box.Type);
+    Assert.AreEqual(IsoBmffTypes.Mvhd, boxes[1].Box.Type);
+    Assert.AreEqual(IsoBmffTypes.Udta, boxes[2].Box.Type);
+    Assert.AreEqual(IsoBmffTypes.Meta, boxes[3].Box.Type);
+    Assert.AreEqual(IsoBmffTypes.Ilst, boxes[4].Box.Type);
+    Assert.AreEqual(IsoBmffTypes.Keyw, boxes[5].Box.Type);
+    Assert.AreEqual(IsoBmffTypes.Data, boxes[6].Box.Type);
+    Assert.AreEqual(IsoBmffTypes.Trak, boxes[7].Box.Type);
+
+    Assert.AreEqual(-1, boxes[0].Parent);
+    Assert.AreEqual(0, boxes[1].Parent);
+    Assert.AreEqual(0, boxes[2].Parent);
+    Assert.AreEqual(2, boxes[3].Parent);
+    Assert.AreEqual(3, boxes[4].Parent);
+    Assert.AreEqual(4, boxes[5].Parent);
+    Assert.AreEqual(5, boxes[6].Parent);
+    Assert.AreEqual(0, boxes[7].Parent);
+
+    var secondKeywIndex = boxes.InsertBox(new IsoBmffBox(-1, 8, 30, IsoBmffTypes.Keyw), 4);
+
+    Assert.AreEqual(7, secondKeywIndex);
+    Assert.AreEqual(IsoBmffTypes.Keyw, boxes[7].Box.Type);
+    Assert.AreEqual(4, boxes[7].Parent);
+    Assert.AreEqual(IsoBmffTypes.Trak, boxes[8].Box.Type);
+  }
+
+  [TestMethod]
   public void ItemList_CreateStructure() {
     using var stream = _createTestFile(withItemList: false);
 
@@ -261,6 +340,57 @@ public class VideoFileTests {
     Assert.AreEqual(originalMoovSize + 57, boxes[moovIndex].Box.Size);
 
     Assert.AreEqual("hello", itemList.GetKeywords());
+
+    // Update Keywords
+    file._metadata.SetKeywords("world");
+
+    Assert.AreEqual("world", itemList.GetKeywords());
+
+    var keywCount = boxes.Count(x => x.Box.Type == IsoBmffTypes.Keyw);
+    var dataCount = boxes.Count(x => x.Box.Type == IsoBmffTypes.Data);
+
+    Assert.AreEqual(1, keywCount);
+    Assert.AreEqual(1, dataCount);
+
+    boxes = file._metadata._getEditedBoxes();
+
+    Assert.AreEqual(37, boxes[ilstIndex].Box.Size);
+    Assert.AreEqual(49, boxes[metaIndex].Box.Size);
+    Assert.AreEqual(57, boxes[udtaIndex].Box.Size);
+    Assert.AreEqual(originalMoovSize + 28 + 29, boxes[moovIndex].Box.Size);
+
+    // Update Keywords 2
+    file._metadata.SetKeywords("a much longer keyword value");
+
+    Assert.AreEqual("a much longer keyword value", itemList.GetKeywords());
+
+    var valueSize = Encoding.UTF8.GetByteCount("a much longer keyword value");
+    var expectedItemSize = 24 + valueSize;
+
+    Assert.AreEqual(expectedItemSize, boxes[keywIndex].Box.Size);
+    Assert.AreEqual(16 + valueSize, boxes[dataIndex].Box.Size);
+
+    Assert.AreEqual(8 + expectedItemSize, boxes[ilstIndex].Box.Size);
+    Assert.AreEqual(20 + expectedItemSize, boxes[metaIndex].Box.Size);
+    Assert.AreEqual(28 + expectedItemSize, boxes[udtaIndex].Box.Size);
+
+    // Update Keywords 3
+    var smallerValue = "x";
+    var smallerValueSize = Encoding.UTF8.GetByteCount(smallerValue);
+    var expectedSmallerItemSize = 24 + smallerValueSize;
+
+    file._metadata.SetKeywords(smallerValue);
+
+    boxes = file._metadata._getEditedBoxes();
+
+    Assert.AreEqual(expectedSmallerItemSize, boxes[keywIndex].Box.Size);
+    Assert.AreEqual(16 + smallerValueSize, boxes[dataIndex].Box.Size);
+
+    Assert.AreEqual(8 + expectedSmallerItemSize, boxes[ilstIndex].Box.Size);
+    Assert.AreEqual(20 + expectedSmallerItemSize, boxes[metaIndex].Box.Size);
+    Assert.AreEqual(28 + expectedSmallerItemSize, boxes[udtaIndex].Box.Size);
+
+    Assert.AreEqual("x", itemList.GetKeywords());
   }
 
   private static void _assertMoved(byte[] actual, byte[] original, int source, int destination, int length) {

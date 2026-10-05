@@ -83,4 +83,23 @@ internal static class IsoBmffBoxNodeExtensions {
 
     return false;
   }
+
+  public static void RemoveBox(this List<IsoBmffBoxNode> boxes, int index) {
+    var parentIndex = boxes[index].Parent;
+    var size = boxes[index].Box.Size;
+
+    var end = index + 1;
+
+    while (end < boxes.Count && boxes[end].Parent >= index) end++;
+
+    var count = end - index;
+
+    boxes.RemoveRange(index, count);
+
+    for (var i = 0; i < boxes.Count; i++)
+      if (boxes[i].Parent >= end)
+        boxes[i].Parent -= count;
+
+    boxes.UpdateParentSizes(parentIndex, -size);
+  }
 }

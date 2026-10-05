@@ -84,7 +84,7 @@ internal sealed class IsoBmffItemList(IsoBmffReader reader, IsoBmffBox ilst) {
         entries.RemoveAt(i);
       }
       else {
-        entry.Value = value;
+        _updateEntry(entry, editedBoxes, value);
       }
 
       return;
@@ -95,25 +95,49 @@ internal sealed class IsoBmffItemList(IsoBmffReader reader, IsoBmffBox ilst) {
     var valueSize = Encoding.UTF8.GetByteCount(value);
     var item = new IsoBmffBox(-1, 8, 24 + valueSize, IsoBmffTypes.Keyw);
     var data = new IsoBmffBox(-1, 8, 16 + valueSize, IsoBmffTypes.Data);
-    var ilstIndex = editedBoxes.FindIndex(x => x.Box.Equals(ilst));
+    var ilstIndex = editedBoxes.FindIndex(ilst);
 
     if (ilstIndex < 0)
       throw new InvalidOperationException("The ilst box was not found.");
 
-    var itemIndex = editedBoxes.Count;
-
-    editedBoxes.Add(new IsoBmffBoxNode(item, ilstIndex));
-    editedBoxes.Add(new IsoBmffBoxNode(data, itemIndex));
+    var itemIndex = editedBoxes.InsertBox(item, ilstIndex);
+    editedBoxes.InsertBox(data, itemIndex);
 
     editedBoxes.UpdateParentSizes(ilstIndex, item.Size);
 
     entries.Add(new IsoBmffMetadataEntry("keyw", value, item));
   }
 
-  private static void _removeEntry(IsoBmffMetadataEntry entry, List<IsoBmffBoxNode> editedBoxes) {
-    if (entry.Item is not { } item) return;
+  private void _updateEntry(IsoBmffMetadataEntry entry, List<IsoBmffBoxNode> editedBoxes, string value) {
+    var valueSize = Encoding.UTF8.GetByteCount(value);
+    var itemIndex = editedBoxes.FindIndex(entry.Item);
 
-    var itemIndex = editedBoxes.FindIndex(x => x.Box.Equals(item));
+    if (itemIndex < 0)
+      throw new InvalidOperationException("The keyw box was not found.");
+
+    var dataIndex = editedBoxes.FindIndex(
+      x => x.Parent == itemIndex && x.Box.Type == IsoBmffTypes.Data);
+
+    if (dataIndex < 0)
+      throw new InvalidOperationException("The keyw data box was not found.");
+
+    var data = editedBoxes[dataIndex].Box;
+    var item = editedBoxes[itemIndex].Box;
+
+    var newDataSize = 16 + valueSize;
+    var delta = newDataSize - data.Size;
+
+    editedBoxes[dataIndex].Box = new IsoBmffBox(data.Offset, data.HeaderSize, newDataSize, data.Type);
+    editedBoxes[itemIndex].Box = new IsoBmffBox(item.Offset, item.HeaderSize, item.Size + delta, item.Type);
+
+    if (delta != 0)
+      editedBoxes.UpdateParentSizes(editedBoxes[itemIndex].Parent, delta);
+
+    entry.Value = value;
+  }
+
+  private static void _removeEntry(IsoBmffMetadataEntry entry, List<IsoBmffBoxNode> editedBoxes) {
+    var itemIndex = editedBoxes.FindIndex(entry.Item);
 
     if (itemIndex < 0) return;
 

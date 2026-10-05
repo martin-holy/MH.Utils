@@ -193,6 +193,7 @@ internal class IsoBmffMetadata {
     if (_editedBoxes is not null)
       return _editedBoxes;
 
+    // TODO is this making copy on purpose?
     _editedBoxes = _reader._readBoxes()
       .Select(x => new IsoBmffBoxNode(x.Box, x.Parent))
       .ToList();
@@ -231,9 +232,8 @@ internal class IsoBmffMetadata {
   }
 
   private static int _addBox(uint type, long size, int parentIndex, List<IsoBmffBoxNode> editedBoxes) {
-    var index = editedBoxes.Count;
+    var index = editedBoxes.InsertBox(new IsoBmffBox(-1, 8, size, type), parentIndex);
 
-    editedBoxes.Add(new IsoBmffBoxNode(new IsoBmffBox(-1, 8, size, type), parentIndex));
     editedBoxes.UpdateParentSizes(parentIndex, size);
 
     return index;

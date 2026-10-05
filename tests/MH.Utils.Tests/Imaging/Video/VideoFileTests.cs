@@ -268,7 +268,49 @@ public class VideoFileTests {
   }
 
   [TestMethod]
-  public void ItemList_CreateStructure() {
+  public void RemoveBox_UpdatesParentIndexes() {
+    var boxes = new List<IsoBmffBoxNode> {
+      new(new IsoBmffBox(0, 8, 200, IsoBmffTypes.Moov), -1),
+      new(new IsoBmffBox(8, 8, 20, IsoBmffTypes.Mvhd), 0),
+
+      new(new IsoBmffBox(28, 8, 60, IsoBmffTypes.Udta), 0),
+      new(new IsoBmffBox(36, 12, 40, IsoBmffTypes.Meta), 2),
+      new(new IsoBmffBox(48, 8, 30, IsoBmffTypes.Ilst), 3),
+      new(new IsoBmffBox(78, 8, 20, IsoBmffTypes.Keyw), 4),
+      new(new IsoBmffBox(98, 8, 12, IsoBmffTypes.Data), 5),
+
+      new(new IsoBmffBox(110, 8, 40, IsoBmffTypes.Trak), 0),
+      new(new IsoBmffBox(150, 8, 20, IsoBmffTypes.Mdia), 7),
+    };
+
+    // Remove keyw + its data.
+    boxes.RemoveBox(5);
+
+    Assert.AreEqual(IsoBmffTypes.Moov, boxes[0].Box.Type);
+    Assert.AreEqual(IsoBmffTypes.Mvhd, boxes[1].Box.Type);
+    Assert.AreEqual(IsoBmffTypes.Udta, boxes[2].Box.Type);
+    Assert.AreEqual(IsoBmffTypes.Meta, boxes[3].Box.Type);
+    Assert.AreEqual(IsoBmffTypes.Ilst, boxes[4].Box.Type);
+    Assert.AreEqual(IsoBmffTypes.Trak, boxes[5].Box.Type);
+    Assert.AreEqual(IsoBmffTypes.Mdia, boxes[6].Box.Type);
+
+    Assert.AreEqual(-1, boxes[0].Parent);
+    Assert.AreEqual(0, boxes[1].Parent);
+    Assert.AreEqual(0, boxes[2].Parent);
+    Assert.AreEqual(2, boxes[3].Parent);
+    Assert.AreEqual(3, boxes[4].Parent);
+    Assert.AreEqual(0, boxes[5].Parent);
+    Assert.AreEqual(5, boxes[6].Parent);
+
+    Assert.AreEqual(180, boxes[0].Box.Size);
+    Assert.AreEqual(20, boxes[1].Box.Size);
+    Assert.AreEqual(40, boxes[2].Box.Size);
+    Assert.AreEqual(20, boxes[3].Box.Size);
+    Assert.AreEqual(10, boxes[4].Box.Size);
+  }
+
+  [TestMethod]
+  public void ItemList_CreateUpdateDeleteKeywords() {
     using var stream = _createTestFile(withItemList: false);
 
     var file = new IsoBmffFile(stream);
@@ -391,6 +433,24 @@ public class VideoFileTests {
     Assert.AreEqual(28 + expectedSmallerItemSize, boxes[udtaIndex].Box.Size);
 
     Assert.AreEqual("x", itemList.GetKeywords());
+
+    // Remove
+    file._metadata.SetKeywords(null);
+
+    boxes = file._metadata._getEditedBoxes();
+
+    keywIndex = boxes.FindIndex(IsoBmffTypes.Keyw, ilstIndex);
+    Assert.AreEqual(-1, keywIndex);
+
+    dataIndex = boxes.FindIndex(IsoBmffTypes.Data);
+    Assert.AreEqual(-1, dataIndex);
+
+    Assert.AreEqual(8, boxes[ilstIndex].Box.Size);
+    Assert.AreEqual(20, boxes[metaIndex].Box.Size);
+    Assert.AreEqual(28, boxes[udtaIndex].Box.Size);
+    Assert.AreEqual(originalMoovSize + 28, boxes[moovIndex].Box.Size);
+
+    Assert.IsNull(itemList.GetKeywords());
   }
 
   private static void _assertMoved(byte[] actual, byte[] original, int source, int destination, int length) {

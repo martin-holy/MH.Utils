@@ -214,28 +214,20 @@ internal class IsoBmffMetadata {
     var udtaIndex = editedBoxes.FindIndex(IsoBmffTypes.Udta, moovIndex);
 
     if (udtaIndex < 0)
-      udtaIndex = _addBox(IsoBmffTypes.Udta, 8, moovIndex, editedBoxes);
+      udtaIndex = editedBoxes.InsertBox(IsoBmffTypes.Udta, 8, moovIndex);
 
     var metaIndex = editedBoxes.FindIndex(IsoBmffTypes.Meta, udtaIndex);
 
     if (metaIndex < 0)
-      metaIndex = _addBox(IsoBmffTypes.Meta, 12, udtaIndex, editedBoxes);
+      metaIndex = editedBoxes.InsertBox(IsoBmffTypes.Meta, 12, udtaIndex);
 
     var ilstIndex = editedBoxes.FindIndex(IsoBmffTypes.Ilst, metaIndex);
 
     if (ilstIndex < 0)
-      ilstIndex = _addBox(IsoBmffTypes.Ilst, 8, metaIndex, editedBoxes);
+      ilstIndex = editedBoxes.InsertBox(IsoBmffTypes.Ilst, 8, metaIndex);
 
     var ilst = editedBoxes[ilstIndex].Box;
 
     return _itemList = new IsoBmffItemList(_reader, ilst);
-  }
-
-  private static int _addBox(uint type, long size, int parentIndex, List<IsoBmffBoxNode> editedBoxes) {
-    var index = editedBoxes.InsertBox(new IsoBmffBox(-1, 8, size, type), parentIndex);
-
-    editedBoxes.UpdateParentSizes(parentIndex, size);
-
-    return index;
   }
 }

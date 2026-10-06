@@ -8,18 +8,14 @@ internal sealed record IsoBmffMove(long SourceOffset, long DestinationOffset, lo
 
 internal sealed record IsoBmffWrite(long Offset, long Length);
 
-internal sealed class IsoBmffBoxEdit(IsoBmffBoxNode boxNode, long newSize) {
-  public IsoBmffBoxNode BoxNode { get; } = boxNode;
-  public long NewSize { get; } = newSize;
-  public long SizeDelta => NewSize - BoxNode.Box.Size;
-}
-
+// TODO not used
 internal sealed class IsoBmffLayoutPlan {
   public List<IsoBmffMove> Moves { get; } = [];
   public List<IsoBmffWrite> Writes { get; } = [];
   public bool RequiresRewrite { get; internal set; }
 }
 
+// TODO not used
 internal sealed record IsoBmffRegion(long Offset, long Size) {
   public long End => Offset + Size;
 }
@@ -27,38 +23,6 @@ internal sealed record IsoBmffRegion(long Offset, long Size) {
 internal sealed class IsoBmffLayoutPlanner(List<IsoBmffBoxNode> boxes, Func<IsoBmffBox, long> getBoxChildrenOffset) {
   private readonly List<IsoBmffBoxNode> _boxes = boxes;
   private readonly Func<IsoBmffBox, long> _getBoxChildrenOffset = getBoxChildrenOffset;
-
-  public IsoBmffLayout PlanLayout(IsoBmffBoxEdit edit) {
-    var deltas = _getSizeDeltas(edit);
-    var root = _getRoot(edit.BoxNode);
-    var layout = new List<IsoBmffLayoutBox>();
-
-    foreach (var box in _boxes) {
-      if (box.Parent >= 0)
-        continue;
-
-      _addLayout(layout, box, box.Box.Offset, deltas);
-    }
-
-    return new IsoBmffLayout(layout);
-  }
-
-  private Dictionary<IsoBmffBoxNode, long> _getSizeDeltas(IsoBmffBoxEdit edit) {
-    var deltas = new Dictionary<IsoBmffBoxNode, long>();
-    var delta = edit.SizeDelta;
-    var node = edit.BoxNode;
-
-    while (true) {
-      deltas[node] = delta;
-
-      if (node.Parent < 0)
-        break;
-
-      node = _boxes[node.Parent];
-    }
-
-    return deltas;
-  }
 
   private IsoBmffBoxNode _getRoot(IsoBmffBoxNode node) {
     while (node.Parent >= 0)
@@ -102,27 +66,24 @@ internal sealed class IsoBmffLayoutPlanner(List<IsoBmffBoxNode> boxes, Func<IsoB
     return new IsoBmffLayout(result);
   }
 
-  internal IsoBmffLayout CreateEditedLayout(IsoBmffLayout original, IsoBmffBoxEdit edit) {
-    var deltas = _getSizeDeltas(edit);
-    var root = _getRoot(edit.BoxNode);
+  internal IsoBmffLayout CreateEditedLayout(IsoBmffLayout original, IsoBmffBoxNode editedBox) {
+    var root = _getRoot(editedBox);
     var originalRoot = original[root];
+
+    var delta = editedBox.Box.Size - original[editedBox].Size;
 
     var before = _getPreviousTopLevel(root);
     var after = _getNextTopLevel(root);
 
-    var beforeLayout = before is not null ? original[before] : null;
-    var afterLayout = after is not null ? original[after] : null;
+    var beforeFree = _isFree(before) ? original[before] : null;
+    var afterFree = _isFree(after) ? original[after] : null;
 
-    var beforeFree = _isFree(before) ? beforeLayout : null;
-    var afterFree = _isFree(after) ? afterLayout : null;
-
-    var newSize = originalRoot.Size + edit.SizeDelta;
+    var newSize = originalRoot.Size + delta;
     var newOffset = originalRoot.Offset;
 
-    if (edit.SizeDelta > 0) {
-      var growth = edit.SizeDelta;
-      var fromAfter = Math.Min(growth, afterFree?.Size ?? 0);
-      var remaining = growth - fromAfter;
+    if (delta > 0) {
+      var fromAfter = Math.Min(delta, afterFree?.Size ?? 0);
+      var remaining = delta - fromAfter;
       var fromBefore = Math.Min(remaining, beforeFree?.Size ?? 0);
 
       remaining -= fromBefore;
@@ -137,8 +98,7 @@ internal sealed class IsoBmffLayoutPlanner(List<IsoBmffBoxNode> boxes, Func<IsoB
 
     foreach (var topLevel in _getTopLevelBoxes()) {
       if (topLevel == root) {
-        _addEditedTree(result, topLevel, newOffset, deltas);
-
+        _addEditedTree(result, topLevel, newOffset);
         continue;
       }
 
@@ -189,10 +149,8 @@ internal sealed class IsoBmffLayoutPlanner(List<IsoBmffBoxNode> boxes, Func<IsoB
   private List<IsoBmffBoxNode> _getTopLevelBoxes() =>
     [.. _boxes.Where(x => x.Parent < 0)];
 
-  private void _addEditedTree(List<IsoBmffLayoutBox> result, IsoBmffBoxNode node, long offset, Dictionary<IsoBmffBoxNode, long> deltas) {
-    var size = node.Box.Size + (deltas.TryGetValue(node, out var delta) ? delta : 0);
-
-    result.Add(new IsoBmffLayoutBox(node, offset, size));
+  private void _addEditedTree(List<IsoBmffLayoutBox> result, IsoBmffBoxNode node, long offset) {
+    result.Add(new(node, offset, node.Box.Size));
 
     var children = _getChildren(node);
 
@@ -201,9 +159,8 @@ internal sealed class IsoBmffLayoutPlanner(List<IsoBmffBoxNode> boxes, Func<IsoB
     var childOffset = offset + node.Box.HeaderSize + _getBoxChildrenOffset(node.Box);
 
     foreach (var child in children) {
-      var childSize = child.Box.Size + (deltas.TryGetValue(child, out var childDelta) ? childDelta : 0);
-      _addEditedTree(result, child, childOffset, deltas);
-      childOffset += childSize;
+      _addEditedTree(result, child, childOffset);
+      childOffset += child.Box.Size;
     }
   }
 

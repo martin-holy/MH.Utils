@@ -57,7 +57,7 @@ public class VideoFileTests {
     var editedLayout = planner.CreateEditedLayout(originalLayout, moov);
     var diff = IsoBmffLayoutDiffer.Diff(originalLayout, editedLayout);
 
-    Assert.AreEqual(1, diff.Writes.Count);
+    Assert.AreEqual(2, diff.Writes.Count);
     Assert.AreEqual(moov.Box.Offset, editedLayout[moov].Offset);
     Assert.AreEqual(originalSize + 24, editedLayout[moov].Size);
 
@@ -128,6 +128,38 @@ public class VideoFileTests {
 
     Assert.ThrowsException<InvalidOperationException>(
       () => planner.CreateEditedLayout(original, moov));
+  }
+
+  [TestMethod]
+  public void Layout_ExecuteMoveIntoFreeBefore() {
+    using var stream = _createTestFile(64, 0);
+    var reader = new IsoBmffReader(stream);
+    var boxes = reader._readBoxes();
+
+    var moov = boxes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
+    var originalSize = moov.Box.Size;
+
+    var planner = new IsoBmffLayoutPlanner(boxes, reader.GetBoxChildrenOffset);
+    var originalLayout = planner.CreateOriginalLayout();
+
+    _resize(moov, originalSize + 24);
+
+    var editedLayout = planner.CreateEditedLayout(originalLayout, moov);
+    var diff = IsoBmffLayoutDiffer.Diff(originalLayout, editedLayout);
+
+    var originalBytes = new byte[originalSize];
+
+    stream.Position = originalLayout[moov].Offset;
+    stream.ReadExactly(originalBytes);
+
+    IsoBmffLayoutExecutor.ExecuteMoves(stream, diff.Moves);
+
+    stream.Position = editedLayout[moov].Offset;
+
+    var movedBytes = new byte[originalSize];
+    stream.ReadExactly(movedBytes);
+
+    CollectionAssert.AreEqual(originalBytes, movedBytes);
   }
 
   [TestMethod]

@@ -2,7 +2,7 @@
 
 namespace MH.Utils.Imaging.IsoBmff;
 
-internal class IsoBmffBoxNode(IsoBmffBox box, int parent) {
+internal sealed class IsoBmffBoxNode(IsoBmffBox box, int parent) {
   public IsoBmffBox Box { get; set; } = box;
   public int Parent { get; set; } = parent;
 }
@@ -30,18 +30,6 @@ internal static class IsoBmffBoxNodeExtensions {
     }
 
     return -1;
-  }
-
-  // TODO not used
-  public static IsoBmffBoxNode? FindNode(this IList<IsoBmffBoxNode> boxes, uint type, int parent = -1) {
-    var index = FindIndex(boxes, type, parent);
-    return index == -1 ? null : boxes[index];
-  }
-
-  // TODO not used
-  public static IsoBmffBox? FindBox(this IList<IsoBmffBoxNode> boxes, uint type, int parent = -1) {
-    var index = FindIndex(boxes, type, parent);
-    return index == -1 ? null : boxes[index].Box;
   }
 
   public static void UpdateParentSizes(this IList<IsoBmffBoxNode> boxes, int parentIndex, long delta) {

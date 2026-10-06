@@ -19,4 +19,7 @@ internal sealed class IsoBmffLayout {
 
   public IEnumerable<IsoBmffLayoutBox> Boxes =>
     _boxes.Values.OrderBy(x => x.Offset);
+
+  public bool TryGetValue(IsoBmffBoxNode node, out IsoBmffLayoutBox? box) =>
+    _boxes.TryGetValue(node, out box);
 }

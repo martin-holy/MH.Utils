@@ -45,19 +45,21 @@ public class VideoFileTests {
     using var stream = _createTestFile(0, 64);
     var reader = new IsoBmffReader(stream);
     var boxes = reader._readBoxes();
-    var original = _snapshot(boxes);
+
     var moov = boxes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
-    var edit = new IsoBmffBoxEdit(moov, moov.Box.Size + 24);
+    var originalSize = moov.Box.Size;
+
     var planner = new IsoBmffLayoutPlanner(boxes, reader.GetBoxChildrenOffset);
     var originalLayout = planner.CreateOriginalLayout();
-    var editedLayout = planner.CreateEditedLayout(originalLayout, edit);
-    var diff = IsoBmffLayoutDiffer.Diff(originalLayout, editedLayout, edit);
-    var after = _snapshot(reader._readBoxes());
 
-    //Assert.AreEqual(0, diff.Moves.Count);
+    moov.Box = new IsoBmffBox(moov.Box.Offset, moov.Box.HeaderSize, originalSize + 24, moov.Box.Type);
+
+    var editedLayout = planner.CreateEditedLayout(originalLayout, moov);
+    var diff = IsoBmffLayoutDiffer.Diff(originalLayout, editedLayout);
+
     Assert.AreEqual(1, diff.Writes.Count);
     Assert.AreEqual(moov.Box.Offset, editedLayout[moov].Offset);
-    Assert.AreEqual(moov.Box.Size + 24, editedLayout[moov].Size);
+    Assert.AreEqual(originalSize + 24, editedLayout[moov].Size);
 
     foreach (var box in boxes.Where(x => x.Parent >= 0)) {
       Assert.AreEqual(
@@ -65,8 +67,6 @@ public class VideoFileTests {
         editedLayout[box].Offset,
         $"Box {box.Box.Type:X8} moved.");
     }
-
-    CollectionAssert.AreEqual(original, after);
   }
 
   [TestMethod]
@@ -75,20 +75,23 @@ public class VideoFileTests {
     var reader = new IsoBmffReader(stream);
     var boxes = reader._readBoxes();
     var moov = boxes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
+
     var originalLayout = new IsoBmffLayoutPlanner(boxes, reader.GetBoxChildrenOffset).CreateOriginalLayout();
-    var edit = new IsoBmffBoxEdit(moov, moov.Box.Size + 24);
+
+    var originalSize = moov.Box.Size;
+    _resize(moov, originalSize + 24);
+
     var planner = new IsoBmffLayoutPlanner(boxes, reader.GetBoxChildrenOffset);
-    var editedLayout = planner.CreateEditedLayout(originalLayout, edit);
-    var diff = IsoBmffLayoutDiffer.Diff(originalLayout, editedLayout, edit);
-
-    //Assert.AreEqual(1, diff.Moves.Count);
-
+    var editedLayout = planner.CreateEditedLayout(originalLayout, moov);
+    var diff = IsoBmffLayoutDiffer.Diff(originalLayout, editedLayout);
     var move = diff.Moves[0];
 
     Assert.AreEqual(moov.Box.Offset, move.SourceOffset);
     Assert.AreEqual(moov.Box.Offset - 24, move.DestinationOffset);
-    Assert.AreEqual(moov.Box.Size, move.Length);
+    Assert.AreEqual(moov.Box.Size - 24, move.Length);
     Assert.IsTrue(move.DestinationOffset < move.SourceOffset);
+    Assert.AreEqual(originalSize, move.Length);
+    Assert.AreEqual(originalSize + 24, editedLayout[moov].Size);
   }
 
   [TestMethod]
@@ -97,13 +100,17 @@ public class VideoFileTests {
     var reader = new IsoBmffReader(stream);
     var boxes = reader._readBoxes();
     var moov = boxes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
+
+    var originalSize = moov.Box.Size;
     var planner = new IsoBmffLayoutPlanner(boxes, reader.GetBoxChildrenOffset);
     var original = planner.CreateOriginalLayout();
-    var edit = new IsoBmffBoxEdit(moov, moov.Box.Size + 24);
-    var edited = planner.CreateEditedLayout(original, edit);
+
+    _resize(moov, originalSize + 24);
+
+    var edited = planner.CreateEditedLayout(original, moov);
 
     Assert.AreEqual(moov.Box.Offset - 8, edited[moov].Offset);
-    Assert.AreEqual(moov.Box.Size + 24, edited[moov].Size);
+    Assert.AreEqual(originalSize + 24, edited[moov].Size);
   }
 
   [TestMethod]
@@ -112,11 +119,15 @@ public class VideoFileTests {
     var reader = new IsoBmffReader(stream);
     var boxes = reader._readBoxes();
     var moov = boxes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
+
+    var originalSize = moov.Box.Size;
     var planner = new IsoBmffLayoutPlanner(boxes, reader.GetBoxChildrenOffset);
     var original = planner.CreateOriginalLayout();
-    var edit = new IsoBmffBoxEdit(moov, moov.Box.Size + 24);
 
-    Assert.ThrowsException<InvalidOperationException>(() => planner.CreateEditedLayout(original, edit));
+    _resize(moov, originalSize + 24);
+
+    Assert.ThrowsException<InvalidOperationException>(
+      () => planner.CreateEditedLayout(original, moov));
   }
 
   [TestMethod]
@@ -606,5 +617,9 @@ public class VideoFileTests {
     stream.WriteByte((byte)(value >> 16));
     stream.WriteByte((byte)(value >> 8));
     stream.WriteByte((byte)value);
+  }
+
+  private static void _resize(IsoBmffBoxNode node, long size) {
+    node.Box = new IsoBmffBox(node.Box.Offset, node.Box.HeaderSize, size, node.Box.Type);
   }
 }

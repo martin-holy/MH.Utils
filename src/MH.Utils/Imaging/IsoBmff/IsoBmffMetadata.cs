@@ -190,13 +190,7 @@ internal class IsoBmffMetadata {
   }
 
   internal List<IsoBmffBoxNode> _getEditedBoxes() {
-    if (_editedBoxes is not null)
-      return _editedBoxes;
-
-    // TODO is this making copy on purpose?
-    _editedBoxes = _reader._readBoxes()
-      .Select(x => new IsoBmffBoxNode(x.Box, x.Parent))
-      .ToList();
+    _editedBoxes ??= [.. _reader._readBoxes().Select(x => new IsoBmffBoxNode(x.Box, x.Parent))];
 
     return _editedBoxes;
   }

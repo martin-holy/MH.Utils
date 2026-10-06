@@ -80,7 +80,12 @@ internal sealed class IsoBmffItemList(IsoBmffReader reader, IsoBmffBox ilst) {
         continue;
 
       if (value is null) {
-        editedBoxes.RemoveBox(editedBoxes.FindIndex(entry.Item));
+        var keywIndex = editedBoxes.FindIndex(entry.Item);
+
+        if (keywIndex < 0)
+          throw new InvalidOperationException("The keyw box was not found.");
+
+        editedBoxes.RemoveBox(keywIndex);
         entries.RemoveAt(i);
       }
       else {

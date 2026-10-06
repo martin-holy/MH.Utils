@@ -22,4 +22,9 @@ internal sealed class IsoBmffLayout {
 
   public bool TryGetValue(IsoBmffBoxNode node, out IsoBmffLayoutBox? box) =>
     _boxes.TryGetValue(node, out box);
+
+  public IEnumerable<IsoBmffLayoutBox> TopLevelBoxes =>
+    _boxes.Values
+      .Where(x => x.Node.Parent < 0)
+      .OrderBy(x => x.Offset);
 }

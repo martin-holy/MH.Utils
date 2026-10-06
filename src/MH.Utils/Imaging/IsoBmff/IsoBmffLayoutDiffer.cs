@@ -8,19 +8,19 @@ internal sealed class IsoBmffLayoutDiff {
 }
 
 internal static class IsoBmffLayoutDiffer {
-  public static IsoBmffLayoutDiff Diff(IsoBmffLayout original, IsoBmffLayout edited, IsoBmffBoxEdit edit) {
+  public static IsoBmffLayoutDiff Diff(IsoBmffLayout original, IsoBmffLayout edited) {
     var result = new IsoBmffLayoutDiff();
 
     foreach (var box in edited.Boxes) {
-      var old = original[box.Node];
+      if (!original.TryGetValue(box.Node, out var old)) {
+        result.Writes.Add(new IsoBmffWrite(box.Offset, box.Size));
 
-      if (old.Offset != box.Offset) {
-        result.Moves.Add(new IsoBmffMove(old.Offset, box.Offset, old.Size));
         continue;
       }
 
-      if (box.Node == edit.BoxNode) {
-        result.Writes.Add(new IsoBmffWrite(box.Offset, box.Size));
+      if (old!.Offset != box.Offset) {
+        result.Moves.Add(new IsoBmffMove(old.Offset, box.Offset, old.Size));
+
         continue;
       }
 

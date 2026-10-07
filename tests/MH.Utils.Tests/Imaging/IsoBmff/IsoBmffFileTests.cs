@@ -2,10 +2,10 @@
 using System.Diagnostics;
 using System.Text;
 
-namespace MH.Utils.Tests.Imaging.Video;
+namespace MH.Utils.Tests.Imaging.IsoBmff;
 
 [TestClass]
-public class VideoFileTests {
+public class IsoBmffFileTests {
   //[TestMethod]
   public void DebugTest() {
     var path = @"e:\!test\vid\input.mp4";

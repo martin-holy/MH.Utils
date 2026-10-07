@@ -163,6 +163,96 @@ public class VideoFileTests {
   }
 
   [TestMethod]
+  public void Layout_ShrinkWithoutFree_CreatesFree() {
+    using var stream = _createTestFile(0, 0);
+    var reader = new IsoBmffReader(stream);
+    var boxes = reader._readBoxes();
+
+    var moov = boxes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
+
+    var originalSize = moov.Box.Size;
+    var planner = new IsoBmffLayoutPlanner(boxes, reader.GetBoxChildrenOffset);
+    var original = planner.CreateOriginalLayout();
+
+    _resize(moov, originalSize - 24);
+
+    var edited = planner.CreateEditedLayout(original, moov);
+    var free = edited.TopLevelBoxes.Single(x => x.Node.Box.Type == IsoBmffTypes.Free);
+
+    Assert.AreEqual(moov.Box.Offset + moov.Box.Size, free.Offset);
+    Assert.AreEqual(24, free.Size);
+
+    var mdat = boxes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
+
+    Assert.AreEqual(original[mdat].Offset, edited[mdat].Offset);
+  }
+
+  [TestMethod]
+  public void Diff_UnchangedLayout_ProducesNothing() {
+    using var stream = _createTestFile();
+    var reader = new IsoBmffReader(stream);
+    var boxes = reader._readBoxes();
+
+    var planner = new IsoBmffLayoutPlanner(boxes, reader.GetBoxChildrenOffset);
+    var layout = planner.CreateOriginalLayout();
+
+    var diff = IsoBmffLayoutDiffer.Diff(layout, layout);
+
+    Assert.AreEqual(0, diff.Moves.Count);
+    Assert.AreEqual(0, diff.Writes.Count);
+  }
+
+  [TestMethod]
+  public void Diff_ShrunkBox_ProducesWrite() {
+    using var stream = _createTestFile(0, 32);
+    var reader = new IsoBmffReader(stream);
+    var boxes = reader._readBoxes();
+
+    var moov = boxes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
+    var originalSize = moov.Box.Size;
+
+    var planner = new IsoBmffLayoutPlanner(boxes, reader.GetBoxChildrenOffset);
+    var original = planner.CreateOriginalLayout();
+
+    _resize(moov, originalSize - 24);
+
+    var edited = planner.CreateEditedLayout(original, moov);
+    var diff = IsoBmffLayoutDiffer.Diff(original, edited);
+
+    Assert.AreEqual(0, diff.Moves.Count);
+    Assert.AreEqual(2, diff.Writes.Count);
+
+    Assert.AreEqual(moov.Box.Offset, diff.Writes[0].Offset);
+    Assert.AreEqual(originalSize - 24, diff.Writes[0].Length);
+  }
+
+  [TestMethod]
+  public void Diff_MovedContainer_ProducesSingleMove() {
+    using var stream = _createTestFile(64, 0);
+    var reader = new IsoBmffReader(stream);
+    var boxes = reader._readBoxes();
+
+    var moov = boxes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
+    var originalSize = moov.Box.Size;
+
+    var planner = new IsoBmffLayoutPlanner(boxes, reader.GetBoxChildrenOffset);
+    var original = planner.CreateOriginalLayout();
+
+    _resize(moov, originalSize + 24);
+
+    var edited = planner.CreateEditedLayout(original, moov);
+    var diff = IsoBmffLayoutDiffer.Diff(original, edited);
+
+    Assert.AreEqual(1, diff.Moves.Count);
+
+    var move = diff.Moves[0];
+
+    Assert.AreEqual(moov.Box.Offset, move.SourceOffset);
+    Assert.AreEqual(moov.Box.Offset - 24, move.DestinationOffset);
+    Assert.AreEqual(originalSize, move.Length);
+  }
+
+  [TestMethod]
   public void MoveUp_NonOverlapping() {
     var data = _createData(100);
     var original = data.ToArray();

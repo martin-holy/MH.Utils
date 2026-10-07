@@ -12,10 +12,13 @@ internal static class IsoBmffLayoutDiffer {
     var result = new IsoBmffLayoutDiff();
 
     foreach (var box in edited.TopLevelBoxes) {
+      if (box.Node.Box.Type == IsoBmffTypes.Free)
+        continue;
+
       if (!original.TryGetValue(box.Node, out var old))
         continue;
 
-      if (old!.Offset != box.Offset && box.Node.Box.Type != IsoBmffTypes.Free)
+      if (old!.Offset != box.Offset)
         result.Moves.Add(new IsoBmffMove(old.Offset, box.Offset, old.Size));
     }
 
@@ -25,7 +28,7 @@ internal static class IsoBmffLayoutDiffer {
         continue;
       }
 
-      if (old!.Size != box.Size || old.Offset != box.Offset && box.Node.Box.Type == IsoBmffTypes.Free)
+      if (old!.Size != box.Size)
         result.Writes.Add(new IsoBmffWrite(box.Offset, box.Size));
     }
 

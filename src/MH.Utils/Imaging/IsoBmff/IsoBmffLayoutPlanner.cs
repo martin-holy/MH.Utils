@@ -70,13 +70,16 @@ internal sealed class IsoBmffLayoutPlanner(List<IsoBmffBoxNode> boxes, Func<IsoB
     var root = _getRoot(editedBox);
     var originalRoot = original[root];
 
-    var delta = editedBox.Box.Size - original[editedBox].Size;
+    var delta = root.Box.Size - originalRoot.Size;
 
     var before = _getPreviousTopLevel(root);
     var after = _getNextTopLevel(root);
 
     var beforeFree = _isFree(before) ? original[before] : null;
     var afterFree = _isFree(after) ? original[after] : null;
+
+    if (delta < 0)
+      return _createShrunkLayout(original, root, originalRoot, afterFree);
 
     var newSize = originalRoot.Size + delta;
     var newOffset = originalRoot.Offset;
@@ -123,6 +126,52 @@ internal sealed class IsoBmffLayoutPlanner(List<IsoBmffBoxNode> boxes, Func<IsoB
       }
 
       result.Add(original[topLevel]);
+    }
+
+    return new IsoBmffLayout(result);
+  }
+
+  private IsoBmffLayout _createShrunkLayout(IsoBmffLayout original, IsoBmffBoxNode root, IsoBmffLayoutBox originalRoot, IsoBmffLayoutBox? afterFree) {
+    var releasedSize = originalRoot.Size - root.Box.Size;
+    var releasedOffset = originalRoot.Offset + root.Box.Size;
+
+    var topLevel = _getTopLevelBoxes().ToList();
+    var rootIndex = topLevel.IndexOf(root);
+
+    var result = new List<IsoBmffLayoutBox>();
+
+    for (var i = 0; i < rootIndex; i++)
+      result.Add(original[topLevel[i]]);
+
+    _addEditedTree(result, root, originalRoot.Offset);
+
+    if (afterFree is not null) {
+      result.Add(new IsoBmffLayoutBox(afterFree.Node, releasedOffset, afterFree.Size + releasedSize));
+
+      for (var i = rootIndex + 1; i < topLevel.Count; i++) {
+        var box = topLevel[i];
+
+        if (box == afterFree.Node)
+          continue;
+
+        result.Add(original[box]);
+      }
+
+      return new IsoBmffLayout(result);
+    }
+
+    var free = new IsoBmffBox(-1, 8, releasedSize, IsoBmffTypes.Free);
+
+    result.Add(new IsoBmffLayoutBox(new IsoBmffBoxNode(free, -1), releasedOffset, releasedSize));
+
+    var offset = releasedOffset + releasedSize;
+
+    for (var i = rootIndex + 1; i < topLevel.Count; i++) {
+      var box = topLevel[i];
+
+      result.Add(new IsoBmffLayoutBox(box, offset, box.Box.Size));
+
+      offset += box.Box.Size;
     }
 
     return new IsoBmffLayout(result);

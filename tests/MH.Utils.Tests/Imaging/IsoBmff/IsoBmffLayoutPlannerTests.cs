@@ -4,8 +4,6 @@ namespace MH.Utils.Tests.Imaging.IsoBmff;
 
 [TestClass]
 public class IsoBmffLayoutPlannerTests {
-  private const long ExpensiveBoxSize = 2 * 1024 * 1024;
-
   [TestMethod]
   public void Layout_NoChange_KeepsOriginalLayout() {
     using var stream = IsoBmffFileTests._createTestFile(32, 32);
@@ -190,9 +188,9 @@ public class IsoBmffLayoutPlannerTests {
     var moov = boxes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
     var mdat = boxes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
 
-    mdat.Box = new IsoBmffBox(mdat.Box.Offset, mdat.Box.HeaderSize, ExpensiveBoxSize, mdat.Box.Type);
+    mdat.Box = new IsoBmffBox(mdat.Box.Offset, mdat.Box.HeaderSize, IsoBmffFileTests.ExpensiveBoxSize, mdat.Box.Type);
 
-    var planner = new IsoBmffLayoutPlanner(boxes, reader.GetBoxChildrenOffset, ExpensiveBoxSize);
+    var planner = new IsoBmffLayoutPlanner(boxes, reader.GetBoxChildrenOffset, IsoBmffFileTests.ExpensiveBoxSize);
 
     var original = planner.CreateOriginalLayout();
 
@@ -210,11 +208,11 @@ public class IsoBmffLayoutPlannerTests {
     var boxes = reader._readBoxes();
 
     var moov = boxes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
-    var large = new IsoBmffBoxNode(new IsoBmffBox(moov.Box.End, 8, ExpensiveBoxSize, IsoBmffTypes.Uuid), -1);
+    var large = new IsoBmffBoxNode(new IsoBmffBox(moov.Box.End, 8, IsoBmffFileTests.ExpensiveBoxSize, IsoBmffTypes.Uuid), -1);
 
     boxes.Insert(boxes.IndexOf(moov) + 1, large);
 
-    var planner = new IsoBmffLayoutPlanner(boxes, reader.GetBoxChildrenOffset, ExpensiveBoxSize);
+    var planner = new IsoBmffLayoutPlanner(boxes, reader.GetBoxChildrenOffset, IsoBmffFileTests.ExpensiveBoxSize);
 
     var original = planner.CreateOriginalLayout();
 

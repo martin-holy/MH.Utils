@@ -6,6 +6,8 @@ namespace MH.Utils.Tests.Imaging.IsoBmff;
 
 [TestClass]
 public class IsoBmffFileTests {
+  public const long ExpensiveBoxSize = 2 * 1024 * 1024;
+
   //[TestMethod]
   public void DebugTest() {
     var path = @"e:\!test\vid\input.mp4";

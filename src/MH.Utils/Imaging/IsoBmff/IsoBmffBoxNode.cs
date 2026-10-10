@@ -2,9 +2,12 @@
 
 namespace MH.Utils.Imaging.IsoBmff;
 
-internal sealed class IsoBmffBoxNode(IsoBmffBox box, int parent) {
+internal sealed class IsoBmffBoxNode(IsoBmffBox box, int parent, IsoBmffBoxNode? originalNode = null) {
   public IsoBmffBox Box { get; set; } = box;
   public int Parent { get; set; } = parent;
+  public IsoBmffBoxNode? OriginalNode { get; } = originalNode;
+
+  public IsoBmffBoxNode Identity => OriginalNode?.Identity ?? this;
 }
 
 internal static class IsoBmffBoxNodeExtensions {

@@ -11,17 +11,17 @@ internal sealed class IsoBmffLayout {
   private readonly Dictionary<IsoBmffBoxNode, IsoBmffLayoutBox> _boxes;
 
   public IsoBmffLayout(IEnumerable<IsoBmffLayoutBox> boxes) {
-    _boxes = boxes.ToDictionary(x => x.Node);
+    _boxes = boxes.ToDictionary(x => x.Node.Identity);
   }
 
   public IsoBmffLayoutBox this[IsoBmffBoxNode node] =>
-    _boxes[node];
+    _boxes[node.Identity];
 
   public IEnumerable<IsoBmffLayoutBox> Boxes =>
     _boxes.Values.OrderBy(x => x.Offset);
 
   public bool TryGetValue(IsoBmffBoxNode node, out IsoBmffLayoutBox? box) =>
-    _boxes.TryGetValue(node, out box);
+    _boxes.TryGetValue(node.Identity, out box);
 
   public IEnumerable<IsoBmffLayoutBox> TopLevelBoxes =>
     _boxes.Values

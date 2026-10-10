@@ -8,6 +8,11 @@ internal sealed record IsoBmffMove(long SourceOffset, long DestinationOffset, lo
 
 internal sealed record IsoBmffWrite(long Offset, long Length);
 
+internal sealed class IsoBmffLayoutPlan(IsoBmffLayout layout, bool requiresFullRewrite) {
+  public IsoBmffLayout Layout { get; } = layout;
+  public bool RequiresFullRewrite { get; } = requiresFullRewrite;
+}
+
 internal sealed class IsoBmffLayoutPlanner {
   private const long DefaultExpensiveBoxThreshold = 1024 * 1024;
   private const long FreeHeaderSize = 8;
@@ -27,99 +32,61 @@ internal sealed class IsoBmffLayoutPlanner {
   }
 
   public IsoBmffLayout CreateOriginalLayout() =>
-    new(_boxes.Select(x => new IsoBmffLayoutBox(x, x.Box.Offset, x.Box.Size)));
+    new(_boxes
+      .Where(x => x.OriginalNode is not null || x.Box.Offset >= 0)
+      .Select(x => {
+        var node = x.OriginalNode ?? x;
+        return new IsoBmffLayoutBox(node, node.Box.Offset, node.Box.Size);
+      }));
 
-  public IsoBmffLayout CreateEditedLayout(IsoBmffLayout original, IsoBmffBoxNode editedBox) {
-    var root = _getTopLevelNode(editedBox);
+  public IsoBmffLayoutPlan CreateEditedLayout(IsoBmffLayout original, IsoBmffBoxNode editedBox) =>
+    CreateEditedLayout(original, [editedBox]);
 
+  public IsoBmffLayoutPlan CreateEditedLayout(IsoBmffLayout original, IEnumerable<IsoBmffBoxNode> editedBoxes) {
+    var editedRoots = editedBoxes.Select(_getTopLevelNode).Distinct().ToList();
+    if (editedRoots.Count == 0) return new IsoBmffLayoutPlan(original, false);
+
+    var work = original.TopLevelBoxes.Select(x => new _WorkBox(x.Node, x.Offset, x.Size)).ToList();
+
+    foreach (var root in editedRoots.OrderBy(x => original[x].Offset)) {
+      if (!_applyEdit(work, original, root))
+        return new IsoBmffLayoutPlan(_createFullRewriteLayout(original, editedRoots), true);
+    }
+
+    return new IsoBmffLayoutPlan(_createLayout(original, work, editedRoots), false);
+  }
+
+  private bool _applyEdit(List<_WorkBox> work, IsoBmffLayout original, IsoBmffBoxNode root) {
     if (!original.TryGetValue(root, out var originalRoot))
       throw new InvalidOperationException("Edited box does not belong to the original layout.");
 
-    var rootIndex = _getTopLevelIndex(root);
-
-    var work = original.TopLevelBoxes
-      .Select(x => new _WorkBox(x.Node, x.Offset, x.Size))
-      .ToList();
-
-    var workRoot = work.Single(x => ReferenceEquals(x.Node, root));
-
-    var delta = root.Box.Size - originalRoot!.Size;
-
-    if (delta > 0)
-      _grow(work, rootIndex, delta);
-    else if (delta < 0)
-      _shrink(work, rootIndex, -delta);
-
-    return _createLayout(original, work, [root]);
-  }
-
-  public IsoBmffLayout CreateEditedLayout(IsoBmffLayout original, IEnumerable<IsoBmffBoxNode> editedBoxes) {
-    var editedRoots = editedBoxes
-      .Select(_getTopLevelNode)
-      .Distinct()
-      .ToList();
-
-    if (editedRoots.Count == 0)
-      return original;
-
-    var work = original.TopLevelBoxes
-      .Select(x => new _WorkBox(x.Node, x.Offset, x.Size))
-      .ToList();
-
-    // Always process edits in their original physical order.
-    // This makes the result deterministic and prevents a later edit
-    // from unexpectedly consuming space intended by an earlier one.
-    var orderedRoots = editedRoots
-      .OrderBy(x => original[x].Offset)
-      .ToList();
-
-    foreach (var root in orderedRoots)
-      _applyEdit(work, original, root);
-
-    return _createLayout(original, work, editedRoots);
-  }
-
-  private void _applyEdit(List<_WorkBox> work, IsoBmffLayout original, IsoBmffBoxNode root) {
-    if (!original.TryGetValue(root, out var originalRoot))
-      throw new InvalidOperationException(
-        "Edited box does not belong to the original layout.");
-
     var index = work.FindIndex(x => ReferenceEquals(x.Node, root));
-
     if (index < 0)
-      throw new InvalidOperationException(
-        "Edited box is not present in the working layout.");
+      throw new InvalidOperationException("Edited box is not present in the working layout.");
 
     var delta = root.Box.Size - originalRoot!.Size;
 
-    if (delta > 0)
-      _grow(work, index, delta);
-    else if (delta < 0)
-      _shrink(work, index, -delta);
+    if (delta > 0) {
+      if (!_grow(work, ref index, delta)) return false;
+    }
+    else if (delta < 0 && !_shrink(work, index, -delta)) {
+      return false;
+    }
 
     if (work[index].Size != root.Box.Size)
-      throw new InvalidOperationException(
-        "Edited box size does not match the planned layout.");
+      throw new InvalidOperationException("Edited box size does not match the planned layout.");
+
+    return true;
   }
 
-  private void _grow(List<_WorkBox> work, int rootIndex, long amount) {
-    if (amount <= 0) return;
+  private bool _grow(List<_WorkBox> work, ref int rootIndex, long amount) {
+    if (amount <= 0) return true;
 
-    var remaining = amount;
+    var remaining = _consumeFreeAfter(work, rootIndex, amount);
+    if (remaining == 0) return true;
 
-    // Prefer free space after the edited box. This keeps the edited
-    // box at the same offset whenever possible.
-    remaining = _consumeFreeAfter(work, rootIndex, remaining);
-
-    if (remaining == 0) return;
-
-    // Then use free space before the edited box. This moves the edited
-    // box to the left but keeps everything after it anchored.
-    remaining = _consumeFreeBefore(work, rootIndex, remaining);
-
-    if (remaining != 0)
-      throw new InvalidOperationException(
-        "The edited layout cannot be created without moving an expensive box or rewriting the file.");
+    remaining = _consumeFreeBefore(work, ref rootIndex, remaining);
+    return remaining == 0;
   }
 
   private long _consumeFreeAfter(List<_WorkBox> work, int rootIndex, long amount) {
@@ -150,10 +117,9 @@ internal sealed class IsoBmffLayoutPlanner {
     return amount;
   }
 
-  private long _consumeFreeBefore(List<_WorkBox> work, int rootIndex, long amount) {
+  private long _consumeFreeBefore(List<_WorkBox> work, ref int rootIndex, long amount) {
     while (amount > 0) {
       var freeIndex = _findFreeBefore(work, rootIndex);
-
       if (freeIndex < 0) return amount;
 
       var free = work[freeIndex];
@@ -161,13 +127,11 @@ internal sealed class IsoBmffLayoutPlanner {
 
       free.Size -= count;
 
-      // Everything between the free box and edited box moves left.
       for (var i = freeIndex + 1; i < rootIndex; i++)
         work[i].Offset -= count;
 
       work[rootIndex].Offset -= count;
       work[rootIndex].Size += count;
-
       amount -= count;
 
       if (free.Size == 0) {
@@ -179,40 +143,33 @@ internal sealed class IsoBmffLayoutPlanner {
     return amount;
   }
 
-  private void _shrink(List<_WorkBox> work, int rootIndex, long amount) {
-    if (amount <= 0) return;
+  private bool _shrink(List<_WorkBox> work, int rootIndex, long amount) {
+    if (amount <= 0) return true;
 
     var freeIndex = _findFreeAfter(work, rootIndex);
-
     if (freeIndex >= 0) {
       var free = work[freeIndex];
 
       work[rootIndex].Size -= amount;
 
-      // Compact everything between the edited box and the existing
-      // free box to the left.
       for (var i = rootIndex + 1; i < freeIndex; i++)
         work[i].Offset -= amount;
 
       free.Offset -= amount;
       free.Size += amount;
 
-      return;
+      return true;
     }
 
-    // No existing free space is available before the next expensive
-    // anchor. The released bytes can become a new free box.
-    if (amount < FreeHeaderSize)
-      throw new InvalidOperationException(
-        "The edited layout leaves less than a free-box header and requires a rewrite.");
+    if (amount < FreeHeaderSize) return false;
 
     var root = work[rootIndex];
-
     root.Size -= amount;
 
     var freeNode = new IsoBmffBoxNode(new IsoBmffBox(-1, FreeHeaderSize, amount, IsoBmffTypes.Free), -1);
 
     work.Insert(rootIndex + 1, new _WorkBox(freeNode, root.Offset + root.Size, amount));
+    return true;
   }
 
   private int _findFreeAfter(List<_WorkBox> work, int rootIndex) {
@@ -268,7 +225,7 @@ internal sealed class IsoBmffLayoutPlanner {
     result.Add(new IsoBmffLayoutBox(workBox.Node, workBox.Offset, workBox.Size));
 
     foreach (var child in original.Boxes) {
-      if (!_isDescendantOf(child.Node, workBox.Node))
+      if (!_isDescendantOf(child.Node.OriginalNode ?? child.Node, workBox.Node)) // TODO not sure about this change
         continue;
 
       result.Add(new IsoBmffLayoutBox(child.Node, child.Offset + offsetDelta, child.Size));
@@ -323,24 +280,20 @@ internal sealed class IsoBmffLayoutPlanner {
     return _boxes[index];
   }
 
-  private int _getTopLevelIndex(IsoBmffBoxNode node) {
-    var index = _boxes.IndexOf(node);
+  private IsoBmffLayout _createFullRewriteLayout(IsoBmffLayout original, IReadOnlyCollection<IsoBmffBoxNode> editedRoots) {
+    var work = new List<_WorkBox>();
+    var offset = 0L;
 
-    if (index < 0)
-      throw new InvalidOperationException("Box does not belong to this planner.");
+    foreach (var node in _boxes.Where(x => x.Parent < 0).OrderBy(x => x.Box.Offset)) {
+      var size = editedRoots.Contains(node) || !original.TryGetValue(node, out var old)
+        ? node.Box.Size
+        : old!.Size;
 
-    while (_boxes[index].Parent >= 0)
-      index = _boxes[index].Parent;
+      work.Add(new _WorkBox(node, offset, size));
+      offset += size;
+    }
 
-    var topLevelNode = _boxes[index];
-
-    return _boxes
-      .Select((x, i) => (x, i))
-      .Where(x => x.x.Parent < 0)
-      .OrderBy(x => x.x.Box.Offset)
-      .Select(x => x.x)
-      .ToList()
-      .IndexOf(topLevelNode);
+    return _createLayout(original, work, editedRoots);
   }
 
   private sealed class _WorkBox(IsoBmffBoxNode node, long offset, long size) {

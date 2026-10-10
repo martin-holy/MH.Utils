@@ -190,7 +190,7 @@ internal class IsoBmffMetadata {
   }
 
   internal List<IsoBmffBoxNode> _getEditedBoxes() {
-    _editedBoxes ??= [.. _reader._readBoxes().Select(x => new IsoBmffBoxNode(x.Box, x.Parent))];
+    _editedBoxes ??= [.. _reader._readBoxes().Select(x => new IsoBmffBoxNode(x.Box, x.Parent, x))];
 
     return _editedBoxes;
   }

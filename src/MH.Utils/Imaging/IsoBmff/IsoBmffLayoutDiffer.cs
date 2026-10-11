@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Buffers.Binary;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace MH.Utils.Imaging.IsoBmff;
@@ -9,39 +11,82 @@ internal sealed class IsoBmffLayoutDiff {
 }
 
 internal static class IsoBmffLayoutDiffer {
-  public static IsoBmffLayoutDiff Diff(IsoBmffLayout original, IsoBmffLayout edited, IEnumerable<IsoBmffBoxNode> boxesToWrite) {
+  public static IsoBmffLayoutDiff Diff(IsoBmffLayout original, IsoBmffLayout edited, IEnumerable<IsoBmffBoxNode>? boxesToWrite = null) {
     var result = new IsoBmffLayoutDiff();
-    var writeSet = boxesToWrite.Select(x => x.Identity).ToHashSet();
 
     foreach (var box in edited.TopLevelBoxes) {
       if (box.Node.Box.Type == IsoBmffTypes.Free)
         continue;
 
-      if (!original.TryGetValue(box.Node, out var old))
-        continue;
-
-      if (old!.Offset != box.Offset)
+      if (original.TryGetValue(box.Node, out var old) &&
+          old!.Offset != box.Offset)
         result.Moves.Add(new IsoBmffMove(old.Offset, box.Offset, old.Size));
     }
 
-    foreach (var box in edited.TopLevelBoxes) {
-      if (box.Node.Box.Type == IsoBmffTypes.Free) {
-        if (!original.TryGetValue(box.Node, out var old) ||
-            old!.Offset != box.Offset ||
-            old.Size != box.Size) {
-          result.Writes.Add(new IsoBmffWrite(box.Offset, box.Size));
-        }
+    foreach (var box in edited.Boxes) {
+      var isNew = !original.TryGetValue(box.Node, out var old);
+      var headerChanged = isNew ||
+        old!.Size != box.Size ||
+        (box.Node.Box.Type == IsoBmffTypes.Free && old.Offset != box.Offset);
 
-        continue;
+      if (headerChanged)
+        result.Writes.Add(new IsoBmffWrite(box.Offset, _createHeader(box)));
+
+      // New nodes are present in the planned layout. Explicit nodes also cover
+      // same-size edits when the planner can reuse the original layout.
+      if (box.Node.Data is { Length: > 0 } data)
+        result.Writes.Add(new IsoBmffWrite(box.Offset + box.Node.Box.HeaderSize, data));
+    }
+
+    if (boxesToWrite is not null) {
+      foreach (var node in boxesToWrite.DistinctBy(x => x.Identity)) {
+        if (node.Data is not { Length: > 0 } data)
+          continue;
+
+        if (!edited.TryGetValue(node, out var box))
+          continue;
+
+        if (edited.Boxes.Any(x => ReferenceEquals(x.Node, node)))
+          continue;
+
+        result.Writes.Add(new IsoBmffWrite(
+          box!.Offset + node.Box.HeaderSize,
+          data));
       }
-
-      if (writeSet.Contains(box.Node.Identity))
-        result.Writes.Add(new IsoBmffWrite(box.Offset, box.Size));
     }
 
     _orderMoves(result.Moves);
+    result.Writes.Sort((x, y) => x.Offset.CompareTo(y.Offset));
 
     return result;
+  }
+
+  private static byte[] _createHeader(IsoBmffLayoutBox box) {
+    var size = box.Size;
+    var headerSize = box.Node.Box.HeaderSize;
+
+    if (size < headerSize)
+      throw new InvalidOperationException("Box size is smaller than its header.");
+
+    if (headerSize is not (8 or 16))
+      throw new InvalidOperationException($"Unsupported ISO BMFF header size: {headerSize}");
+
+    var header = new byte[checked((int)headerSize)];
+
+    if (headerSize == 8) {
+      if (size > uint.MaxValue)
+        throw new InvalidOperationException("Box requires an extended-size header.");
+
+      BinaryPrimitives.WriteUInt32BigEndian(header, checked((uint)size));
+    }
+    else {
+      BinaryPrimitives.WriteUInt32BigEndian(header, 1);
+      BinaryPrimitives.WriteUInt64BigEndian(header.AsSpan(8), checked((ulong)size));
+    }
+
+    BinaryPrimitives.WriteUInt32BigEndian(header.AsSpan(4), box.Node.Box.Type);
+
+    return header;
   }
 
   private static void _orderMoves(List<IsoBmffMove> moves) {

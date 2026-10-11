@@ -6,7 +6,7 @@ namespace MH.Utils.Imaging.IsoBmff;
 
 internal sealed record IsoBmffMove(long SourceOffset, long DestinationOffset, long Length);
 
-internal sealed record IsoBmffWrite(long Offset, long Length);
+internal sealed record IsoBmffWrite(long Offset, byte[] Data);
 
 internal sealed class IsoBmffLayoutPlan(IsoBmffLayout layout, bool requiresFullRewrite) {
   public IsoBmffLayout Layout { get; } = layout;
@@ -17,6 +17,7 @@ internal sealed class IsoBmffLayoutPlanner {
   private const long DefaultExpensiveBoxThreshold = 1024 * 1024;
   private const long FreeHeaderSize = 8;
 
+  private readonly List<IsoBmffBoxNode> _originalBoxes;
   private readonly List<IsoBmffBoxNode> _boxes;
   private readonly Func<IsoBmffBox, long> _getBoxChildrenOffset;
   private readonly long _expensiveBoxThreshold;
@@ -26,31 +27,49 @@ internal sealed class IsoBmffLayoutPlanner {
     Func<IsoBmffBox, long> getBoxChildrenOffset,
     long expensiveBoxThreshold = DefaultExpensiveBoxThreshold) {
 
-    _boxes = boxes.ToList();
+    _boxes = [.. boxes];
+    _originalBoxes = _boxes;
+    _getBoxChildrenOffset = getBoxChildrenOffset;
+    _expensiveBoxThreshold = expensiveBoxThreshold;
+  }
+
+  public IsoBmffLayoutPlanner(
+    IEnumerable<IsoBmffBoxNode> originalBoxes,
+    IEnumerable<IsoBmffBoxNode> editedBoxes,
+    Func<IsoBmffBox, long> getBoxChildrenOffset,
+    long expensiveBoxThreshold = DefaultExpensiveBoxThreshold) {
+
+    _originalBoxes = [.. originalBoxes];
+    _boxes = [.. editedBoxes];
     _getBoxChildrenOffset = getBoxChildrenOffset;
     _expensiveBoxThreshold = expensiveBoxThreshold;
   }
 
   public IsoBmffLayout CreateOriginalLayout() =>
-    new(_boxes
-      .Where(x => x.OriginalNode is not null || x.Box.Offset >= 0)
-      .Select(x => {
-        var node = x.OriginalNode ?? x;
-        return new IsoBmffLayoutBox(node, node.Box.Offset, node.Box.Size);
-      }));
+    new(_originalBoxes
+      .Where(x => x.Box.Offset >= 0)
+      .Select(x => new IsoBmffLayoutBox(x, x.Box.Offset, x.Box.Size)));
 
   public IsoBmffLayoutPlan CreateEditedLayout(IsoBmffLayout original, IsoBmffBoxNode editedBox) =>
     CreateEditedLayout(original, [editedBox]);
 
   public IsoBmffLayoutPlan CreateEditedLayout(IsoBmffLayout original, IEnumerable<IsoBmffBoxNode> editedBoxes) {
-    var editedRoots = editedBoxes.Select(_getTopLevelNode).Distinct().ToList();
-    if (editedRoots.Count == 0) return new IsoBmffLayoutPlan(original, false);
+    var editedRoots = editedBoxes
+      .Select(_getTopLevelNode)
+      .DistinctBy(x => x.Identity)
+      .Where(x => !original.TryGetValue(x, out var originalBox) || x.Box.Size != originalBox!.Size)
+      .ToList();
 
-    var work = original.TopLevelBoxes.Select(x => new _WorkBox(x.Node, x.Offset, x.Size)).ToList();
+    if (editedRoots.Count == 0)
+      return new IsoBmffLayoutPlan(original, false);
+
+    var work = original.TopLevelBoxes
+      .Select(x => new _WorkBox(x.Node, x.Offset, x.Size))
+      .ToList();
 
     foreach (var root in editedRoots.OrderBy(x => original[x].Offset)) {
-      if (!_applyEdit(work, original, root))
-        return new IsoBmffLayoutPlan(_createFullRewriteLayout(original, editedRoots), true);
+      if (!original.TryGetValue(root, out _) || !_applyEdit(work, original, root))
+        return new IsoBmffLayoutPlan(_createFullRewriteLayout(), true);
     }
 
     return new IsoBmffLayoutPlan(_createLayout(original, work, editedRoots), false);
@@ -60,7 +79,7 @@ internal sealed class IsoBmffLayoutPlanner {
     if (!original.TryGetValue(root, out var originalRoot))
       throw new InvalidOperationException("Edited box does not belong to the original layout.");
 
-    var index = work.FindIndex(x => ReferenceEquals(x.Node, root));
+    var index = work.FindIndex(x => ReferenceEquals(x.Node.Identity, root.Identity));
     if (index < 0)
       throw new InvalidOperationException("Edited box is not present in the working layout.");
 
@@ -72,6 +91,8 @@ internal sealed class IsoBmffLayoutPlanner {
     else if (delta < 0 && !_shrink(work, index, -delta)) {
       return false;
     }
+
+    if (!_normalizeFreeBoxes(work, ref index)) return false;
 
     if (work[index].Size != root.Box.Size)
       throw new InvalidOperationException("Edited box size does not match the planned layout.");
@@ -161,8 +182,6 @@ internal sealed class IsoBmffLayoutPlanner {
       return true;
     }
 
-    if (amount < FreeHeaderSize) return false;
-
     var root = work[rootIndex];
     root.Size -= amount;
 
@@ -201,15 +220,90 @@ internal sealed class IsoBmffLayoutPlanner {
   }
 
   private bool _isExpensive(_WorkBox box) =>
+    box.Node.Box.Type != IsoBmffTypes.Free &&
     box.Size >= _expensiveBoxThreshold;
 
+  private bool _normalizeFreeBoxes(List<_WorkBox> work, ref int rootIndex) {
+    for (var i = 0; i < work.Count;) {
+      var free = work[i];
+
+      if (free.Node.Box.Type != IsoBmffTypes.Free) {
+        i++;
+        continue;
+      }
+
+      if (free.Size < 0) return false;
+
+      if (free.Size == 0) {
+        work.RemoveAt(i);
+        if (i < rootIndex) rootIndex--;
+        continue;
+      }
+
+      if (free.Size >= FreeHeaderSize) {
+        i++;
+        continue;
+      }
+
+      var destination = _findFreeAfterFragment(work, i);
+
+      if (destination >= 0) {
+        var size = free.Size;
+
+        for (var j = i + 1; j < destination; j++)
+          work[j].Offset -= size;
+
+        work[destination].Offset -= size;
+        work[destination].Size += size;
+
+        work.RemoveAt(i);
+        if (i < rootIndex) rootIndex--;
+
+        continue;
+      }
+
+      destination = _findFreeBeforeFragment(work, i);
+      if (destination < 0) return false;
+
+      var fragmentSize = free.Size;
+
+      for (var j = destination + 1; j < i; j++)
+        work[j].Offset += fragmentSize;
+
+      work[destination].Size += fragmentSize;
+
+      work.RemoveAt(i);
+      if (i < rootIndex) rootIndex--;
+    }
+
+    return true;
+  }
+
+  private int _findFreeAfterFragment(List<_WorkBox> work, int fragmentIndex) {
+    for (var i = fragmentIndex + 1; i < work.Count; i++) {
+      if (work[i].Node.Box.Type == IsoBmffTypes.Free) return i;
+      if (_isExpensive(work[i])) return -1;
+    }
+
+    return -1;
+  }
+
+  private int _findFreeBeforeFragment(List<_WorkBox> work, int fragmentIndex) {
+    for (var i = fragmentIndex - 1; i >= 0; i--) {
+      if (work[i].Node.Box.Type == IsoBmffTypes.Free) return i;
+      if (_isExpensive(work[i])) return -1;
+    }
+
+    return -1;
+  }
+
   private IsoBmffLayout _createLayout(IsoBmffLayout original, List<_WorkBox> work, IReadOnlyCollection<IsoBmffBoxNode> editedRoots) {
-    var edited = editedRoots.ToHashSet();
+    var edited = editedRoots.ToDictionary(x => x.Identity);
     var result = new List<IsoBmffLayoutBox>();
 
     foreach (var box in work) {
-      if (edited.Contains(box.Node))
-        _addEditedTree(result, box.Node, box.Offset);
+      if (edited.TryGetValue(box.Node.Identity, out var editedRoot))
+        _addEditedTree(result, editedRoot, box.Offset);
       else if (original.TryGetValue(box.Node, out var originalBox))
         _addExistingTree(result, original, box, originalBox!);
       else
@@ -225,7 +319,7 @@ internal sealed class IsoBmffLayoutPlanner {
     result.Add(new IsoBmffLayoutBox(workBox.Node, workBox.Offset, workBox.Size));
 
     foreach (var child in original.Boxes) {
-      if (!_isDescendantOf(child.Node.OriginalNode ?? child.Node, workBox.Node)) // TODO not sure about this change
+      if (!_isDescendantOf(child.Node, workBox.Node))
         continue;
 
       result.Add(new IsoBmffLayoutBox(child.Node, child.Offset + offsetDelta, child.Size));
@@ -233,15 +327,15 @@ internal sealed class IsoBmffLayoutPlanner {
   }
 
   private bool _isDescendantOf(IsoBmffBoxNode node, IsoBmffBoxNode ancestor) {
-    var index = _boxes.IndexOf(node);
+    var index = _originalBoxes.FindIndex(x => ReferenceEquals(x.Identity, node.Identity));
 
     if (index < 0)
       return false;
 
-    while (_boxes[index].Parent >= 0) {
-      index = _boxes[index].Parent;
+    while (_originalBoxes[index].Parent >= 0) {
+      index = _originalBoxes[index].Parent;
 
-      if (ReferenceEquals(_boxes[index], ancestor))
+      if (ReferenceEquals(_originalBoxes[index].Identity, ancestor.Identity))
         return true;
     }
 
@@ -251,7 +345,8 @@ internal sealed class IsoBmffLayoutPlanner {
   private void _addEditedTree(List<IsoBmffLayoutBox> result, IsoBmffBoxNode node, long offset) {
     result.Add(new IsoBmffLayoutBox(node, offset, node.Box.Size));
 
-    var childOffset = offset + node.Box.HeaderSize + _getBoxChildrenOffset(node.Box);
+    var childrenOffset = node.Data?.LongLength ?? _getBoxChildrenOffset(node.Box);
+    var childOffset = offset + node.Box.HeaderSize + childrenOffset;
 
     foreach (var child in _getChildren(node)) {
       _addEditedTree(result, child, childOffset);
@@ -269,7 +364,7 @@ internal sealed class IsoBmffLayoutPlanner {
   }
 
   private IsoBmffBoxNode _getTopLevelNode(IsoBmffBoxNode node) {
-    var index = _boxes.IndexOf(node);
+    var index = _boxes.FindIndex(x => ReferenceEquals(x.Identity, node.Identity));
 
     if (index < 0)
       throw new InvalidOperationException("Box does not belong to this planner.");
@@ -280,20 +375,16 @@ internal sealed class IsoBmffLayoutPlanner {
     return _boxes[index];
   }
 
-  private IsoBmffLayout _createFullRewriteLayout(IsoBmffLayout original, IReadOnlyCollection<IsoBmffBoxNode> editedRoots) {
-    var work = new List<_WorkBox>();
+  private IsoBmffLayout _createFullRewriteLayout() {
+    var result = new List<IsoBmffLayoutBox>();
     var offset = 0L;
 
-    foreach (var node in _boxes.Where(x => x.Parent < 0).OrderBy(x => x.Box.Offset)) {
-      var size = editedRoots.Contains(node) || !original.TryGetValue(node, out var old)
-        ? node.Box.Size
-        : old!.Size;
-
-      work.Add(new _WorkBox(node, offset, size));
-      offset += size;
+    foreach (var root in _boxes.Where(x => x.Parent < 0)) {
+      _addEditedTree(result, root, offset);
+      offset += root.Box.Size;
     }
 
-    return _createLayout(original, work, editedRoots);
+    return new IsoBmffLayout(result);
   }
 
   private sealed class _WorkBox(IsoBmffBoxNode node, long offset, long size) {

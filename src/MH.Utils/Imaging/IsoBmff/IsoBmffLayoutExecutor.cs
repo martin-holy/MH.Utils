@@ -69,4 +69,11 @@ internal static class IsoBmffLayoutExecutor {
     stream.Position = destination;
     stream.Write(buffer, 0, count);
   }
+
+  public static void ExecuteWrites(Stream stream, IEnumerable<IsoBmffWrite> writes) {
+    foreach (var write in writes) {
+      stream.Position = write.Offset;
+      stream.Write(write.Data);
+    }
+  }
 }

@@ -1,11 +1,12 @@
 ﻿using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Text;
 
 namespace MH.Utils.Imaging.IsoBmff;
 
-internal sealed class IsoBmffItemList(IsoBmffReader reader, IsoBmffBox ilst) {
-  private List<IsoBmffMetadataEntry>? _entries;
+internal sealed class IsoBmffItemList(IsoBmffReader reader, IsoBmffBox ilst, bool isNew = false) {
+  private List<IsoBmffMetadataEntry>? _entries = isNew ? [] : null;
 
   public static IsoBmffItemList? Find(IsoBmffReader reader, IsoBmffBox moov) {
     if (reader.FindChild(moov, IsoBmffTypes.Udta) is not { } udta) return null;
@@ -80,7 +81,9 @@ internal sealed class IsoBmffItemList(IsoBmffReader reader, IsoBmffBox ilst) {
         continue;
 
       if (value is null) {
-        var keywIndex = editedBoxes.FindIndex(entry.Item);
+        var keywIndex = entry.Node is { } node
+          ? editedBoxes.IndexOf(node)
+          : editedBoxes.FindIndex(entry.Item);
 
         if (keywIndex < 0)
           throw new InvalidOperationException("The keyw box was not found.");
@@ -97,24 +100,26 @@ internal sealed class IsoBmffItemList(IsoBmffReader reader, IsoBmffBox ilst) {
 
     if (value is null) return;
 
-    var valueSize = Encoding.UTF8.GetByteCount(value);
+    var payload = _createData(value);
     var item = new IsoBmffBox(-1, 8, 8, IsoBmffTypes.Keyw);
-    var data = new IsoBmffBox(-1, 8, 16 + valueSize, IsoBmffTypes.Data);
+    var data = new IsoBmffBox(-1, 8, 8 + payload.LongLength, IsoBmffTypes.Data);
     var ilstIndex = editedBoxes.FindIndex(ilst);
 
     if (ilstIndex < 0)
       throw new InvalidOperationException("The ilst box was not found.");
 
     var itemIndex = editedBoxes.InsertBox(item, ilstIndex);
+    var itemNode = editedBoxes[itemIndex];
 
-    editedBoxes.InsertBox(data, itemIndex);
+    editedBoxes.InsertBox(data, itemIndex, payload);
 
-    entries.Add(new IsoBmffMetadataEntry("keyw", value, item));
+    entries.Add(new IsoBmffMetadataEntry("keyw", value, itemNode.Box, itemNode));
   }
 
   private void _updateEntry(IsoBmffMetadataEntry entry, List<IsoBmffBoxNode> editedBoxes, string value) {
-    var valueSize = Encoding.UTF8.GetByteCount(value);
-    var itemIndex = editedBoxes.FindIndex(entry.Item);
+    var itemIndex = entry.Node is { } node
+      ? editedBoxes.IndexOf(node)
+      : editedBoxes.FindIndex(entry.Item);
 
     if (itemIndex < 0)
       throw new InvalidOperationException("The keyw box was not found.");
@@ -125,18 +130,46 @@ internal sealed class IsoBmffItemList(IsoBmffReader reader, IsoBmffBox ilst) {
     if (dataIndex < 0)
       throw new InvalidOperationException("The keyw data box was not found.");
 
-    var data = editedBoxes[dataIndex].Box;
-    var item = editedBoxes[itemIndex].Box;
-
-    var newDataSize = 16 + valueSize;
+    var dataNode = editedBoxes[dataIndex];
+    var prefix = _getDataPrefix(dataNode);
+    var payload = _createData(value, prefix);
+    var data = dataNode.Box;
+    var newDataSize = data.HeaderSize + payload.LongLength;
     var delta = newDataSize - data.Size;
 
-    editedBoxes[dataIndex].Box = new IsoBmffBox(data.Offset, data.HeaderSize, newDataSize, data.Type);
-    editedBoxes[itemIndex].Box = new IsoBmffBox(item.Offset, item.HeaderSize, item.Size + delta, item.Type);
+    dataNode.Data = payload;
+    dataNode.Box = new IsoBmffBox(data.Offset, data.HeaderSize, newDataSize, data.Type);
 
     if (delta != 0)
-      editedBoxes.UpdateParentSizes(editedBoxes[itemIndex].Parent, delta);
+      editedBoxes.UpdateParentSizes(dataNode.Parent, delta);
 
+    entry.Node = editedBoxes[itemIndex];
     entry.Value = value;
+  }
+
+  private byte[] _getDataPrefix(IsoBmffBoxNode dataNode) {
+    if (dataNode.Data is { Length: >= 8 } data)
+      return data[..8];
+
+    var prefix = new byte[8];
+
+    reader._stream.Position = dataNode.Box.DataOffset;
+    reader._stream.ReadExactly(prefix);
+
+    return prefix;
+  }
+
+  private static byte[] _createData(string value, byte[]? prefix = null) {
+    var valueBytes = Encoding.UTF8.GetBytes(value);
+    var result = new byte[checked(8 + valueBytes.Length)];
+
+    if (prefix is not null)
+      prefix.CopyTo(result, 0);
+    else
+      BinaryPrimitives.WriteUInt32BigEndian(result, 1);
+
+    valueBytes.CopyTo(result, 8);
+
+    return result;
   }
 }

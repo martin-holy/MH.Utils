@@ -75,6 +75,27 @@ public class IsoBmffLayoutExecutorTests {
     CollectionAssert.AreEqual(expected, data);
   }
 
+  [TestMethod]
+  public void ExecuteWrites_WritesBytesAtSpecifiedOffsets() {
+    var data = _createData(100);
+    var expected = data.ToArray();
+
+    var writes = new[] {
+      new IsoBmffWrite(10, [0xAA, 0xBB, 0xCC]),
+      new IsoBmffWrite(70, [0x11, 0x22])
+    };
+
+    foreach (var write in writes)
+      Array.Copy(write.Data, 0, expected, (int)write.Offset, write.Data.Length);
+
+    using var stream = new MemoryStream(data);
+
+    IsoBmffLayoutExecutor.ExecuteWrites(stream, writes);
+
+    CollectionAssert.AreEqual(expected, data);
+    Assert.AreEqual(100, stream.Length);
+  }
+
   private static void _assertMove(int dataLength, int source, int destination, int length) {
     var data = _createData(dataLength);
     var original = data.ToArray();

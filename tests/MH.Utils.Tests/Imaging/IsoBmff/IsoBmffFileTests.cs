@@ -1,4 +1,5 @@
 ﻿using MH.Utils.Imaging.IsoBmff;
+using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Text;
 
@@ -132,7 +133,8 @@ public class IsoBmffFileTests {
     using var stream = _createTestFile(withItemList: false);
 
     var file = new IsoBmffFile(stream);
-
+    var originalBoxes = file._metadata._getOriginalBoxes();
+    var originalBoxSizes = originalBoxes.Select(x => x.Box.Size).ToArray();
     var boxes = file._metadata._getEditedBoxes();
 
     var moovIndex = boxes.FindIndex(IsoBmffTypes.Moov);
@@ -165,6 +167,7 @@ public class IsoBmffFileTests {
     Assert.AreEqual(28, boxes[udtaIndex].Box.Size);
     Assert.AreEqual(20, boxes[metaIndex].Box.Size);
     Assert.AreEqual(8, boxes[ilstIndex].Box.Size);
+    CollectionAssert.AreEqual(new byte[4], boxes[metaIndex].Data);
 
     Assert.AreEqual(originalMoovSize + 28, boxes[moovIndex].Box.Size);
 
@@ -193,6 +196,7 @@ public class IsoBmffFileTests {
 
     Assert.AreEqual(29, boxes[keywIndex].Box.Size);
     Assert.AreEqual(21, boxes[dataIndex].Box.Size);
+    _assertKeywordData(boxes[dataIndex], "hello");
 
     Assert.AreEqual(37, boxes[ilstIndex].Box.Size);
     Assert.AreEqual(49, boxes[metaIndex].Box.Size);
@@ -213,6 +217,7 @@ public class IsoBmffFileTests {
     Assert.AreEqual(1, dataCount);
 
     boxes = file._metadata._getEditedBoxes();
+    _assertKeywordData(boxes[dataIndex], "world");
 
     Assert.AreEqual(37, boxes[ilstIndex].Box.Size);
     Assert.AreEqual(49, boxes[metaIndex].Box.Size);
@@ -220,22 +225,26 @@ public class IsoBmffFileTests {
     Assert.AreEqual(originalMoovSize + 28 + 29, boxes[moovIndex].Box.Size);
 
     // Update Keywords 2
-    file._metadata.SetKeywords("a much longer keyword value");
+    const string longerValue = "a much longer keyword value";
+    file._metadata.SetKeywords(longerValue);
 
-    Assert.AreEqual("a much longer keyword value", itemList.GetKeywords());
+    Assert.AreEqual(longerValue, itemList.GetKeywords());
 
-    var valueSize = Encoding.UTF8.GetByteCount("a much longer keyword value");
+    boxes = file._metadata._getEditedBoxes();
+
+    var valueSize = Encoding.UTF8.GetByteCount(longerValue);
     var expectedItemSize = 24 + valueSize;
 
     Assert.AreEqual(expectedItemSize, boxes[keywIndex].Box.Size);
     Assert.AreEqual(16 + valueSize, boxes[dataIndex].Box.Size);
+    _assertKeywordData(boxes[dataIndex], longerValue);
 
     Assert.AreEqual(8 + expectedItemSize, boxes[ilstIndex].Box.Size);
     Assert.AreEqual(20 + expectedItemSize, boxes[metaIndex].Box.Size);
     Assert.AreEqual(28 + expectedItemSize, boxes[udtaIndex].Box.Size);
 
     // Update Keywords 3
-    var smallerValue = "x";
+    const string smallerValue = "x";
     var smallerValueSize = Encoding.UTF8.GetByteCount(smallerValue);
     var expectedSmallerItemSize = 24 + smallerValueSize;
 
@@ -245,6 +254,7 @@ public class IsoBmffFileTests {
 
     Assert.AreEqual(expectedSmallerItemSize, boxes[keywIndex].Box.Size);
     Assert.AreEqual(16 + smallerValueSize, boxes[dataIndex].Box.Size);
+    _assertKeywordData(boxes[dataIndex], smallerValue);
 
     Assert.AreEqual(8 + expectedSmallerItemSize, boxes[ilstIndex].Box.Size);
     Assert.AreEqual(20 + expectedSmallerItemSize, boxes[metaIndex].Box.Size);
@@ -269,6 +279,18 @@ public class IsoBmffFileTests {
     Assert.AreEqual(originalMoovSize + 28, boxes[moovIndex].Box.Size);
 
     Assert.IsNull(itemList.GetKeywords());
+    CollectionAssert.AreEqual(originalBoxSizes, originalBoxes.Select(x => x.Box.Size).ToArray());
+  }
+
+  private static void _assertKeywordData(IsoBmffBoxNode dataNode, string value) {
+    var valueBytes = Encoding.UTF8.GetBytes(value);
+    var expected = new byte[8 + valueBytes.Length];
+
+    BinaryPrimitives.WriteUInt32BigEndian(expected, 1);
+    valueBytes.CopyTo(expected, 8);
+
+    Assert.IsNotNull(dataNode.Data);
+    CollectionAssert.AreEqual(expected, dataNode.Data);
   }
 
   private sealed record BoxSnapshot(uint Type, long Offset, long Size, int Parent);

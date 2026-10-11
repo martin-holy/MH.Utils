@@ -10,6 +10,7 @@ internal class IsoBmffMetadata {
   private readonly Stream _stream;
   private readonly IsoBmffReader _reader;
   private readonly IsoBmffBox _moov;
+  private List<IsoBmffBoxNode>? _originalBoxes;
   private List<IsoBmffBoxNode>? _editedBoxes;
 
   private bool _itemListRead;
@@ -190,9 +191,18 @@ internal class IsoBmffMetadata {
   }
 
   internal List<IsoBmffBoxNode> _getEditedBoxes() {
-    _editedBoxes ??= [.. _reader._readBoxes().Select(x => new IsoBmffBoxNode(x.Box, x.Parent, x))];
+    if (_editedBoxes is not null) return _editedBoxes;
+
+    _originalBoxes = _reader._readBoxes();
+    _editedBoxes = [.. _originalBoxes.Select(x => new IsoBmffBoxNode(x.Box, x.Parent, x))];
 
     return _editedBoxes;
+  }
+
+  internal List<IsoBmffBoxNode> _getOriginalBoxes() {
+    _getEditedBoxes();
+
+    return _originalBoxes!;
   }
 
   internal IsoBmffItemList _getOrCreateItemList() {
@@ -213,7 +223,10 @@ internal class IsoBmffMetadata {
     var metaIndex = editedBoxes.FindIndex(IsoBmffTypes.Meta, udtaIndex);
 
     if (metaIndex < 0)
-      metaIndex = editedBoxes.InsertBox(IsoBmffTypes.Meta, 12, udtaIndex);
+      metaIndex = editedBoxes.InsertBox(
+        new IsoBmffBox(-1, 8, 12, IsoBmffTypes.Meta),
+        udtaIndex,
+        new byte[4]);
 
     var ilstIndex = editedBoxes.FindIndex(IsoBmffTypes.Ilst, metaIndex);
 
@@ -222,6 +235,6 @@ internal class IsoBmffMetadata {
 
     var ilst = editedBoxes[ilstIndex].Box;
 
-    return _itemList = new IsoBmffItemList(_reader, ilst);
+    return _itemList = new IsoBmffItemList(_reader, ilst, isNew: true);
   }
 }

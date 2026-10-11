@@ -2,10 +2,13 @@
 
 namespace MH.Utils.Imaging.IsoBmff;
 
-internal sealed class IsoBmffBoxNode(IsoBmffBox box, int parent, IsoBmffBoxNode? originalNode = null) {
+internal sealed class IsoBmffBoxNode(IsoBmffBox box, int parent, IsoBmffBoxNode? originalNode = null, byte[]? data = null) {
   public IsoBmffBox Box { get; set; } = box;
   public int Parent { get; set; } = parent;
   public IsoBmffBoxNode? OriginalNode { get; } = originalNode;
+
+  // Leaf payload bytes, or container prefix bytes before its children.
+  public byte[]? Data { get; set; } = data;
 
   public IsoBmffBoxNode Identity => OriginalNode?.Identity ?? this;
 }
@@ -49,7 +52,7 @@ internal static class IsoBmffBoxNodeExtensions {
     }
   }
 
-  public static int InsertBox(this List<IsoBmffBoxNode> boxes, IsoBmffBox box, int parentIndex) {
+  public static int InsertBox(this List<IsoBmffBoxNode> boxes, IsoBmffBox box, int parentIndex, byte[]? data = null) {
     var index = parentIndex + 1;
 
     while (index < boxes.Count && _isDescendantOf(boxes[index], parentIndex, boxes))
@@ -59,7 +62,7 @@ internal static class IsoBmffBoxNodeExtensions {
       if (boxes[i].Parent >= index)
         boxes[i].Parent++;
 
-    boxes.Insert(index, new IsoBmffBoxNode(box, parentIndex));
+    boxes.Insert(index, new IsoBmffBoxNode(box, parentIndex, data: data));
     boxes.UpdateParentSizes(parentIndex, box.Size);
 
     return index;

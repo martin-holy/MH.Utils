@@ -207,35 +207,52 @@ public class IsoBmffFileIntegrationTests {
   }
 
   [TestMethod]
-  public void Save_FullRewrite_PersistsKeywordsAndRelocatesCo64() {
-    using var stream = IsoBmffFileTests._createTestFile(beforeFreeSize: 0, afterFreeSize: 0, withItemList: false);
+  public void Save_Path_FullRewriteCreatesXmpAndRelocatesCo64() {
+    using var source = IsoBmffFileTests._createTestFile(
+      beforeFreeSize: 0,
+      afterFreeSize: 0,
+      withItemList: false);
 
-    _setCo64Offsets(stream);
+    _setCo64Offsets(source);
 
-    var originalLength = stream.Length;
-    var file = new IsoBmffFile(stream);
+    var originalLength = source.Length;
+    var path = Path.Combine(Path.GetTempPath(), $"isobmff-{Guid.NewGuid():N}.mp4");
 
-    file._metadata.SetKeywords("box-keyword");
-    file.Xmp.SetKeywords(["xmp-keyword"]);
+    try {
+      source.Position = 0;
 
-    file.Save();
+      using (var output = File.Create(path))
+        source.CopyTo(output);
 
-    Assert.IsTrue(stream.Length > originalLength);
+      using (var file = new IsoBmffFile(path)) {
+        Assert.IsNull(file._metadata._getItemList());
+        Assert.IsNull(file._reader.Find(IsoBmffTypes.Uuid));
 
-    stream.Position = 0;
-    var savedFile = new IsoBmffFile(stream);
+        file._metadata.SetKeywords("box-keyword");
+        file.Xmp.SetKeywords(["xmp-keyword"]);
+        file.Save();
+      }
 
-    Assert.AreEqual("box-keyword", savedFile._metadata.GetItemListKeywords());
-    CollectionAssert.AreEqual(new[] { "xmp-keyword" }, savedFile.Xmp.GetKeywords());
+      Assert.IsTrue(new FileInfo(path).Length > originalLength);
 
-    var boxes = savedFile._reader._readBoxes();
-    var mdat = boxes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
-    var co64 = boxes.Single(x => x.Box.Type == IsoBmffTypes.Co64);
-    var firstChunkOffset = savedFile._reader.ReadUInt64BigEndian(co64.Box.DataOffset + 8);
-    var secondChunkOffset = savedFile._reader.ReadUInt64BigEndian(co64.Box.DataOffset + 16);
+      using var rewrittenFile = new IsoBmffFile(path);
+      var boxes = rewrittenFile._reader._readBoxes();
+      var mdat = boxes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
+      var co64 = boxes.Single(x => x.Box.Type == IsoBmffTypes.Co64);
 
-    Assert.AreEqual(checked((ulong)mdat.Box.DataOffset), firstChunkOffset);
-    Assert.AreEqual(checked((ulong)mdat.Box.DataOffset + 8), secondChunkOffset);
+      Assert.AreEqual("box-keyword", rewrittenFile._metadata.GetItemListKeywords());
+      CollectionAssert.AreEqual(new[] { "xmp-keyword" }, rewrittenFile.Xmp.GetKeywords());
+      Assert.AreEqual(
+        checked((ulong)mdat.Box.DataOffset),
+        rewrittenFile._reader.ReadUInt64BigEndian(co64.Box.DataOffset + 8));
+      Assert.AreEqual(
+        checked((ulong)mdat.Box.DataOffset + 8),
+        rewrittenFile._reader.ReadUInt64BigEndian(co64.Box.DataOffset + 16));
+    }
+    finally {
+      if (File.Exists(path))
+        File.Delete(path);
+    }
   }
 
   [TestMethod]
@@ -262,6 +279,125 @@ public class IsoBmffFileIntegrationTests {
       if (File.Exists(path))
         File.Delete(path);
     }
+  }
+
+  [TestMethod]
+  public void Save_Path_MovesXmp_AppliesMultipleEditsAndPreservesUnchangedBytes() {
+    using var source = _createTestFileWithXmpBeforeFree();
+    var path = Path.Combine(Path.GetTempPath(), $"isobmff-{Guid.NewGuid():N}.mp4");
+
+    try {
+      using (var output = File.Create(path))
+        source.CopyTo(output);
+
+      var originalBytes = File.ReadAllBytes(path);
+      var originalMdatBox = new IsoBmffReader(source).Find(IsoBmffTypes.Mdat)
+        ?? throw new InvalidDataException("Test mdat box was not found.");
+      var originalMdatBytes = originalBytes.AsSpan(
+        checked((int)originalMdatBox.Offset),
+        checked((int)originalMdatBox.Size)).ToArray();
+      var originalFtypSize = new IsoBmffReader(source).Find(IsoBmffTypes.Ftyp)?.Size
+        ?? throw new InvalidDataException("Test ftyp box was not found.");
+
+      using (var file = new IsoBmffFile(path)) {
+        var originalBoxes = file._metadata._getOriginalBoxes();
+        var originalPlanner = new IsoBmffLayoutPlanner(
+          originalBoxes,
+          originalBoxes,
+          file._reader.GetBoxChildrenOffset);
+        var original = originalPlanner.CreateOriginalLayout();
+        var originalXmp = originalBoxes.Single(x => x.Box.Type == IsoBmffTypes.Uuid);
+
+        file._metadata.SetKeywords("intermediate-box-keyword");
+        file._metadata.SetKeywords("box-keyword");
+        file.Xmp.SetKeywords(["intermediate-xmp-keyword"]);
+        file.Xmp.SetKeywords(["xmp-keyword"]);
+
+        var editedBoxes = file._getEditedBoxes();
+        var planner = new IsoBmffLayoutPlanner(
+          originalBoxes,
+          editedBoxes,
+          file._reader.GetBoxChildrenOffset);
+        var plan = planner.CreateEditedLayout(original, editedBoxes);
+
+        Assert.IsFalse(plan.RequiresFullRewrite);
+
+        var editedXmp = editedBoxes.Single(x => x.Box.Type == IsoBmffTypes.Uuid);
+        var plannedXmp = plan.Layout[editedXmp];
+        var diff = IsoBmffLayoutDiffer.Diff(
+          original,
+          plan.Layout,
+          editedBoxes.Where(x => x.Data is not null));
+
+        Assert.AreNotEqual(originalXmp.Box.Offset, plannedXmp.Offset);
+        Assert.IsTrue(diff.Moves.Any(x =>
+          x.SourceOffset == originalXmp.Box.Offset &&
+          x.DestinationOffset == plannedXmp.Offset));
+
+        file.Save();
+      }
+
+      var rewrittenBytes = File.ReadAllBytes(path);
+      var rewrittenFile = new IsoBmffFile(path);
+      var rewrittenBoxes = rewrittenFile._reader._readBoxes();
+      var rewrittenMdat = rewrittenBoxes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
+      var rewrittenFtyp = rewrittenBoxes.Single(x => x.Box.Type == IsoBmffTypes.Ftyp);
+
+      Assert.AreEqual(originalMdatBox.Offset, rewrittenMdat.Box.Offset);
+      Assert.AreEqual(originalFtypSize, rewrittenFtyp.Box.Size);
+      CollectionAssert.AreEqual(
+        originalBytes.AsSpan(0, checked((int)originalFtypSize)).ToArray(),
+        rewrittenBytes.AsSpan(0, checked((int)rewrittenFtyp.Box.Size)).ToArray());
+      CollectionAssert.AreEqual(
+        originalMdatBytes,
+        rewrittenBytes.AsSpan(
+          checked((int)rewrittenMdat.Box.Offset),
+          checked((int)rewrittenMdat.Box.Size)).ToArray());
+
+      Assert.AreEqual("box-keyword", rewrittenFile._metadata.GetItemListKeywords());
+      CollectionAssert.AreEqual(new[] { "xmp-keyword" }, rewrittenFile.Xmp.GetKeywords());
+      rewrittenFile.Dispose();
+    }
+    finally {
+      if (File.Exists(path))
+        File.Delete(path);
+    }
+  }
+
+  private static MemoryStream _createTestFileWithXmpBeforeFree() {
+    using var baseStream = IsoBmffFileTests._createTestFile(
+      beforeFreeSize: 0,
+      afterFreeSize: 0,
+      withItemList: false);
+
+    var reader = new IsoBmffReader(baseStream);
+    var mdat = reader.Find(IsoBmffTypes.Mdat)
+      ?? throw new InvalidDataException("Test mdat box was not found.");
+    var baseBytes = baseStream.ToArray();
+
+    var initialXmp = new XmpMetadata(null);
+    initialXmp.SetKeywords(["initial-xmp"]);
+
+    var packet = initialXmp.ToPacket();
+    var xmpPayload = new byte[16 + packet.Length];
+
+    new byte[] {
+      0xBE, 0x7A, 0xCF, 0xCB, 0x97, 0xA9, 0x42, 0xE8,
+      0x9C, 0x71, 0x99, 0x94, 0x91, 0xE3, 0xAF, 0xAC
+    }.CopyTo(xmpPayload, 0);
+
+    packet.CopyTo(xmpPayload, 16);
+
+    var result = new MemoryStream();
+    var mdatOffset = checked((int)mdat.Offset);
+
+    result.Write(baseBytes.AsSpan(0, mdatOffset));
+    _writeBox(result, IsoBmffTypes.Uuid, xmpPayload);
+    _writeBox(result, IsoBmffTypes.Free, new byte[128 * 1024 - 8]);
+    result.Write(baseBytes.AsSpan(mdatOffset));
+
+    result.Position = 0;
+    return result;
   }
 
   private static void _setCo64Offsets(Stream stream) {

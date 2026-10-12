@@ -1,8 +1,7 @@
 ﻿using MH.Utils.Imaging.IsoBmff;
+using System.Buffers.Binary;
 
 namespace MH.Utils.Tests.Imaging.IsoBmff;
-
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 [TestClass]
 public class IsoBmffLayoutExecutorTests {
@@ -94,6 +93,90 @@ public class IsoBmffLayoutExecutorTests {
 
     CollectionAssert.AreEqual(expected, data);
     Assert.AreEqual(100, stream.Length);
+  }
+
+  [TestMethod]
+  public void FullRewrite_RelocatesStcoAndCo64Entries() {
+    const int mdatPayloadSize = 16;
+    const int stcoSize = 20;
+    const int co64Size = 24;
+    const long mdatOffset = stcoSize + co64Size;
+    const ulong originalMdatDataOffset = (ulong)(mdatOffset + 8);
+
+    var stcoData = new byte[12];
+    BinaryPrimitives.WriteUInt32BigEndian(stcoData.AsSpan(4), 1);
+    BinaryPrimitives.WriteUInt32BigEndian(stcoData.AsSpan(8), (uint)originalMdatDataOffset);
+
+    var co64Data = new byte[16];
+    BinaryPrimitives.WriteUInt32BigEndian(co64Data.AsSpan(4), 1);
+    BinaryPrimitives.WriteUInt64BigEndian(co64Data.AsSpan(8), originalMdatDataOffset);
+
+    using var source = new MemoryStream();
+    _writeBox(source, IsoBmffTypes.Stco, stcoData);
+    _writeBox(source, IsoBmffTypes.Co64, co64Data);
+    _writeBox(source, IsoBmffTypes.Mdat, _createData(mdatPayloadSize));
+    source.Position = 0;
+
+    var reader = new IsoBmffReader(source);
+    var originalBoxes = reader._readBoxes();
+    var stco = originalBoxes.Single(x => x.Box.Type == IsoBmffTypes.Stco);
+    var co64 = originalBoxes.Single(x => x.Box.Type == IsoBmffTypes.Co64);
+    var mdat = originalBoxes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
+    var editedBoxes = originalBoxes.ToList();
+    var free = new IsoBmffBoxNode(new IsoBmffBox(-1, 8, 8, IsoBmffTypes.Free), -1);
+
+    editedBoxes.Insert(editedBoxes.IndexOf(mdat), free);
+
+    var layoutBoxes = originalBoxes
+      .Select(x => new IsoBmffLayoutBox(
+        x,
+        x.Box.Offset + (ReferenceEquals(x, mdat) ? 8 : 0),
+        x.Box.Size))
+      .Append(new IsoBmffLayoutBox(free, mdat.Box.Offset, 8));
+    var layout = new IsoBmffLayout(layoutBoxes);
+
+    using var destination = new MemoryStream();
+
+    IsoBmffLayoutExecutor.ExecuteFullRewrite(
+      source,
+      destination,
+      originalBoxes,
+      editedBoxes,
+      layout,
+      reader.GetBoxChildrenOffset);
+
+    var rewrittenReader = new IsoBmffReader(destination);
+    var rewrittenBoxes = rewrittenReader._readBoxes();
+    var rewrittenStco = rewrittenBoxes.Single(x => x.Box.Type == IsoBmffTypes.Stco).Box;
+    var rewrittenCo64 = rewrittenBoxes.Single(x => x.Box.Type == IsoBmffTypes.Co64).Box;
+    var rewrittenMdat = rewrittenBoxes.Single(x => x.Box.Type == IsoBmffTypes.Mdat).Box;
+    var expectedOffset = checked((ulong)rewrittenMdat.DataOffset);
+
+    Assert.AreEqual(source.Length + 8, destination.Length);
+    Assert.AreEqual(
+      (uint)expectedOffset,
+      rewrittenReader.ReadUInt32BigEndian(rewrittenStco.DataOffset + 8));
+    Assert.AreEqual(
+      expectedOffset,
+      rewrittenReader.ReadUInt64BigEndian(rewrittenCo64.DataOffset + 8));
+
+    var expectedMdatPayload = _createData(mdatPayloadSize);
+    var actualMdatPayload = new byte[mdatPayloadSize];
+
+    destination.Position = rewrittenMdat.DataOffset;
+    destination.ReadExactly(actualMdatPayload);
+
+    CollectionAssert.AreEqual(expectedMdatPayload, actualMdatPayload);
+  }
+
+  private static void _writeBox(Stream stream, uint type, byte[] payload) {
+    Span<byte> header = stackalloc byte[8];
+
+    BinaryPrimitives.WriteUInt32BigEndian(header, checked((uint)(8 + payload.Length)));
+    BinaryPrimitives.WriteUInt32BigEndian(header[4..], type);
+
+    stream.Write(header);
+    stream.Write(payload);
   }
 
   private static void _assertMove(int dataLength, int source, int destination, int length) {

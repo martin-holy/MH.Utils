@@ -61,7 +61,7 @@ internal static class IsoBmffLayoutDiffer {
     return result;
   }
 
-  private static byte[] _createHeader(IsoBmffLayoutBox box) {
+  internal static byte[] _createHeader(IsoBmffLayoutBox box) {
     var size = box.Size;
     var headerSize = box.Node.Box.HeaderSize;
 

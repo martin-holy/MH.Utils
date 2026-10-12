@@ -31,6 +31,8 @@ internal static class IsoBmffTypes {
   public const uint Uuid = 0x75756964;
   public const uint Free = 0x66726565;
   public const uint Mvhd = 0x6D766864;
+  public const uint Stco = 0x7374636F;
+  public const uint Co64 = 0x636F3634;
 
   public static string GetTypeName(uint type) {
     Span<char> chars = [

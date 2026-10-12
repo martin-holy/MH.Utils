@@ -118,6 +118,74 @@ public class IsoBmffFileIntegrationTests {
     CollectionAssert.AreEqual(new[] { "xmp-keyword" }, rewrittenFile.Xmp.GetKeywords());
   }
 
+  [TestMethod]
+  public void FullRewrite_CreatesItemListAndXmpKeywords() {
+    using var input = IsoBmffFileTests._createTestFile(beforeFreeSize: 0, afterFreeSize: 0, withItemList: false);
+
+    var inputReader = new IsoBmffReader(input);
+    var inputBoxes = inputReader._readBoxes();
+    var inputMdat = inputBoxes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
+    var inputCo64 = inputBoxes.Single(x => x.Box.Type == IsoBmffTypes.Co64);
+    var co64Data = new byte[checked((int)inputCo64.Box.DataSize)];
+
+    BinaryPrimitives.WriteUInt32BigEndian(co64Data.AsSpan(4), 2);
+    BinaryPrimitives.WriteUInt64BigEndian(co64Data.AsSpan(8), checked((ulong)inputMdat.Box.DataOffset));
+    BinaryPrimitives.WriteUInt64BigEndian(co64Data.AsSpan(16), checked((ulong)inputMdat.Box.DataOffset + 8));
+
+    input.Position = inputCo64.Box.DataOffset;
+    input.Write(co64Data);
+    input.Position = 0;
+
+    var file = new IsoBmffFile(input);
+    var originalBoxes = file._metadata._getOriginalBoxes();
+    var originalPlanner = new IsoBmffLayoutPlanner(
+      originalBoxes,
+      originalBoxes,
+      file._reader.GetBoxChildrenOffset);
+    var original = originalPlanner.CreateOriginalLayout();
+
+    file._metadata.SetKeywords("box-keyword");
+    file.Xmp.SetKeywords(["xmp-keyword"]);
+
+    var editedBoxes = file._getEditedBoxes();
+    var planner = new IsoBmffLayoutPlanner(
+      originalBoxes,
+      editedBoxes,
+      file._reader.GetBoxChildrenOffset);
+    var plan = planner.CreateEditedLayout(original, editedBoxes);
+
+    Assert.IsTrue(plan.RequiresFullRewrite);
+
+    using var output = new MemoryStream();
+
+    IsoBmffLayoutExecutor.ExecuteFullRewrite(
+      input,
+      output,
+      originalBoxes,
+      editedBoxes,
+      plan.Layout,
+      file._reader.GetBoxChildrenOffset);
+
+    Assert.IsTrue(output.Length > input.Length);
+
+    output.Position = 0;
+    var rewrittenFile = new IsoBmffFile(output);
+
+    Assert.AreEqual("box-keyword", rewrittenFile._metadata.GetItemListKeywords());
+    CollectionAssert.AreEqual(new[] { "xmp-keyword" }, rewrittenFile.Xmp.GetKeywords());
+
+    var rewrittenBoxes = rewrittenFile._reader._readBoxes();
+    var rewrittenMdat = rewrittenBoxes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
+    var rewrittenCo64 = rewrittenBoxes.Single(x => x.Box.Type == IsoBmffTypes.Co64);
+
+    Assert.AreEqual(
+      checked((ulong)rewrittenMdat.Box.DataOffset),
+      rewrittenFile._reader.ReadUInt64BigEndian(rewrittenCo64.Box.DataOffset + 8));
+    Assert.AreEqual(
+      checked((ulong)rewrittenMdat.Box.DataOffset + 8),
+      rewrittenFile._reader.ReadUInt64BigEndian(rewrittenCo64.Box.DataOffset + 16));
+  }
+
   private static MemoryStream _createTestFileWithXmp() {
     using var baseStream = IsoBmffFileTests._createTestFile(
       beforeFreeSize: 0,

@@ -59,6 +59,65 @@ public class IsoBmffFileIntegrationTests {
     CollectionAssert.AreEqual(new[] { "xmp-keyword" }, rewrittenFile.Xmp.GetKeywords());
   }
 
+  [TestMethod]
+  public void CreateItemListAndXmpKeywords_WritesAndReadsBothChanges() {
+    using var input = IsoBmffFileTests._createTestFile(
+      beforeFreeSize: 0,
+      afterFreeSize: 16384,
+      withItemList: false);
+
+    var file = new IsoBmffFile(input);
+
+    Assert.IsNull(file._metadata._getItemList());
+    Assert.IsNull(file._reader.Find(IsoBmffTypes.Uuid));
+
+    var originalBoxes = file._metadata._getOriginalBoxes();
+    var originalPlanner = new IsoBmffLayoutPlanner(
+      originalBoxes,
+      originalBoxes,
+      file._reader.GetBoxChildrenOffset);
+    var original = originalPlanner.CreateOriginalLayout();
+
+    file._metadata.SetKeywords("box-keyword");
+    file.Xmp.SetKeywords(["xmp-keyword"]);
+
+    var editedBoxes = file._getEditedBoxes();
+    var xmpBox = editedBoxes.Single(x =>
+      x.Box.Type == IsoBmffTypes.Uuid &&
+      x.Box.Offset == -1);
+
+    Assert.IsNotNull(xmpBox.Data);
+
+    var planner = new IsoBmffLayoutPlanner(
+      originalBoxes,
+      editedBoxes,
+      file._reader.GetBoxChildrenOffset);
+    var plan = planner.CreateEditedLayout(original, editedBoxes);
+
+    Assert.IsFalse(plan.RequiresFullRewrite);
+    Assert.IsTrue(plan.Layout.TryGetValue(xmpBox, out _));
+
+    var diff = IsoBmffLayoutDiffer.Diff(
+      original,
+      plan.Layout,
+      editedBoxes.Where(x => x.Data is not null));
+
+    var originalBytes = input.ToArray();
+    using var output = new MemoryStream();
+    output.Write(originalBytes);
+
+    IsoBmffLayoutExecutor.ExecuteMoves(output, diff.Moves);
+    IsoBmffLayoutExecutor.ExecuteWrites(output, diff.Writes);
+
+    Assert.AreEqual(originalBytes.Length, output.Length);
+
+    output.Position = 0;
+    var rewrittenFile = new IsoBmffFile(output);
+
+    Assert.AreEqual("box-keyword", rewrittenFile._metadata.GetItemListKeywords());
+    CollectionAssert.AreEqual(new[] { "xmp-keyword" }, rewrittenFile.Xmp.GetKeywords());
+  }
+
   private static MemoryStream _createTestFileWithXmp() {
     using var baseStream = IsoBmffFileTests._createTestFile(
       beforeFreeSize: 0,

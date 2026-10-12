@@ -186,6 +186,100 @@ public class IsoBmffFileIntegrationTests {
       rewrittenFile._reader.ReadUInt64BigEndian(rewrittenCo64.Box.DataOffset + 16));
   }
 
+  [TestMethod]
+  public void Save_InPlace_PersistsItemListAndXmpKeywords() {
+    using var stream = _createTestFileWithXmp();
+    var originalLength = stream.Length;
+    var file = new IsoBmffFile(stream);
+
+    file._metadata.SetKeywords("box-keyword");
+    file.Xmp.SetKeywords(["xmp-keyword"]);
+
+    file.Save();
+
+    Assert.AreEqual(originalLength, stream.Length);
+
+    stream.Position = 0;
+    var savedFile = new IsoBmffFile(stream);
+
+    Assert.AreEqual("box-keyword", savedFile._metadata.GetItemListKeywords());
+    CollectionAssert.AreEqual(new[] { "xmp-keyword" }, savedFile.Xmp.GetKeywords());
+  }
+
+  [TestMethod]
+  public void Save_FullRewrite_PersistsKeywordsAndRelocatesCo64() {
+    using var stream = IsoBmffFileTests._createTestFile(beforeFreeSize: 0, afterFreeSize: 0, withItemList: false);
+
+    _setCo64Offsets(stream);
+
+    var originalLength = stream.Length;
+    var file = new IsoBmffFile(stream);
+
+    file._metadata.SetKeywords("box-keyword");
+    file.Xmp.SetKeywords(["xmp-keyword"]);
+
+    file.Save();
+
+    Assert.IsTrue(stream.Length > originalLength);
+
+    stream.Position = 0;
+    var savedFile = new IsoBmffFile(stream);
+
+    Assert.AreEqual("box-keyword", savedFile._metadata.GetItemListKeywords());
+    CollectionAssert.AreEqual(new[] { "xmp-keyword" }, savedFile.Xmp.GetKeywords());
+
+    var boxes = savedFile._reader._readBoxes();
+    var mdat = boxes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
+    var co64 = boxes.Single(x => x.Box.Type == IsoBmffTypes.Co64);
+    var firstChunkOffset = savedFile._reader.ReadUInt64BigEndian(co64.Box.DataOffset + 8);
+    var secondChunkOffset = savedFile._reader.ReadUInt64BigEndian(co64.Box.DataOffset + 16);
+
+    Assert.AreEqual(checked((ulong)mdat.Box.DataOffset), firstChunkOffset);
+    Assert.AreEqual(checked((ulong)mdat.Box.DataOffset + 8), secondChunkOffset);
+  }
+
+  [TestMethod]
+  public void Save_Path_PersistsItemListAndXmpKeywords() {
+    using var source = _createTestFileWithXmp();
+    var path = Path.Combine(Path.GetTempPath(), $"isobmff-{Guid.NewGuid():N}.mp4");
+
+    try {
+      using (var destination = File.Create(path))
+        source.CopyTo(destination);
+
+      using (var file = new IsoBmffFile(path)) {
+        file._metadata.SetKeywords("box-keyword");
+        file.Xmp.SetKeywords(["xmp-keyword"]);
+        file.Save();
+      }
+
+      using var savedFile = new IsoBmffFile(path);
+
+      Assert.AreEqual("box-keyword", savedFile._metadata.GetItemListKeywords());
+      CollectionAssert.AreEqual(new[] { "xmp-keyword" }, savedFile.Xmp.GetKeywords());
+    }
+    finally {
+      if (File.Exists(path))
+        File.Delete(path);
+    }
+  }
+
+  private static void _setCo64Offsets(Stream stream) {
+    var reader = new IsoBmffReader(stream);
+    var boxes = reader._readBoxes();
+    var co64 = boxes.Single(x => x.Box.Type == IsoBmffTypes.Co64);
+    var mdat = boxes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
+    var data = new byte[checked((int)co64.Box.DataSize)];
+
+    BinaryPrimitives.WriteUInt32BigEndian(data.AsSpan(4), 2);
+    BinaryPrimitives.WriteUInt64BigEndian(data.AsSpan(8), checked((ulong)mdat.Box.DataOffset));
+    BinaryPrimitives.WriteUInt64BigEndian(data.AsSpan(16), checked((ulong)mdat.Box.DataOffset + 8));
+
+    stream.Position = co64.Box.DataOffset;
+    stream.Write(data);
+    stream.Position = 0;
+  }
+
   private static MemoryStream _createTestFileWithXmp() {
     using var baseStream = IsoBmffFileTests._createTestFile(
       beforeFreeSize: 0,

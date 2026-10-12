@@ -520,6 +520,62 @@ public class IsoBmffLayoutPlannerTests {
     _assertValidTopLevelLayout(plan.Layout, stream.Length);
   }
 
+  [TestMethod]
+  public void Layout_InsertTopLevelBox_ConsumesAdjacentFreeSpace() {
+    using var stream = IsoBmffFileTests._createTestFile(0, 64);
+    var reader = new IsoBmffReader(stream);
+    var originalBoxes = reader._readBoxes();
+    var editedBoxes = originalBoxes.ToList();
+    var mdat = originalBoxes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
+    var free = originalBoxes.Single(x => x.Box.Type == IsoBmffTypes.Free && x.Box.Offset < mdat.Box.Offset);
+    var newBox = new IsoBmffBoxNode(new IsoBmffBox(-1, 8, 24, IsoBmffTypes.Uuid), -1, data: new byte[16]);
+
+    var original = new IsoBmffLayoutPlanner(
+      originalBoxes,
+      originalBoxes,
+      reader.GetBoxChildrenOffset).CreateOriginalLayout();
+
+    editedBoxes.Insert(editedBoxes.IndexOf(mdat), newBox);
+
+    var plan = new IsoBmffLayoutPlanner(
+      originalBoxes,
+      editedBoxes,
+      reader.GetBoxChildrenOffset).CreateEditedLayout(original, editedBoxes);
+
+    Assert.IsFalse(plan.RequiresFullRewrite);
+    Assert.AreEqual(original[mdat].Offset, plan.Layout[mdat].Offset);
+    Assert.AreEqual(original[free].Size - newBox.Box.Size, plan.Layout[free].Size);
+    Assert.AreEqual(original[mdat].Offset - newBox.Box.Size, plan.Layout[newBox].Offset);
+    Assert.AreEqual(original[mdat].Offset, plan.Layout[newBox].End);
+    _assertValidTopLevelLayout(plan.Layout, stream.Length);
+  }
+
+  [TestMethod]
+  public void Layout_InsertTopLevelBox_WithoutFreeSpaceRequiresFullRewrite() {
+    using var stream = IsoBmffFileTests._createTestFile(0, 0);
+    var reader = new IsoBmffReader(stream);
+    var originalBoxes = reader._readBoxes();
+    var editedBoxes = originalBoxes.ToList();
+    var mdat = originalBoxes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
+    var newBox = new IsoBmffBoxNode(new IsoBmffBox(-1, 8, 24, IsoBmffTypes.Uuid), -1, data: new byte[16]);
+
+    var original = new IsoBmffLayoutPlanner(
+      originalBoxes,
+      originalBoxes,
+      reader.GetBoxChildrenOffset).CreateOriginalLayout();
+
+    editedBoxes.Insert(editedBoxes.IndexOf(mdat), newBox);
+
+    var plan = new IsoBmffLayoutPlanner(
+      originalBoxes,
+      editedBoxes,
+      reader.GetBoxChildrenOffset).CreateEditedLayout(original, editedBoxes);
+
+    Assert.IsTrue(plan.RequiresFullRewrite);
+    Assert.IsTrue(plan.Layout.TryGetValue(newBox, out _));
+    Assert.AreEqual(stream.Length + newBox.Box.Size, plan.Layout.TopLevelBoxes.Last().End);
+  }
+
   private static void _assertSameLayout(IsoBmffLayout expected, IsoBmffLayout actual) {
     Assert.AreEqual(expected.Boxes.Count(), actual.Boxes.Count());
 

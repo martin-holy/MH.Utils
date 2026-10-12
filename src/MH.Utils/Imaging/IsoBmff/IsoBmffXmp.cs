@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 
@@ -41,5 +42,63 @@ internal class IsoBmffXmp {
     stream.ReadExactly(buffer);
 
     return buffer.SequenceEqual(_xmpUuid);
+  }
+
+  public static byte[] CreateData(byte[] packet) =>
+    _createData(_xmpUuid, packet);
+
+  public static byte[] CreateData(Stream stream, IsoBmffBox box, byte[] packet) {
+    Span<byte> uuid = stackalloc byte[16];
+
+    stream.Position = box.DataOffset;
+    stream.ReadExactly(uuid);
+
+    return _createData(uuid, packet);
+  }
+
+  private static byte[] _createData(ReadOnlySpan<byte> uuid, byte[] packet) {
+    var data = new byte[checked(uuid.Length + packet.Length)];
+
+    uuid.CopyTo(data);
+    packet.CopyTo(data, uuid.Length);
+
+    return data;
+  }
+
+  public static IsoBmffBoxNode UpdateNode(IsoBmffMetadataEntry? xmpEntry, IsoBmffBoxNode? xmpNode, byte[] packet, List<IsoBmffBoxNode> boxes, Stream stream) {
+    byte[] data;
+
+    if (xmpEntry?.Item is { } originalBox) {
+      if (xmpNode is null) {
+        var index = boxes.FindIndex(originalBox);
+
+        if (index < 0)
+          throw new InvalidOperationException("The original XMP uuid box is missing from the edited boxes.");
+
+        xmpNode = boxes[index];
+      }
+
+      data = CreateData(stream, originalBox, packet);
+    }
+    else {
+      data = CreateData(packet);
+
+      if (xmpNode is null) {
+        var box = new IsoBmffBox(-1, 8, checked(8 + data.LongLength), IsoBmffTypes.Uuid);
+
+        xmpNode = boxes.InsertTopLevelBox(new IsoBmffBoxNode(box, -1, data: data));
+      }
+    }
+
+    var newSize = checked(xmpNode.Box.HeaderSize + data.LongLength);
+    var delta = newSize - xmpNode.Box.Size;
+
+    xmpNode.Data = data;
+    xmpNode.Box = new IsoBmffBox(xmpNode.Box.Offset, xmpNode.Box.HeaderSize, newSize, xmpNode.Box.Type);
+
+    if (delta != 0)
+      boxes.UpdateParentSizes(xmpNode.Parent, delta);
+
+    return xmpNode;
   }
 }

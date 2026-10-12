@@ -1,5 +1,6 @@
 ﻿using MH.Utils.Imaging.Xmp;
 using System;
+using System.Collections.Generic;
 using System.IO;
 
 namespace MH.Utils.Imaging.IsoBmff;
@@ -10,6 +11,7 @@ public sealed class IsoBmffFile {
 
   private bool _xmpRead;
   private IsoBmffMetadataEntry? _xmpEntry;
+  private IsoBmffBoxNode? _xmpNode;
   private XmpMetadata? _xmp;
   internal readonly IsoBmffMetadata _metadata;
 
@@ -30,13 +32,24 @@ public sealed class IsoBmffFile {
     if (_xmp != null) return _xmp;
     if (!_xmpRead) {
       _xmpEntry = IsoBmffXmp.Find(_stream, _reader);
-      
+
       if (_xmpEntry != null)
         _xmp = new XmpMetadata(_xmpEntry.Value);
 
       _xmpRead = true;
     }
 
-    return _xmp ?? new XmpMetadata(null);
+    return _xmp ??= new XmpMetadata(null);
+  }
+
+  internal List<IsoBmffBoxNode> _getEditedBoxes() {
+    var boxes = _metadata._getEditedBoxes();
+
+    if (_xmp?.Doc is not { IsModified: true })
+      return boxes;
+
+    _xmpNode = IsoBmffXmp.UpdateNode(_xmpEntry, _xmpNode, _xmp.ToPacket(), boxes, _stream);
+
+    return boxes;
   }
 }

@@ -67,12 +67,72 @@ internal sealed class IsoBmffLayoutPlanner {
       .Select(x => new _WorkBox(x.Node, x.Offset, x.Size))
       .ToList();
 
-    foreach (var root in editedRoots.OrderBy(x => original[x].Offset)) {
-      if (!original.TryGetValue(root, out _) || !_applyEdit(work, original, root))
+    foreach (var root in editedRoots.OrderBy(x => _getOriginalOffset(original, x))) {
+      var succeeded = original.TryGetValue(root, out _)
+        ? _applyEdit(work, original, root)
+        : _insertNewRoot(work, original, root);
+
+      if (!succeeded)
         return new IsoBmffLayoutPlan(_createFullRewriteLayout(), true);
     }
 
     return new IsoBmffLayoutPlan(_createLayout(original, work, editedRoots), false);
+  }
+
+  private long _getOriginalOffset(IsoBmffLayout original, IsoBmffBoxNode root) {
+    if (original.TryGetValue(root, out var originalBox))
+      return originalBox!.Offset;
+
+    var index = _boxes.FindIndex(x => ReferenceEquals(x.Identity, root.Identity));
+
+    if (index < 0)
+      throw new InvalidOperationException("Box does not belong to this planner.");
+
+    for (var i = index + 1; i < _boxes.Count; i++) {
+      if (_boxes[i].Parent < 0 && original.TryGetValue(_boxes[i], out var nextBox))
+        return nextBox!.Offset;
+    }
+
+    return original.TopLevelBoxes.LastOrDefault()?.End ?? 0;
+  }
+
+  private bool _insertNewRoot(List<_WorkBox> work, IsoBmffLayout original, IsoBmffBoxNode root) {
+    var editedIndex = _boxes.FindIndex(x => ReferenceEquals(x.Identity, root.Identity));
+
+    if (editedIndex < 0)
+      throw new InvalidOperationException("Box does not belong to this planner.");
+
+    var workIndex = work.Count;
+
+    for (var i = editedIndex + 1; i < _boxes.Count; i++) {
+      if (_boxes[i].Parent >= 0 || !original.TryGetValue(_boxes[i], out _))
+        continue;
+
+      workIndex = work.FindIndex(x => ReferenceEquals(x.Node.Identity, _boxes[i].Identity));
+
+      if (workIndex < 0)
+        throw new InvalidOperationException("The next original top-level box is missing.");
+
+      break;
+    }
+
+    var offset = workIndex < work.Count
+      ? work[workIndex].Offset
+      : work.Count == 0
+        ? 0
+        : work[^1].Offset + work[^1].Size;
+
+    work.Insert(workIndex, new _WorkBox(root, offset, 0));
+
+    if (!_grow(work, ref workIndex, root.Box.Size))
+      return false;
+
+    if (!_normalizeFreeBoxes(work, ref workIndex))
+      return false;
+
+    workIndex = work.FindIndex(x => ReferenceEquals(x.Node.Identity, root.Identity));
+
+    return workIndex >= 0 && work[workIndex].Size == root.Box.Size;
   }
 
   private bool _applyEdit(List<_WorkBox> work, IsoBmffLayout original, IsoBmffBoxNode root) {

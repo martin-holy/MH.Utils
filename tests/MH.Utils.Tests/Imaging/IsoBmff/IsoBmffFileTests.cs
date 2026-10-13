@@ -282,6 +282,25 @@ public class IsoBmffFileTests {
     CollectionAssert.AreEqual(originalBoxSizes, originalBoxes.Select(x => x.Box.Size).ToArray());
   }
 
+  [TestMethod]
+  public void ItemList_UpdateKeywords_AfterSave() {
+    using var stream = _createTestFile(
+      beforeFreeSize: 0,
+      afterFreeSize: 128,
+      withItemList: false);
+    using var file = new IsoBmffFile(stream);
+
+    file._metadata.SetKeywords("first");
+    file.Save();
+
+    Assert.AreEqual("first", file._metadata.GetItemListKeywords());
+
+    file._metadata.SetKeywords("second");
+    file.Save();
+
+    Assert.AreEqual("second", file._metadata.GetItemListKeywords());
+  }
+
   private static void _assertKeywordData(IsoBmffBoxNode dataNode, string value) {
     var valueBytes = Encoding.UTF8.GetBytes(value);
     var expected = new byte[8 + valueBytes.Length];
@@ -332,7 +351,9 @@ public class IsoBmffFileTests {
         _writeBox(meta, "hdlr", 33);
 
         _writeContainer(meta, "ilst", ilst => {
-          _writeBox(ilst, "keyw", 28);
+          _writeContainer(ilst, "keyw", keyw => {
+            _writeBox(keyw, "data", 20);
+          });
         });
       });
     });

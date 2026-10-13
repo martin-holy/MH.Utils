@@ -54,6 +54,11 @@ internal sealed class IsoBmffLayoutPlanner {
     CreateEditedLayout(original, [editedBox]);
 
   public IsoBmffLayoutPlan CreateEditedLayout(IsoBmffLayout original, IEnumerable<IsoBmffBoxNode> editedBoxes) {
+    var editedLayouts = _getEditedBoxLayouts();
+
+    if (_boxes.Any(x => editedLayouts[x].HeaderSize != x.Box.HeaderSize))
+      return new IsoBmffLayoutPlan(_createFullRewriteLayout(editedLayouts), true);
+
     var editedRoots = editedBoxes
       .Select(_getTopLevelNode)
       .DistinctBy(x => x.Identity)
@@ -73,10 +78,43 @@ internal sealed class IsoBmffLayoutPlanner {
         : _insertNewRoot(work, original, root);
 
       if (!succeeded)
-        return new IsoBmffLayoutPlan(_createFullRewriteLayout(), true);
+        return new IsoBmffLayoutPlan(_createFullRewriteLayout(editedLayouts), true);
     }
 
-    return new IsoBmffLayoutPlan(_createLayout(original, work, editedRoots), false);
+    return new IsoBmffLayoutPlan(_createLayout(original, work, editedRoots, editedLayouts), false);
+  }
+
+  private Dictionary<IsoBmffBoxNode, _boxLayoutInfo> _getEditedBoxLayouts() {
+    var result = new Dictionary<IsoBmffBoxNode, _boxLayoutInfo>();
+
+    foreach (var root in _boxes.Where(x => x.Parent < 0))
+      _getEditedBoxLayout(root, result);
+
+    return result;
+  }
+
+  private _boxLayoutInfo _getEditedBoxLayout(IsoBmffBoxNode node, Dictionary<IsoBmffBoxNode, _boxLayoutInfo> layouts) {
+    var size = node.Box.Size;
+
+    foreach (var child in _getChildren(node)) {
+      var childLayout = _getEditedBoxLayout(child, layouts);
+      size = checked(size + childLayout.Size - child.Box.Size);
+    }
+
+    var headerSize = node.Box.HeaderSize;
+
+    if (headerSize == 8 && size > uint.MaxValue) {
+      headerSize = 16;
+      size = checked(size + 8);
+    }
+
+    if (headerSize is not (8 or 16) || size < headerSize)
+      throw new InvalidOperationException($"Invalid header or size for {node.Box.TypeName}.");
+
+    var result = new _boxLayoutInfo(size, headerSize);
+    layouts.Add(node, result);
+
+    return result;
   }
 
   private long _getOriginalOffset(IsoBmffLayout original, IsoBmffBoxNode root) {
@@ -357,13 +395,18 @@ internal sealed class IsoBmffLayoutPlanner {
     return -1;
   }
 
-  private IsoBmffLayout _createLayout(IsoBmffLayout original, List<_WorkBox> work, IReadOnlyCollection<IsoBmffBoxNode> editedRoots) {
+  private IsoBmffLayout _createLayout(
+    IsoBmffLayout original,
+    List<_WorkBox> work,
+    IReadOnlyCollection<IsoBmffBoxNode> editedRoots,
+    Dictionary<IsoBmffBoxNode, _boxLayoutInfo> layouts) {
+
     var edited = editedRoots.ToDictionary(x => x.Identity);
     var result = new List<IsoBmffLayoutBox>();
 
     foreach (var box in work) {
       if (edited.TryGetValue(box.Node.Identity, out var editedRoot))
-        _addEditedTree(result, editedRoot, box.Offset);
+        _addEditedTree(result, editedRoot, box.Offset, layouts);
       else if (original.TryGetValue(box.Node, out var originalBox))
         _addExistingTree(result, original, box, originalBox!);
       else
@@ -402,16 +445,26 @@ internal sealed class IsoBmffLayoutPlanner {
     return false;
   }
 
-  private void _addEditedTree(List<IsoBmffLayoutBox> result, IsoBmffBoxNode node, long offset) {
-    result.Add(new IsoBmffLayoutBox(node, offset, node.Box.Size));
+  private void _addEditedTree(
+    List<IsoBmffLayoutBox> result,
+    IsoBmffBoxNode node,
+    long offset,
+    Dictionary<IsoBmffBoxNode, _boxLayoutInfo> layouts) {
+
+    var boxLayout = layouts[node];
+
+    result.Add(new IsoBmffLayoutBox(
+      node,
+      offset,
+      boxLayout.Size,
+      boxLayout.HeaderSize));
 
     var childrenOffset = node.Data?.LongLength ?? _getBoxChildrenOffset(node.Box);
-    var childOffset = offset + node.Box.HeaderSize + childrenOffset;
+    var childOffset = checked(offset + boxLayout.HeaderSize + childrenOffset);
 
     foreach (var child in _getChildren(node)) {
-      _addEditedTree(result, child, childOffset);
-
-      childOffset += child.Box.Size;
+      _addEditedTree(result, child, childOffset, layouts);
+      childOffset = checked(childOffset + layouts[child].Size);
     }
   }
 
@@ -435,13 +488,13 @@ internal sealed class IsoBmffLayoutPlanner {
     return _boxes[index];
   }
 
-  private IsoBmffLayout _createFullRewriteLayout() {
+  private IsoBmffLayout _createFullRewriteLayout(Dictionary<IsoBmffBoxNode, _boxLayoutInfo> layouts) {
     var result = new List<IsoBmffLayoutBox>();
     var offset = 0L;
 
     foreach (var root in _boxes.Where(x => x.Parent < 0)) {
-      _addEditedTree(result, root, offset);
-      offset += root.Box.Size;
+      _addEditedTree(result, root, offset, layouts);
+      offset = checked(offset + layouts[root].Size);
     }
 
     return new IsoBmffLayout(result);
@@ -452,4 +505,6 @@ internal sealed class IsoBmffLayoutPlanner {
     public long Offset { get; set; } = offset;
     public long Size { get; set; } = size;
   }
+
+  private readonly record struct _boxLayoutInfo(long Size, long HeaderSize);
 }

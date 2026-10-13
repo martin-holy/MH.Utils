@@ -300,6 +300,40 @@ public class IsoBmffLayoutDifferTests {
     Assert.AreEqual(32UL, BinaryPrimitives.ReadUInt64BigEndian(write.Data.AsSpan(8)));
   }
 
+  [TestMethod]
+  public void Diff_IncludesMovesForShiftedNestedBoxes() {
+    var originalMoov = new IsoBmffBoxNode(new IsoBmffBox(0, 8, 100, IsoBmffTypes.Moov), -1);
+    var originalMeta = new IsoBmffBoxNode(new IsoBmffBox(8, 8, 40, IsoBmffTypes.Meta), 0);
+    var originalTrak = new IsoBmffBoxNode(new IsoBmffBox(48, 8, 52, IsoBmffTypes.Trak), 0);
+    var originalFree = new IsoBmffBoxNode(new IsoBmffBox(100, 8, 100, IsoBmffTypes.Free), -1);
+
+    var original = new IsoBmffLayout([
+      new IsoBmffLayoutBox(originalMoov, 0, 100),
+      new IsoBmffLayoutBox(originalMeta, 8, 40),
+      new IsoBmffLayoutBox(originalTrak, 48, 52),
+      new IsoBmffLayoutBox(originalFree, 100, 100)
+    ]);
+
+    var editedMoov = new IsoBmffBoxNode(new IsoBmffBox(0, 8, 108, IsoBmffTypes.Moov), -1, originalMoov);
+    var editedMeta = new IsoBmffBoxNode(new IsoBmffBox(8, 8, 48, IsoBmffTypes.Meta), 0, originalMeta);
+    var editedTrak = new IsoBmffBoxNode(new IsoBmffBox(56, 8, 52, IsoBmffTypes.Trak), 0, originalTrak);
+    var editedFree = new IsoBmffBoxNode(new IsoBmffBox(108, 8, 92, IsoBmffTypes.Free), -1, originalFree);
+
+    var edited = new IsoBmffLayout([
+      new IsoBmffLayoutBox(editedMoov, 0, 108),
+      new IsoBmffLayoutBox(editedMeta, 8, 48),
+      new IsoBmffLayoutBox(editedTrak, 56, 52),
+      new IsoBmffLayoutBox(editedFree, 108, 92)
+    ]);
+
+    var diff = IsoBmffLayoutDiffer.Diff(original, edited);
+
+    Assert.AreEqual(1, diff.Moves.Count);
+    Assert.AreEqual(48L, diff.Moves[0].SourceOffset);
+    Assert.AreEqual(56L, diff.Moves[0].DestinationOffset);
+    Assert.AreEqual(52L, diff.Moves[0].Length);
+  }
+
   private static void _assertHeaderWrite(IsoBmffLayoutDiff diff, IsoBmffLayout layout, IsoBmffBoxNode node) {
     var box = layout[node];
     var write = diff.Writes.Single(x =>

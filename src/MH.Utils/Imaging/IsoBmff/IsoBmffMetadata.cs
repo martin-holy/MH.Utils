@@ -81,20 +81,43 @@ internal class IsoBmffMetadata {
     return keywords?.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
   }
 
-  public void SetKeywords(string? value) {
+  public void SetItemListKeywords(string? value) {
     var itemList = _getOrCreateItemList();
     itemList.SetKeywords(value, _getEditedBoxes());
+  }
+
+  public void SetKeysKeywords(string? value) {
+    var keys = _getOrCreateKeys();
+    keys.SetKeywords(value, _getEditedBoxes());
+  }
+
+  // TODO SetKeysKeywords too or not? 
+  public void SetKeywords(string? value) {
+    SetItemListKeywords(value);
   }
 
   public string? GetItemListComment() =>
     _getItemList()?.GetComment();
 
+  public string? GetKeysComment() =>
+    _getKeys()?.GetComment();
+
   public string? GetComment() =>
     GetItemListComment();
 
-  public void SetComment(string? value) {
+  public void SetItemListComment(string? value) {
     var itemList = _getOrCreateItemList();
     itemList.SetComment(value, _getEditedBoxes());
+  }
+
+  public void SetKeysComment(string? value) {
+    var keys = _getOrCreateKeys();
+    keys.SetComment(value, _getEditedBoxes());
+  }
+
+  // TODO SetKeysComment too or not? 
+  public void SetComment(string? value) {
+    SetItemListComment(value);
   }
 
   private IsoBmffBox? _findVideoTrack(IsoBmffBox moov) {
@@ -247,5 +270,45 @@ internal class IsoBmffMetadata {
     var ilst = editedBoxes[ilstIndex].Box;
 
     return _itemList = new IsoBmffItemList(_reader, ilst, isNew: true);
+  }
+
+  internal IsoBmffKeys _getOrCreateKeys() {
+    if (_getKeys() is { } keys) return keys;
+
+    var editedBoxes = _getEditedBoxes();
+    var moovIndex = editedBoxes.FindIndex(IsoBmffTypes.Moov);
+
+    if (moovIndex < 0)
+      throw new InvalidOperationException("The moov box was not found.");
+
+    var metaIndex = editedBoxes.FindIndex(IsoBmffTypes.Meta, moovIndex);
+
+    if (metaIndex < 0)
+      metaIndex = editedBoxes.InsertBox(
+        new IsoBmffBox(-1, 8, 12, IsoBmffTypes.Meta),
+        moovIndex,
+        new byte[4]);
+
+    var keysIndex = editedBoxes.FindIndex(IsoBmffTypes.Keys, metaIndex);
+
+    if (keysIndex < 0)
+      keysIndex = editedBoxes.InsertBox(
+        new IsoBmffBox(-1, 8, 16, IsoBmffTypes.Keys),
+        metaIndex,
+        new byte[8]);
+
+    var ilstIndex = editedBoxes.FindIndex(IsoBmffTypes.Ilst, metaIndex);
+
+    if (ilstIndex < 0)
+      ilstIndex = editedBoxes.InsertBox(IsoBmffTypes.Ilst, 8, metaIndex);
+
+    _keys = new IsoBmffKeys(
+      _reader,
+      editedBoxes[keysIndex].Box,
+      editedBoxes[ilstIndex].Box,
+      isNew: editedBoxes[keysIndex].OriginalNode is null);
+    _keysRead = true;
+
+    return _keys;
   }
 }

@@ -1,4 +1,5 @@
 ﻿using MH.Utils.Imaging.IsoBmff;
+using System.Buffers.Binary;
 
 namespace MH.Utils.Tests.Imaging.IsoBmff;
 
@@ -574,6 +575,55 @@ public class IsoBmffLayoutPlannerTests {
     Assert.IsTrue(plan.RequiresFullRewrite);
     Assert.IsTrue(plan.Layout.TryGetValue(newBox, out _));
     Assert.AreEqual(stream.Length + newBox.Box.Size, plan.Layout.TopLevelBoxes.Last().End);
+  }
+
+  [TestMethod]
+  public void Layout_GrowingPast32BitSize_PromotesHeaderAndRequiresRewrite() {
+    var originalSize = (long)uint.MaxValue - 8;
+    var originalNode = new IsoBmffBoxNode(new IsoBmffBox(0, 8, originalSize, IsoBmffTypes.Moov), -1);
+    var editedNode = new IsoBmffBoxNode(new IsoBmffBox(0, 8, originalSize + 16, IsoBmffTypes.Moov), -1, originalNode);
+
+    var original = new IsoBmffLayout([new IsoBmffLayoutBox(originalNode, 0, originalSize)]);
+    var planner = new IsoBmffLayoutPlanner([originalNode], [editedNode], _ => 0);
+
+    var plan = planner.CreateEditedLayout(original, editedNode);
+    var plannedBox = plan.Layout[editedNode];
+
+    Assert.IsTrue(plan.RequiresFullRewrite);
+    Assert.AreEqual(16, plannedBox.HeaderSize);
+    Assert.AreEqual(originalSize + 24, plannedBox.Size);
+  }
+
+  [TestMethod]
+  public void Diff_ResizingSizeZeroBox_WritesExplicitSize() {
+    using var stream = new MemoryStream();
+    Span<byte> header = stackalloc byte[8];
+    BinaryPrimitives.WriteUInt32BigEndian(header, 0);
+    BinaryPrimitives.WriteUInt32BigEndian(header[4..], IsoBmffTypes.Uuid);
+    stream.Write(header);
+    stream.Write(new byte[4]);
+    stream.Position = 0;
+
+    var reader = new IsoBmffReader(stream);
+    var originalBox = reader.ReadBox(stream.Length)
+      ?? throw new InvalidDataException("Test box was not found.");
+
+    Assert.AreEqual(12, originalBox.Size);
+
+    var originalNode = new IsoBmffBoxNode(originalBox, -1);
+    var editedNode = new IsoBmffBoxNode(
+      new IsoBmffBox(originalBox.Offset, originalBox.HeaderSize, 10, originalBox.Type),
+      -1,
+      originalNode);
+    var original = new IsoBmffLayout([
+      new IsoBmffLayoutBox(originalNode, originalBox.Offset, originalBox.Size)
+    ]);
+    var edited = new IsoBmffLayout([new IsoBmffLayoutBox(editedNode, originalBox.Offset, 10)]);
+
+    var diff = IsoBmffLayoutDiffer.Diff(original, edited);
+
+    Assert.AreEqual(1, diff.Writes.Count);
+    Assert.AreEqual<uint>(10, BinaryPrimitives.ReadUInt32BigEndian(diff.Writes[0].Data));
   }
 
   private static void _assertSameLayout(IsoBmffLayout expected, IsoBmffLayout actual) {

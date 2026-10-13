@@ -209,7 +209,7 @@ internal static class IsoBmffLayoutExecutor {
       return;
     }
 
-    var dataSize = box.Size - node.Box.HeaderSize;
+    var dataSize = box.Size - box.HeaderSize;
 
     if (node.Data is { } data) {
       if (data.LongLength != dataSize)
@@ -243,7 +243,7 @@ internal static class IsoBmffLayoutExecutor {
     IsoBmffLayout layout) {
 
     var data = node.Data;
-    var dataSize = box.Size - node.Box.HeaderSize;
+    var dataSize = box.Size - box.HeaderSize;
 
     if (data is null && originalNode is null)
       throw new InvalidDataException($"New {node.Box.TypeName} box has no table data.");

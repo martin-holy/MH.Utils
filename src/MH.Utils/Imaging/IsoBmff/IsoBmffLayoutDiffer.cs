@@ -35,7 +35,7 @@ internal static class IsoBmffLayoutDiffer {
       // New nodes are present in the planned layout. Explicit nodes also cover
       // same-size edits when the planner can reuse the original layout.
       if (box.Node.Data is { Length: > 0 } data)
-        result.Writes.Add(new IsoBmffWrite(box.Offset + box.Node.Box.HeaderSize, data));
+        result.Writes.Add(new IsoBmffWrite(box.Offset + box.HeaderSize, data));
     }
 
     if (boxesToWrite is not null) {
@@ -63,7 +63,7 @@ internal static class IsoBmffLayoutDiffer {
 
   internal static byte[] _createHeader(IsoBmffLayoutBox box) {
     var size = box.Size;
-    var headerSize = box.Node.Box.HeaderSize;
+    var headerSize = box.HeaderSize;
 
     if (size < headerSize)
       throw new InvalidOperationException("Box size is smaller than its header.");

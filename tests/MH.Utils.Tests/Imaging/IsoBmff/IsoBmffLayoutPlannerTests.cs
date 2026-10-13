@@ -626,6 +626,75 @@ public class IsoBmffLayoutPlannerTests {
     Assert.AreEqual<uint>(10, BinaryPrimitives.ReadUInt32BigEndian(diff.Writes[0].Data));
   }
 
+  [TestMethod]
+  public void Layout_MetadataEdit_PreservesHierarchyAndValidBoxSizes() {
+    using var stream = IsoBmffFileTests._createTestFile(
+      beforeFreeSize: 0,
+      afterFreeSize: 128,
+      withItemList: false);
+
+    var file = new IsoBmffFile(stream);
+    file._metadata.SetKeywords("layout-invariants");
+
+    var originalBoxes = file._metadata._getOriginalBoxes();
+    var editedBoxes = file._metadata._getEditedBoxes();
+    var original = new IsoBmffLayoutPlanner(
+      originalBoxes,
+      originalBoxes,
+      file._reader.GetBoxChildrenOffset).CreateOriginalLayout();
+    var plan = new IsoBmffLayoutPlanner(
+      originalBoxes,
+      editedBoxes,
+      file._reader.GetBoxChildrenOffset).CreateEditedLayout(original, editedBoxes);
+
+    Assert.IsFalse(plan.RequiresFullRewrite);
+    _assertValidLayout(plan.Layout, editedBoxes, stream.Length);
+  }
+
+  private static void _assertValidLayout(IsoBmffLayout layout, IReadOnlyList<IsoBmffBoxNode> nodes, long expectedFileSize) {
+
+    var boxes = layout.Boxes.ToList();
+
+    Assert.IsTrue(boxes.Count > 0);
+
+    foreach (var box in boxes) {
+      Assert.IsTrue(box.HeaderSize is 8 or 16, $"Invalid header size for {box.Node.Box.TypeName}.");
+      Assert.IsTrue(box.Size >= box.HeaderSize, $"Invalid size for {box.Node.Box.TypeName}.");
+
+      if (box.HeaderSize == 8)
+        Assert.IsTrue(box.Size <= uint.MaxValue, $"{box.Node.Box.TypeName} needs an extended-size header.");
+
+      if (box.Node.Box.Type == IsoBmffTypes.Free)
+        Assert.IsTrue(box.Size >= box.HeaderSize, "A free box must be large enough to contain its header.");
+
+      if (box.Node.Parent < 0)
+        continue;
+
+      Assert.IsTrue(box.Node.Parent < nodes.Count, $"Invalid parent index for {box.Node.Box.TypeName}.");
+
+      var parentNode = nodes[box.Node.Parent];
+      Assert.IsTrue(layout.TryGetValue(parentNode, out var parent), $"Parent box for {box.Node.Box.TypeName} is missing.");
+
+      Assert.IsTrue(box.Offset >= parent!.Offset + parent.HeaderSize, $"{box.Node.Box.TypeName} starts before its parent payload.");
+      Assert.IsTrue(box.End <= parent.End, $"{box.Node.Box.TypeName} extends beyond its parent.");
+    }
+
+    foreach (var siblings in boxes.GroupBy(x => x.Node.Parent)) {
+      var ordered = siblings.OrderBy(x => x.Offset).ToList();
+
+      for (var i = 1; i < ordered.Count; i++)
+        Assert.AreEqual(
+          ordered[i - 1].End,
+          ordered[i].Offset,
+          $"Gap or overlap between sibling boxes before {ordered[i].Node.Box.TypeName}.");
+    }
+
+    var topLevel = layout.TopLevelBoxes.ToList();
+
+    Assert.AreEqual(0L, topLevel[0].Offset);
+    Assert.AreEqual(expectedFileSize, topLevel[^1].End);
+  }
+
   private static void _assertSameLayout(IsoBmffLayout expected, IsoBmffLayout actual) {
     Assert.AreEqual(expected.Boxes.Count(), actual.Boxes.Count());
 

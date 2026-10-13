@@ -27,6 +27,7 @@ internal static class IsoBmffTypes {
   public const uint Sinf = 0x73696E66;
   public const uint Keys = 0x6B657973;
   public const uint Keyw = 0x6B657977;
+  public const uint Comment = 0xA9636D74;
   public const uint Data = 0x64617461;
   public const uint Uuid = 0x75756964;
   public const uint Free = 0x66726565;

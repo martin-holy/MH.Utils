@@ -207,6 +207,34 @@ public class IsoBmffFileIntegrationTests {
   }
 
   [TestMethod]
+  public void Save_InPlace_PersistsKeysKeywordsAndComment() {
+    using var stream = IsoBmffFileTests._createTestFile(
+      beforeFreeSize: 0,
+      afterFreeSize: 16384,
+      withItemList: false);
+    using var file = new IsoBmffFile(stream);
+
+    file._metadata.SetKeysKeywords("keys-keyword");
+    file._metadata.SetKeysComment("keys-comment");
+    file.Save();
+
+    Assert.AreEqual("keys-keyword", file._metadata.GetKeysKeywords());
+    Assert.AreEqual("keys-comment", file._metadata.GetKeysComment());
+
+    var moovBox = file._reader.Find(IsoBmffTypes.Moov)
+      ?? throw new InvalidDataException("The moov box was not found.");
+    var metaBox = file._reader.FindChild(moovBox, IsoBmffTypes.Meta)
+      ?? throw new InvalidDataException("The meta box was not written.");
+    var keysBox = file._reader.FindChild(
+      metaBox,
+      IsoBmffTypes.Keys,
+      file._reader.GetBoxChildrenOffset(metaBox))
+      ?? throw new InvalidDataException("The keys box was not written.");
+
+    Assert.AreEqual(2u, file._reader.ReadUInt32BigEndian(keysBox.DataOffset + 4));
+  }
+
+  [TestMethod]
   public void Save_Path_FullRewriteCreatesXmpAndRelocatesCo64() {
     using var source = IsoBmffFileTests._createTestFile(
       beforeFreeSize: 0,

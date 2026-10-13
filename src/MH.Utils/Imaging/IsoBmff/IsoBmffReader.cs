@@ -155,11 +155,11 @@ internal sealed class IsoBmffReader(Stream stream) {
 
   [Conditional("DEBUG")]
   internal void _dumpChildren(IsoBmffBox parent) {
-    _dumpBoxes(parent.DataOffset, parent.End, 0);
+    _dumpBoxes(parent.DataOffset, parent.End, 0, parent.Type);
   }
 
   [Conditional("DEBUG")]
-  private void _dumpBoxes(long offset, long end, int depth) {
+  private void _dumpBoxes(long offset, long end, int depth, uint? parentType = null) {
     _stream.Position = offset;
 
     while (_stream.Position < end) {
@@ -174,9 +174,9 @@ internal sealed class IsoBmffReader(Stream stream) {
         $"header={box.HeaderSize,2} " +
         $"data={box.DataSize,10}");
 
-      if (_isContainer(box.Type)) {
+      if (_hasChildren(box.Type, parentType)) {
         var childrenOffset = GetBoxChildrenOffset(box) + box.DataOffset;
-        _dumpBoxes(childrenOffset, box.End, depth + 1);
+        _dumpBoxes(childrenOffset, box.End, depth + 1, box.Type);
       }
 
       _stream.Position = box.End;
@@ -199,7 +199,11 @@ internal sealed class IsoBmffReader(Stream stream) {
       var index = boxes.Count;
       boxes.Add(new IsoBmffBoxNode(box, parent));
 
-      if (_isContainer(box.Type)) {
+      uint? parentType = parent >= 0
+        ? boxes[parent].Box.Type
+        : null;
+
+      if (_hasChildren(box.Type, parentType)) {
         var childrenOffset = GetBoxChildrenOffset(box);
         var childrenStart = box.DataOffset + childrenOffset;
 
@@ -210,6 +214,9 @@ internal sealed class IsoBmffReader(Stream stream) {
       _stream.Position = box.End;
     }
   }
+
+  private static bool _hasChildren(uint type, uint? parentType) =>
+    _isContainer(type) || parentType == IsoBmffTypes.Ilst;
 
   internal static bool _isContainer(uint type) {
     return type is

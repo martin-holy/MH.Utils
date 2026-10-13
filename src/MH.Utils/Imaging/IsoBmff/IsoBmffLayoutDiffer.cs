@@ -5,11 +5,6 @@ using System.Linq;
 
 namespace MH.Utils.Imaging.IsoBmff;
 
-internal sealed class IsoBmffLayoutDiff {
-  public List<IsoBmffMove> Moves { get; } = [];
-  public List<IsoBmffWrite> Writes { get; } = [];
-}
-
 internal static class IsoBmffLayoutDiffer {
   public static IsoBmffLayoutDiff Diff(IsoBmffLayout original, IsoBmffLayout edited, IEnumerable<IsoBmffBoxNode>? boxesToWrite = null) {
     var result = new IsoBmffLayoutDiff();

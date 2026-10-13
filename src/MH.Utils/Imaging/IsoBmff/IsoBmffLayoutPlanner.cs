@@ -4,15 +4,6 @@ using System.Linq;
 
 namespace MH.Utils.Imaging.IsoBmff;
 
-internal sealed record IsoBmffMove(long SourceOffset, long DestinationOffset, long Length);
-
-internal sealed record IsoBmffWrite(long Offset, byte[] Data);
-
-internal sealed class IsoBmffLayoutPlan(IsoBmffLayout layout, bool requiresFullRewrite) {
-  public IsoBmffLayout Layout { get; } = layout;
-  public bool RequiresFullRewrite { get; } = requiresFullRewrite;
-}
-
 internal sealed class IsoBmffLayoutPlanner {
   private const long DefaultExpensiveBoxThreshold = 1024 * 1024;
   private const long FreeHeaderSize = 8;

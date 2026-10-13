@@ -1,11 +1,14 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Buffers.Binary;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 
 namespace MH.Utils.Imaging.IsoBmff;
 
-internal sealed class IsoBmffKeys(IsoBmffReader reader, IsoBmffBox keys, IsoBmffBox ilst) {
-  private List<IsoBmffMetadataEntry>? _entries;
+internal sealed class IsoBmffKeys(IsoBmffReader reader, IsoBmffBox keys, IsoBmffBox ilst, bool isNew = false) {
+  private List<IsoBmffMetadataEntry>? _entries = isNew ? [] : null;
+  private string?[]? _keyNames = isNew ? [null] : null;
 
   public static IsoBmffKeys? Find(IsoBmffReader reader, IsoBmffBox moov) {
     if (reader.FindChild(moov, IsoBmffTypes.Meta) is not { } meta) return null;
@@ -23,6 +26,12 @@ internal sealed class IsoBmffKeys(IsoBmffReader reader, IsoBmffBox keys, IsoBmff
 
   public string? GetComment() =>
     _getValue("mdta:com.apple.quicktime.comment");
+
+  public void SetKeywords(string? value, List<IsoBmffBoxNode> editedBoxes) =>
+    _setValue("mdta:com.apple.quicktime.keywords", value, editedBoxes);
+
+  public void SetComment(string? value, List<IsoBmffBoxNode> editedBoxes) =>
+    _setValue("mdta:com.apple.quicktime.comment", value, editedBoxes);
 
   private string? _getValue(string key) {
     var entries = _getEntries();
@@ -56,6 +65,8 @@ internal sealed class IsoBmffKeys(IsoBmffReader reader, IsoBmffBox keys, IsoBmff
   }
 
   private string?[] _readKeys() {
+    if (_keyNames is not null) return _keyNames;
+
     var count = reader.ReadUInt32BigEndian(keys.DataOffset + 4);
 
     if (count > int.MaxValue - 1)
@@ -79,6 +90,170 @@ internal sealed class IsoBmffKeys(IsoBmffReader reader, IsoBmffBox keys, IsoBmff
 
       result[i] = $"{IsoBmffTypes.GetTypeName(namespaceType)}:{Encoding.UTF8.GetString(buffer)}";
     }
+
+    return _keyNames = result;
+  }
+
+  private void _setValue(string key, string? value, List<IsoBmffBoxNode> editedBoxes) {
+    var keyNames = _readKeys();
+    var keyIndex = Array.IndexOf(keyNames, key);
+    var entries = _getEntries();
+
+    foreach (var entry in entries) {
+      if (entry.Key != key)
+        continue;
+
+      if (value is null) {
+        var itemIndex = entry.Node is { } node
+          ? editedBoxes.IndexOf(node)
+          : editedBoxes.FindIndex(entry.Item!.Value);
+
+        if (itemIndex < 0)
+          throw new InvalidOperationException($"The {key} box was not found.");
+
+        editedBoxes.RemoveBox(itemIndex);
+        entries.Remove(entry);
+      }
+      else {
+        _updateEntry(entry, editedBoxes, value, key);
+      }
+
+      return;
+    }
+
+    if (value is null) return;
+
+    if (keyIndex < 0)
+      keyIndex = _addKey(key, editedBoxes);
+
+    var payload = _createData(value);
+    var item = new IsoBmffBox(-1, 8, 8, (uint)keyIndex);
+    var data = new IsoBmffBox(-1, 8, 8 + payload.LongLength, IsoBmffTypes.Data);
+    var ilstIndex = editedBoxes.FindIndex(ilst);
+
+    if (ilstIndex < 0)
+      throw new InvalidOperationException("The ilst box was not found.");
+
+    var itemIndexToInsert = editedBoxes.InsertBox(item, ilstIndex);
+    var itemNode = editedBoxes[itemIndexToInsert];
+
+    editedBoxes.InsertBox(data, itemIndexToInsert, payload);
+
+    entries.Add(new IsoBmffMetadataEntry(key, value, itemNode.Box, itemNode));
+  }
+
+  private int _addKey(string key, List<IsoBmffBoxNode> editedBoxes) {
+    var keyNames = _readKeys();
+
+    if (keyNames.Length > ushort.MaxValue)
+      throw new InvalidDataException("Too many ISO BMFF keys.");
+
+    var separatorIndex = key.IndexOf(':');
+
+    if (separatorIndex != 4)
+      throw new InvalidDataException("Invalid ISO BMFF key namespace.");
+
+    var nameBytes = Encoding.UTF8.GetBytes(key[(separatorIndex + 1)..]);
+    var entrySize = checked(8 + nameBytes.Length);
+    var index = keyNames.Length;
+
+    var keysIndex = editedBoxes.FindIndex(keys);
+
+    if (keysIndex < 0)
+      throw new InvalidOperationException("The keys box was not found.");
+
+    var keysNode = editedBoxes[keysIndex];
+    var originalData = _getKeysData(keysNode);
+    var updatedData = new byte[checked(originalData.Length + entrySize)];
+
+    originalData.CopyTo(updatedData, 0);
+    BinaryPrimitives.WriteUInt32BigEndian(updatedData.AsSpan(4), (uint)index);
+    BinaryPrimitives.WriteUInt32BigEndian(updatedData.AsSpan(originalData.Length), (uint)entrySize);
+    BinaryPrimitives.WriteUInt32BigEndian(updatedData.AsSpan(originalData.Length + 4), 0x6D647461);
+    nameBytes.CopyTo(updatedData, originalData.Length + 8);
+
+    var updatedSize = checked(keysNode.Box.HeaderSize + updatedData.LongLength);
+    var delta = updatedSize - keysNode.Box.Size;
+
+    keysNode.Data = updatedData;
+    keysNode.Box = new IsoBmffBox(keysNode.Box.Offset, keysNode.Box.HeaderSize, updatedSize, keysNode.Box.Type);
+
+    if (delta != 0)
+      editedBoxes.UpdateParentSizes(keysNode.Parent, delta);
+
+    Array.Resize(ref keyNames, keyNames.Length + 1);
+    keyNames[index] = key;
+    _keyNames = keyNames;
+
+    return index;
+  }
+
+  private byte[] _getKeysData(IsoBmffBoxNode keysNode) {
+    if (keysNode.Data is { } data)
+      return data;
+
+    var length = checked((int)keysNode.Box.DataSize);
+    var result = new byte[length];
+
+    reader._stream.Position = keysNode.Box.DataOffset;
+    reader._stream.ReadExactly(result);
+
+    return result;
+  }
+
+  private void _updateEntry(IsoBmffMetadataEntry entry, List<IsoBmffBoxNode> editedBoxes, string value, string key) {
+    var itemIndex = entry.Node is { } node
+      ? editedBoxes.IndexOf(node)
+      : editedBoxes.FindIndex(entry.Item!.Value);
+
+    if (itemIndex < 0)
+      throw new InvalidOperationException($"The {key} box was not found.");
+
+    var dataIndex = editedBoxes.FindIndex(
+      x => x.Parent == itemIndex && x.Box.Type == IsoBmffTypes.Data);
+
+    if (dataIndex < 0)
+      throw new InvalidOperationException($"The {key} data box was not found.");
+
+    var dataNode = editedBoxes[dataIndex];
+    var prefix = _getDataPrefix(dataNode);
+    var payload = _createData(value, prefix);
+    var data = dataNode.Box;
+    var newDataSize = data.HeaderSize + payload.LongLength;
+    var delta = newDataSize - data.Size;
+
+    dataNode.Data = payload;
+    dataNode.Box = new IsoBmffBox(data.Offset, data.HeaderSize, newDataSize, data.Type);
+
+    if (delta != 0)
+      editedBoxes.UpdateParentSizes(dataNode.Parent, delta);
+
+    entry.Node = editedBoxes[itemIndex];
+    entry.Value = value;
+  }
+
+  private byte[] _getDataPrefix(IsoBmffBoxNode dataNode) {
+    if (dataNode.Data is { Length: >= 8 } data)
+      return data[..8];
+
+    var prefix = new byte[8];
+
+    reader._stream.Position = dataNode.Box.DataOffset;
+    reader._stream.ReadExactly(prefix);
+
+    return prefix;
+  }
+
+  private static byte[] _createData(string value, byte[]? prefix = null) {
+    var valueBytes = Encoding.UTF8.GetBytes(value);
+    var result = new byte[checked(8 + valueBytes.Length)];
+
+    if (prefix is not null)
+      prefix.CopyTo(result, 0);
+    else
+      BinaryPrimitives.WriteUInt32BigEndian(result, 1);
+
+    valueBytes.CopyTo(result, 8);
 
     return result;
   }

@@ -86,6 +86,17 @@ internal class IsoBmffMetadata {
     itemList.SetKeywords(value, _getEditedBoxes());
   }
 
+  public string? GetItemListComment() =>
+    _getItemList()?.GetComment();
+
+  public string? GetComment() =>
+    GetItemListComment();
+
+  public void SetComment(string? value) {
+    var itemList = _getOrCreateItemList();
+    itemList.SetComment(value, _getEditedBoxes());
+  }
+
   private IsoBmffBox? _findVideoTrack(IsoBmffBox moov) {
     _stream.Position = moov.DataOffset;
     var end = moov.End;

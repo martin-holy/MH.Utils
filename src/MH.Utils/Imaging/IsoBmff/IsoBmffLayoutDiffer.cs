@@ -14,12 +14,27 @@ internal static class IsoBmffLayoutDiffer {
   public static IsoBmffLayoutDiff Diff(IsoBmffLayout original, IsoBmffLayout edited, IEnumerable<IsoBmffBoxNode>? boxesToWrite = null) {
     var result = new IsoBmffLayoutDiff();
 
-    foreach (var box in edited.TopLevelBoxes) {
+    var movedBoxes = new List<(IsoBmffLayoutBox Edited, IsoBmffLayoutBox Original)>();
+
+    foreach (var box in edited.Boxes) {
+      if (original.TryGetValue(box.Node, out var old) && old!.Offset != box.Offset)
+        movedBoxes.Add((box, old));
+    }
+
+    foreach (var (box, old) in movedBoxes) {
       if (box.Node.Box.Type == IsoBmffTypes.Free)
         continue;
 
-      if (original.TryGetValue(box.Node, out var old) &&
-          old!.Offset != box.Offset)
+      var offsetDelta = box.Offset - old.Offset;
+      var coveredByMovedAncestor = movedBoxes.Any(candidate =>
+        !ReferenceEquals(candidate.Edited.Node.Identity, box.Node.Identity) &&
+        candidate.Edited.Offset - candidate.Original.Offset == offsetDelta &&
+        candidate.Original.Offset <= old.Offset &&
+        candidate.Original.End >= old.End &&
+        candidate.Edited.Offset <= box.Offset &&
+        candidate.Edited.End >= box.End);
+
+      if (!coveredByMovedAncestor)
         result.Moves.Add(new IsoBmffMove(old.Offset, box.Offset, old.Size));
     }
 

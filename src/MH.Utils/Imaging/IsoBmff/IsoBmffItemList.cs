@@ -18,9 +18,8 @@ internal sealed class IsoBmffItemList(IsoBmffReader reader, IsoBmffBox ilst, boo
   public string? GetKeywords() =>
     _getValue(IsoBmffTypes.Keyw);
 
-  // TODO
-  /*public string? GetComment() =>
-    _getValue(IsoBmffTypes.Comment);*/
+  public string? GetComment() =>
+    _getValue(IsoBmffTypes.Comment);
 
   private string? _getValue(uint type) {
     var entries = _getEntries();
@@ -71,28 +70,36 @@ internal sealed class IsoBmffItemList(IsoBmffReader reader, IsoBmffBox ilst, boo
     return new IsoBmffMetadataEntry(key, Encoding.UTF8.GetString(buffer), item);
   }
 
-  public void SetKeywords(string? value, List<IsoBmffBoxNode> editedBoxes) {
+  public void SetKeywords(string? value, List<IsoBmffBoxNode> editedBoxes) =>
+    _setValue(IsoBmffTypes.Keyw, value, editedBoxes);
+
+  public void SetComment(string? value, List<IsoBmffBoxNode> editedBoxes) =>
+    _setValue(IsoBmffTypes.Comment, value, editedBoxes);
+
+  private void _setValue(uint type, string? value, List<IsoBmffBoxNode> editedBoxes) {
+    var key = IsoBmffTypes.GetTypeName(type);
     var entries = _getEntries();
+    int itemIndex;
 
     for (var i = 0; i < entries.Count; i++) {
       var entry = entries[i];
 
-      if (entry.Item?.Type != IsoBmffTypes.Keyw)
+      if (entry.Item?.Type != type)
         continue;
 
       if (value is null) {
-        var keywIndex = entry.Node is { } node
+        itemIndex = entry.Node is { } node
           ? editedBoxes.IndexOf(node)
           : editedBoxes.FindIndex(entry.Item);
 
-        if (keywIndex < 0)
-          throw new InvalidOperationException("The keyw box was not found.");
+        if (itemIndex < 0)
+          throw new InvalidOperationException($"The {key} box was not found.");
 
-        editedBoxes.RemoveBox(keywIndex);
+        editedBoxes.RemoveBox(itemIndex);
         entries.RemoveAt(i);
       }
       else {
-        _updateEntry(entry, editedBoxes, value);
+        _updateEntry(entry, editedBoxes, value, key);
       }
 
       return;
@@ -101,34 +108,34 @@ internal sealed class IsoBmffItemList(IsoBmffReader reader, IsoBmffBox ilst, boo
     if (value is null) return;
 
     var payload = _createData(value);
-    var item = new IsoBmffBox(-1, 8, 8, IsoBmffTypes.Keyw);
+    var item = new IsoBmffBox(-1, 8, 8, type);
     var data = new IsoBmffBox(-1, 8, 8 + payload.LongLength, IsoBmffTypes.Data);
     var ilstIndex = editedBoxes.FindIndex(ilst);
 
     if (ilstIndex < 0)
       throw new InvalidOperationException("The ilst box was not found.");
 
-    var itemIndex = editedBoxes.InsertBox(item, ilstIndex);
+    itemIndex = editedBoxes.InsertBox(item, ilstIndex);
     var itemNode = editedBoxes[itemIndex];
 
     editedBoxes.InsertBox(data, itemIndex, payload);
 
-    entries.Add(new IsoBmffMetadataEntry("keyw", value, itemNode.Box, itemNode));
+    entries.Add(new IsoBmffMetadataEntry(key, value, itemNode.Box, itemNode));
   }
 
-  private void _updateEntry(IsoBmffMetadataEntry entry, List<IsoBmffBoxNode> editedBoxes, string value) {
+  private void _updateEntry(IsoBmffMetadataEntry entry, List<IsoBmffBoxNode> editedBoxes, string value, string key) {
     var itemIndex = entry.Node is { } node
       ? editedBoxes.IndexOf(node)
       : editedBoxes.FindIndex(entry.Item);
 
     if (itemIndex < 0)
-      throw new InvalidOperationException("The keyw box was not found.");
+      throw new InvalidOperationException($"The {key} box was not found.");
 
     var dataIndex = editedBoxes.FindIndex(
       x => x.Parent == itemIndex && x.Box.Type == IsoBmffTypes.Data);
 
     if (dataIndex < 0)
-      throw new InvalidOperationException("The keyw data box was not found.");
+      throw new InvalidOperationException($"The {key} data box was not found.");
 
     var dataNode = editedBoxes[dataIndex];
     var prefix = _getDataPrefix(dataNode);

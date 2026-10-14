@@ -11,10 +11,22 @@ internal class IsoBmffXmp {
     0x9C, 0x71, 0x99, 0x94, 0x91, 0xE3, 0xAF, 0xAC
   ];
 
-  public static IsoBmffMetadataEntry? Find(Stream stream, IsoBmffReader reader) =>
-    reader.Find(IsoBmffTypes.Uuid) is { } uuid
-      ? _readXmp(stream, uuid)
-      : null;
+  public static IsoBmffMetadataEntry? Find(Stream stream, IsoBmffReader reader) {
+    var end = stream.Length;
+    stream.Position = 0;
+
+    while (stream.Position < end) {
+      if (reader.ReadBox(end) is not { } box)
+        break;
+
+      if (box.Type == IsoBmffTypes.Uuid && _readXmp(stream, box) is { } entry)
+        return entry;
+
+      stream.Position = box.End;
+    }
+
+    return null;
+  }
 
   private static IsoBmffMetadataEntry? _readXmp(Stream stream, IsoBmffBox uuid) {
     if (!_isXmp(stream, uuid)) return null;

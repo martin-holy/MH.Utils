@@ -10,8 +10,7 @@ internal class IsoBmffMetadata {
   private readonly Stream _stream;
   private readonly IsoBmffReader _reader;
   private readonly IsoBmffBox _moov;
-  private List<IsoBmffBoxNode>? _originalBoxes;
-  private List<IsoBmffBoxNode>? _editedBoxes;
+  private readonly IsoBmffEditor _editor;
 
   private bool _itemListRead;
   private bool _keysRead;
@@ -27,6 +26,7 @@ internal class IsoBmffMetadata {
   public IsoBmffMetadata(Stream stream, IsoBmffReader reader) {
     _stream = stream;
     _reader = reader;
+    _editor = new IsoBmffEditor(reader);
 
     _moov = _reader.Find(IsoBmffTypes.Moov) ?? throw new InvalidDataException("ISO BMFF moov box not found.");
     var trak = _findVideoTrack(_moov) ?? throw new InvalidDataException("Video track not found.");
@@ -83,12 +83,12 @@ internal class IsoBmffMetadata {
 
   public void SetItemListKeywords(string? value) {
     var itemList = _getOrCreateItemList();
-    itemList.SetKeywords(value, _getEditedBoxes());
+    itemList.SetKeywords(value, _editor);
   }
 
   public void SetKeysKeywords(string? value) {
     var keys = _getOrCreateKeys();
-    keys.SetKeywords(value, _getEditedBoxes());
+    keys.SetKeywords(value, _editor);
   }
 
   // TODO SetKeysKeywords too or not? 
@@ -107,12 +107,12 @@ internal class IsoBmffMetadata {
 
   public void SetItemListComment(string? value) {
     var itemList = _getOrCreateItemList();
-    itemList.SetComment(value, _getEditedBoxes());
+    itemList.SetComment(value, _editor);
   }
 
   public void SetKeysComment(string? value) {
     var keys = _getOrCreateKeys();
-    keys.SetComment(value, _getEditedBoxes());
+    keys.SetComment(value, _editor);
   }
 
   // TODO SetKeysComment too or not? 
@@ -224,20 +224,13 @@ internal class IsoBmffMetadata {
     return (double)sampleCount * timescale / duration;
   }
 
-  internal List<IsoBmffBoxNode> _getEditedBoxes() {
-    if (_editedBoxes is not null) return _editedBoxes;
+  // TODO remove
+  internal List<IsoBmffBoxNode> _getEditedBoxes() =>
+    _editor._getEditedBoxes();
 
-    _originalBoxes = _reader._readBoxes();
-    _editedBoxes = [.. _originalBoxes.Select(x => new IsoBmffBoxNode(x.Box, x.Parent, x))];
-
-    return _editedBoxes;
-  }
-
-  internal List<IsoBmffBoxNode> _getOriginalBoxes() {
-    _getEditedBoxes();
-
-    return _originalBoxes!;
-  }
+  // TODO remove
+  internal List<IsoBmffBoxNode> _getOriginalBoxes() =>
+    _editor._getOriginalBoxes();
 
   internal IsoBmffItemList _getOrCreateItemList() {
     if (_getItemList() is { } itemList) return itemList;

@@ -392,6 +392,45 @@ public class IsoBmffFileIntegrationTests {
     }
   }
 
+  [TestMethod]
+  public void FindXmp_SkipsUuidBoxesWithOtherUserTypes() {
+    using var input = _createTestFileWithOtherUuidBeforeXmp();
+    var reader = new IsoBmffReader(input);
+    var uuidBoxes = reader._readBoxes()
+      .Where(x => x.Box.Type == IsoBmffTypes.Uuid)
+      .ToArray();
+
+    Assert.AreEqual(2, uuidBoxes.Length);
+
+    var entry = IsoBmffXmp.Find(input, reader);
+
+    Assert.IsNotNull(entry);
+    Assert.AreEqual(uuidBoxes[1].Box.Offset, entry!.Item!.Value.Offset);
+    StringAssert.Contains(entry.Value, "initial-xmp");
+  }
+
+  private static MemoryStream _createTestFileWithOtherUuidBeforeXmp() {
+    using var source = _createTestFileWithXmp();
+    var reader = new IsoBmffReader(source);
+    var xmpBox = reader.Find(IsoBmffTypes.Uuid)
+      ?? throw new InvalidDataException("Test XMP uuid box was not found.");
+    var sourceBytes = source.ToArray();
+    var xmpOffset = checked((int)xmpBox.Offset);
+    var otherUuidData = new byte[20];
+
+    for (var i = 0; i < 16; i++)
+      otherUuidData[i] = (byte)i;
+
+    var result = new MemoryStream();
+
+    result.Write(sourceBytes.AsSpan(0, xmpOffset));
+    _writeBox(result, IsoBmffTypes.Uuid, otherUuidData);
+    result.Write(sourceBytes.AsSpan(xmpOffset));
+
+    result.Position = 0;
+    return result;
+  }
+
   private static MemoryStream _createTestFileWithXmpBeforeFree() {
     using var baseStream = IsoBmffFileTests._createTestFile(
       beforeFreeSize: 0,

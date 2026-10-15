@@ -95,9 +95,6 @@ internal sealed class IsoBmffKeys(IsoBmffReader reader, IsoBmffBox keys, IsoBmff
   }
 
   private void _setValue(string key, string? value, IsoBmffEditor editor) {
-    var keyNames = _readKeys();
-    var keyIndex = Array.IndexOf(keyNames, key);
-    var editedBoxes = editor._getEditedBoxes();
     var entries = _getEntries();
 
     foreach (var entry in entries) {
@@ -105,14 +102,7 @@ internal sealed class IsoBmffKeys(IsoBmffReader reader, IsoBmffBox keys, IsoBmff
         continue;
 
       if (value is null) {
-        var itemIndex = entry.Node is { } node
-          ? editedBoxes.IndexOf(node)
-          : editedBoxes.FindIndex(entry.Item!.Value);
-
-        if (itemIndex < 0)
-          throw new InvalidOperationException($"The {key} box was not found.");
-
-        editedBoxes.RemoveBox(itemIndex);
+        editor.RemoveEntry(entry, key);
         entries.Remove(entry);
       }
       else {
@@ -123,6 +113,10 @@ internal sealed class IsoBmffKeys(IsoBmffReader reader, IsoBmffBox keys, IsoBmff
     }
 
     if (value is null) return;
+
+    var keyNames = _readKeys();
+    var keyIndex = Array.IndexOf(keyNames, key);
+    var editedBoxes = editor._getEditedBoxes();
 
     if (keyIndex < 0)
       keyIndex = _addKey(key, editedBoxes);

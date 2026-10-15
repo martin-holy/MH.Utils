@@ -81,4 +81,16 @@ internal sealed class IsoBmffEditor(IsoBmffReader reader) {
 
     return prefix;
   }
+
+  public void RemoveEntry(IsoBmffMetadataEntry entry, string key) {
+    var editedBoxes = _getEditedBoxes();
+    var itemIndex = entry.Node is { } node
+      ? editedBoxes.IndexOf(node)
+      : editedBoxes.FindIndex(entry.Item);
+
+    if (itemIndex < 0)
+      throw new InvalidOperationException($"The {key} box was not found.");
+
+    editedBoxes.RemoveBox(itemIndex);
+  }
 }

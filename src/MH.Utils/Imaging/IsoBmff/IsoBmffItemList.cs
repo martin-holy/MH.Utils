@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Text;
 
@@ -78,9 +77,7 @@ internal sealed class IsoBmffItemList(IsoBmffReader reader, IsoBmffBox ilst, boo
 
   private void _setValue(uint type, string? value, IsoBmffEditor editor) {
     var key = IsoBmffTypes.GetTypeName(type);
-    var editedBoxes = editor._getEditedBoxes();
     var entries = _getEntries();
-    int itemIndex;
 
     for (var i = 0; i < entries.Count; i++) {
       var entry = entries[i];
@@ -89,14 +86,7 @@ internal sealed class IsoBmffItemList(IsoBmffReader reader, IsoBmffBox ilst, boo
         continue;
 
       if (value is null) {
-        itemIndex = entry.Node is { } node
-          ? editedBoxes.IndexOf(node)
-          : editedBoxes.FindIndex(entry.Item);
-
-        if (itemIndex < 0)
-          throw new InvalidOperationException($"The {key} box was not found.");
-
-        editedBoxes.RemoveBox(itemIndex);
+        editor.RemoveEntry(entry, key);
         entries.RemoveAt(i);
       }
       else {
@@ -108,6 +98,7 @@ internal sealed class IsoBmffItemList(IsoBmffReader reader, IsoBmffBox ilst, boo
 
     if (value is null) return;
 
+    var editedBoxes = editor._getEditedBoxes();
     var payload = IsoBmffEditor._createData(value);
     var item = new IsoBmffBox(-1, 8, 8, type);
     var data = new IsoBmffBox(-1, 8, 8 + payload.LongLength, IsoBmffTypes.Data);
@@ -116,7 +107,7 @@ internal sealed class IsoBmffItemList(IsoBmffReader reader, IsoBmffBox ilst, boo
     if (ilstIndex < 0)
       throw new InvalidOperationException("The ilst box was not found.");
 
-    itemIndex = editedBoxes.InsertBox(item, ilstIndex);
+    var itemIndex = editedBoxes.InsertBox(item, ilstIndex);
     var itemNode = editedBoxes[itemIndex];
 
     editedBoxes.InsertBox(data, itemIndex, payload);

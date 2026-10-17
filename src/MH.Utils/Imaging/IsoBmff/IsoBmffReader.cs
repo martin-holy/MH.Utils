@@ -3,6 +3,7 @@ using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Text;
 
 namespace MH.Utils.Imaging.IsoBmff;
 
@@ -88,6 +89,20 @@ internal sealed class IsoBmffReader(Stream stream) {
     }
 
     return null;
+  }
+
+  public string? ReadDataString(IsoBmffBox item) {
+    if (FindChild(item, IsoBmffTypes.Data) is not { } data || data.DataSize < 8)
+      return null;
+
+    var length = checked((int)data.DataSize - 8);
+
+    _stream.Position = data.DataOffset + 8;
+
+    var buffer = new byte[length];
+    _stream.ReadExactly(buffer);
+
+    return Encoding.UTF8.GetString(buffer);
   }
 
   public uint ReadUInt32BigEndian() {

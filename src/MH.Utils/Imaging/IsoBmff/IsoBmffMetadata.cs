@@ -227,12 +227,7 @@ internal class IsoBmffMetadata {
     if (_getItemList() is { } itemList) return itemList;
 
     var editedBoxes = _editor._getEditedBoxes();
-
-    var moovIndex = editedBoxes.FindIndex(IsoBmffTypes.Moov);
-
-    if (moovIndex < 0)
-      throw new InvalidOperationException("The moov box was not found.");
-
+    var moovIndex = editedBoxes.FindIndex(IsoBmffTypes.Moov, throwIfNotFound: true);
     var udtaIndex = editedBoxes.FindOrInsert(IsoBmffTypes.Udta, 8, moovIndex);
     var metaIndex = editedBoxes.FindOrInsert(IsoBmffTypes.Meta, 12, udtaIndex, new byte[4]);
     var ilstIndex = editedBoxes.FindOrInsert(IsoBmffTypes.Ilst, 8, metaIndex);
@@ -245,11 +240,7 @@ internal class IsoBmffMetadata {
     if (_getKeys() is { } keys) return keys;
 
     var editedBoxes = _editor._getEditedBoxes();
-    var moovIndex = editedBoxes.FindIndex(IsoBmffTypes.Moov);
-
-    if (moovIndex < 0)
-      throw new InvalidOperationException("The moov box was not found.");
-
+    var moovIndex = editedBoxes.FindIndex(IsoBmffTypes.Moov, throwIfNotFound: true);
     var metaIndex = editedBoxes.FindOrInsert(IsoBmffTypes.Meta, 12, moovIndex, new byte[4]);
     var keysIndex = editedBoxes.FindOrInsert(IsoBmffTypes.Keys, 16, metaIndex, new byte[8]);
     var ilstIndex = editedBoxes.FindOrInsert(IsoBmffTypes.Ilst, 8, metaIndex);

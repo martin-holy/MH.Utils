@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace MH.Utils.Imaging.IsoBmff;
 
@@ -24,13 +25,16 @@ internal static class IsoBmffBoxNodeExtensions {
     return null;
   }
 
-  public static int FindIndex(this IList<IsoBmffBoxNode> boxes, uint type, int parent = -1) {
+  public static int FindIndex(this IList<IsoBmffBoxNode> boxes, uint type, int parent = -1, bool throwIfNotFound = false) {
     for (var i = 0; i < boxes.Count; i++) {
       var node = boxes[i];
 
       if (node.Parent == parent && node.Box.Type == type)
         return i;
     }
+
+    if (throwIfNotFound)
+      throw new InvalidOperationException($"The {IsoBmffTypes.GetTypeName(type)} box was not found.");
 
     return -1;
   }

@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Text;
 
 namespace MH.Utils.Imaging.IsoBmff;
@@ -79,15 +78,12 @@ internal sealed class IsoBmffItemList(IsoBmffReader reader, IsoBmffBox ilst, boo
     var key = IsoBmffTypes.GetTypeName(type);
     var entries = _getEntries();
 
-    for (var i = 0; i < entries.Count; i++) {
-      var entry = entries[i];
-
-      if (entry.Item?.Type != type)
-        continue;
-
-      if (value is null) {
+    var entryIndex = entries.FindIndex(x => x.Item?.Type == type);
+    if (entryIndex >= 0) {
+      var entry = entries[entryIndex];
+      if (value == null) {
         editor.RemoveEntry(entry, key);
-        entries.RemoveAt(i);
+        entries.RemoveAt(entryIndex);
       }
       else {
         editor._updateEntry(entry, value, key);
@@ -96,22 +92,8 @@ internal sealed class IsoBmffItemList(IsoBmffReader reader, IsoBmffBox ilst, boo
       return;
     }
 
-    if (value is null) return;
+    if (value == null) return;
 
-    var editedBoxes = editor._getEditedBoxes();
-    var payload = IsoBmffEditor._createData(value);
-    var item = new IsoBmffBox(-1, 8, 8, type);
-    var data = new IsoBmffBox(-1, 8, 8 + payload.LongLength, IsoBmffTypes.Data);
-    var ilstIndex = editedBoxes.FindIndex(ilst);
-
-    if (ilstIndex < 0)
-      throw new InvalidOperationException("The ilst box was not found.");
-
-    var itemIndex = editedBoxes.InsertBox(item, ilstIndex);
-    var itemNode = editedBoxes[itemIndex];
-
-    editedBoxes.InsertBox(data, itemIndex, payload);
-
-    entries.Add(new IsoBmffMetadataEntry(key, value, itemNode.Box, itemNode));
+    entries.Add(editor.AddEntry(key, value, type, ilst));
   }
 }

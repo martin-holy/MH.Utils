@@ -86,8 +86,8 @@ internal static class IsoBmffBoxNodeExtensions {
     return index;
   }
 
-  public static int InsertBox(this List<IsoBmffBoxNode> boxes, uint type, long size, int parentIndex) =>
-    boxes.InsertBox(new IsoBmffBox(-1, 8, size, type), parentIndex);
+  public static int InsertBox(this List<IsoBmffBoxNode> boxes, uint type, long size, int parentIndex, byte[]? data = null) =>
+    boxes.InsertBox(new IsoBmffBox(-1, 8, size, type), parentIndex, data);
 
   public static IsoBmffBoxNode InsertTopLevelBox(this List<IsoBmffBoxNode> boxes, IsoBmffBoxNode node) {
     var index = boxes.FindIndex(x => x.Parent < 0 && x.Box.Type == IsoBmffTypes.Mdat);

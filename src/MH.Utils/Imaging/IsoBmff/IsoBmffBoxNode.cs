@@ -48,6 +48,14 @@ internal static class IsoBmffBoxNodeExtensions {
     return -1;
   }
 
+  public static int FindOrInsert(this List<IsoBmffBoxNode> boxes, uint type, long size, int parentIndex, byte[]? data = null) {
+    var index = boxes.FindIndex(type, parentIndex);
+    if (index < 0)
+      index = boxes.InsertBox(type, size, parentIndex, data);
+
+    return index;
+  }
+
   public static void UpdateParentSizes(this IList<IsoBmffBoxNode> boxes, int parentIndex, long delta) {
     while (parentIndex >= 0) {
       var parent = boxes[parentIndex];

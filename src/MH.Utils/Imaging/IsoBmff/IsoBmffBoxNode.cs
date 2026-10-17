@@ -14,6 +14,16 @@ internal sealed class IsoBmffBoxNode(IsoBmffBox box, int parent, IsoBmffBoxNode?
 }
 
 internal static class IsoBmffBoxNodeExtensions {
+  public static IsoBmffBoxNode? FindByIdentity(this IList<IsoBmffBoxNode> boxes, IsoBmffBoxNode node) {
+    for (var i = 0; i < boxes.Count; i++) {
+      var n = boxes[i];
+      if (ReferenceEquals(n.Identity, node.Identity))
+        return n;
+    }
+
+    return null;
+  }
+
   public static int FindIndex(this IList<IsoBmffBoxNode> boxes, uint type, int parent = -1) {
     for (var i = 0; i < boxes.Count; i++) {
       var node = boxes[i];

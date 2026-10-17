@@ -233,24 +233,9 @@ internal class IsoBmffMetadata {
     if (moovIndex < 0)
       throw new InvalidOperationException("The moov box was not found.");
 
-    var udtaIndex = editedBoxes.FindIndex(IsoBmffTypes.Udta, moovIndex);
-
-    if (udtaIndex < 0)
-      udtaIndex = editedBoxes.InsertBox(IsoBmffTypes.Udta, 8, moovIndex);
-
-    var metaIndex = editedBoxes.FindIndex(IsoBmffTypes.Meta, udtaIndex);
-
-    if (metaIndex < 0)
-      metaIndex = editedBoxes.InsertBox(
-        new IsoBmffBox(-1, 8, 12, IsoBmffTypes.Meta),
-        udtaIndex,
-        new byte[4]);
-
-    var ilstIndex = editedBoxes.FindIndex(IsoBmffTypes.Ilst, metaIndex);
-
-    if (ilstIndex < 0)
-      ilstIndex = editedBoxes.InsertBox(IsoBmffTypes.Ilst, 8, metaIndex);
-
+    var udtaIndex = editedBoxes.FindOrInsert(IsoBmffTypes.Udta, 8, moovIndex);
+    var metaIndex = editedBoxes.FindOrInsert(IsoBmffTypes.Meta, 12, udtaIndex, new byte[4]);
+    var ilstIndex = editedBoxes.FindOrInsert(IsoBmffTypes.Ilst, 8, metaIndex);
     var ilst = editedBoxes[ilstIndex].Box;
 
     return _itemList = new IsoBmffItemList(_reader, ilst, isNew: true);
@@ -265,26 +250,9 @@ internal class IsoBmffMetadata {
     if (moovIndex < 0)
       throw new InvalidOperationException("The moov box was not found.");
 
-    var metaIndex = editedBoxes.FindIndex(IsoBmffTypes.Meta, moovIndex);
-
-    if (metaIndex < 0)
-      metaIndex = editedBoxes.InsertBox(
-        new IsoBmffBox(-1, 8, 12, IsoBmffTypes.Meta),
-        moovIndex,
-        new byte[4]);
-
-    var keysIndex = editedBoxes.FindIndex(IsoBmffTypes.Keys, metaIndex);
-
-    if (keysIndex < 0)
-      keysIndex = editedBoxes.InsertBox(
-        new IsoBmffBox(-1, 8, 16, IsoBmffTypes.Keys),
-        metaIndex,
-        new byte[8]);
-
-    var ilstIndex = editedBoxes.FindIndex(IsoBmffTypes.Ilst, metaIndex);
-
-    if (ilstIndex < 0)
-      ilstIndex = editedBoxes.InsertBox(IsoBmffTypes.Ilst, 8, metaIndex);
+    var metaIndex = editedBoxes.FindOrInsert(IsoBmffTypes.Meta, 12, moovIndex, new byte[4]);
+    var keysIndex = editedBoxes.FindOrInsert(IsoBmffTypes.Keys, 16, metaIndex, new byte[8]);
+    var ilstIndex = editedBoxes.FindOrInsert(IsoBmffTypes.Ilst, 8, metaIndex);
 
     _keys = new IsoBmffKeys(
       _reader,

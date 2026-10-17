@@ -38,34 +38,15 @@ internal sealed class IsoBmffItemList(IsoBmffReader reader, IsoBmffBox ilst, boo
     reader._stream.Position = ilst.DataOffset;
 
     while (reader._stream.Position < ilst.End) {
-      if (reader.ReadBox(ilst.End) is not { } item)
-        break;
+      if (reader.ReadBox(ilst.End) is not { } item) break;
 
-      if (_readItem(item) is { } entry)
-        result.Add(entry);
+      if (reader.ReadDataString(item) is { } value)
+        result.Add(new IsoBmffMetadataEntry(IsoBmffTypes.GetTypeName(item.Type), value, item));
 
       reader._stream.Position = item.End;
     }
 
     return _entries = result;
-  }
-
-  private IsoBmffMetadataEntry? _readItem(IsoBmffBox item) =>
-    _readValue(item, IsoBmffTypes.GetTypeName(item.Type));
-
-  private IsoBmffMetadataEntry? _readValue(IsoBmffBox item, string key) {
-    if (reader.FindChild(item, IsoBmffTypes.Data) is not { } data || data.DataSize < 8)
-      return null;
-
-    var length = checked((int)data.DataSize - 8);
-
-    reader._stream.Position = data.DataOffset + 8;
-
-    var buffer = new byte[length];
-    reader._stream.ReadExactly(buffer);
-
-    // TODO it might not always be UTF8 string!
-    return new IsoBmffMetadataEntry(key, Encoding.UTF8.GetString(buffer), item);
   }
 
   public void SetKeywords(string? value, IsoBmffEditor editor) =>

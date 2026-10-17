@@ -69,8 +69,8 @@ public class IsoBmffFileTests {
       new(new IsoBmffBox(68, 8, 50, IsoBmffTypes.Trak), 0),
     };
 
-    var keywIndex = boxes.InsertBox(new IsoBmffBox(-1, 8, 29, IsoBmffTypes.Keyw), 4);
-    var dataIndex = boxes.InsertBox(new IsoBmffBox(-1, 8, 21, IsoBmffTypes.Data), keywIndex);
+    var keywIndex = boxes.InsertBox(IsoBmffTypes.Keyw, 29, 4);
+    var dataIndex = boxes.InsertBox(IsoBmffTypes.Data, 21, keywIndex);
 
     Assert.AreEqual(5, keywIndex);
     Assert.AreEqual(6, dataIndex);
@@ -93,7 +93,7 @@ public class IsoBmffFileTests {
     Assert.AreEqual(5, boxes[6].Parent);
     Assert.AreEqual(0, boxes[7].Parent);
 
-    var secondKeywIndex = boxes.InsertBox(new IsoBmffBox(-1, 8, 30, IsoBmffTypes.Keyw), 4);
+    var secondKeywIndex = boxes.InsertBox(IsoBmffTypes.Keyw, 30, 4);
 
     Assert.AreEqual(7, secondKeywIndex);
     Assert.AreEqual(IsoBmffTypes.Keyw, boxes[7].Box.Type);

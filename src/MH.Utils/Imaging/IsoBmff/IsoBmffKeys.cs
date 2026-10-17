@@ -55,8 +55,11 @@ internal sealed class IsoBmffKeys(IsoBmffReader reader, IsoBmffBox keys, IsoBmff
     while (reader._stream.Position < ilst.End) {
       if (reader.ReadBox(ilst.End) is not { } item) break;
 
-      if (item.Type <= 0xFFFF && item.Type < keyNames.Length && keyNames[item.Type] is { } key)
-        _readValue(item, key, result);
+      if (item.Type <= 0xFFFF
+        && item.Type < keyNames.Length
+        && keyNames[item.Type] is { } key
+        && reader.ReadDataString(item) is { } value)
+          result.Add(new IsoBmffMetadataEntry(key, value, item));
 
       reader._stream.Position = item.End;
     }
@@ -180,19 +183,5 @@ internal sealed class IsoBmffKeys(IsoBmffReader reader, IsoBmffBox keys, IsoBmff
     reader._stream.ReadExactly(result);
 
     return result;
-  }
-
-  private void _readValue(IsoBmffBox item, string key, List<IsoBmffMetadataEntry> result) {
-    if (reader.FindChild(item, IsoBmffTypes.Data) is not { } data || data.DataSize < 8)
-      return;
-
-    var length = checked((int)data.DataSize - 8);
-
-    reader._stream.Position = data.DataOffset + 8;
-
-    var buffer = new byte[length];
-    reader._stream.ReadExactly(buffer);
-
-    result.Add(new IsoBmffMetadataEntry(key, Encoding.UTF8.GetString(buffer), item));
   }
 }

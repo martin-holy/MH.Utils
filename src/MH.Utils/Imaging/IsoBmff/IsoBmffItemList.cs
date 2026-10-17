@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Text;
 
 namespace MH.Utils.Imaging.IsoBmff;
 
@@ -41,7 +40,7 @@ internal sealed class IsoBmffItemList(IsoBmffReader reader, IsoBmffBox ilst, boo
       if (reader.ReadBox(ilst.End) is not { } item) break;
 
       if (reader.ReadDataString(item) is { } value)
-        result.Add(new IsoBmffMetadataEntry(IsoBmffTypes.GetTypeName(item.Type), value, item));
+        result.Add(new IsoBmffMetadataEntry(item.TypeName, value, item));
 
       reader._stream.Position = item.End;
     }

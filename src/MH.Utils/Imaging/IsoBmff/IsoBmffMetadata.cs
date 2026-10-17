@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Buffers.Binary;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 
 namespace MH.Utils.Imaging.IsoBmff;
 
@@ -10,12 +8,13 @@ internal class IsoBmffMetadata {
   private readonly Stream _stream;
   private readonly IsoBmffReader _reader;
   private readonly IsoBmffBox _moov;
-  private readonly IsoBmffEditor _editor;
 
   private bool _itemListRead;
   private bool _keysRead;
   private IsoBmffItemList? _itemList;
   private IsoBmffKeys? _keys;
+
+  internal readonly IsoBmffEditor _editor;
 
   public int Width { get; }
   public int Height { get; }
@@ -224,18 +223,10 @@ internal class IsoBmffMetadata {
     return (double)sampleCount * timescale / duration;
   }
 
-  // TODO remove
-  internal List<IsoBmffBoxNode> _getEditedBoxes() =>
-    _editor._getEditedBoxes();
-
-  // TODO remove
-  internal List<IsoBmffBoxNode> _getOriginalBoxes() =>
-    _editor._getOriginalBoxes();
-
   internal IsoBmffItemList _getOrCreateItemList() {
     if (_getItemList() is { } itemList) return itemList;
 
-    var editedBoxes = _getEditedBoxes();
+    var editedBoxes = _editor._getEditedBoxes();
 
     var moovIndex = editedBoxes.FindIndex(IsoBmffTypes.Moov);
 
@@ -268,7 +259,7 @@ internal class IsoBmffMetadata {
   internal IsoBmffKeys _getOrCreateKeys() {
     if (_getKeys() is { } keys) return keys;
 
-    var editedBoxes = _getEditedBoxes();
+    var editedBoxes = _editor._getEditedBoxes();
     var moovIndex = editedBoxes.FindIndex(IsoBmffTypes.Moov);
 
     if (moovIndex < 0)

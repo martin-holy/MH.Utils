@@ -60,7 +60,7 @@ public sealed class IsoBmffFile : IDisposable {
   }
 
   internal List<IsoBmffBoxNode> _getEditedBoxes() {
-    var boxes = _metadata._getEditedBoxes();
+    var boxes = _metadata._editor._getEditedBoxes();
 
     if (_xmp?.Doc is not { IsModified: true })
       return boxes;
@@ -88,7 +88,7 @@ public sealed class IsoBmffFile : IDisposable {
     if (!_stream.CanRead || !_stream.CanSeek)
       throw new InvalidOperationException("Saving requires a readable, seekable source stream.");
 
-    var originalBoxes = _metadata._getOriginalBoxes();
+    var originalBoxes = _metadata._editor._getOriginalBoxes();
     var editedBoxes = _getEditedBoxes();
     var planner = new IsoBmffLayoutPlanner(
       originalBoxes,

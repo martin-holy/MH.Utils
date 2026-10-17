@@ -138,7 +138,8 @@ internal sealed class IsoBmffReader(Stream stream) {
     return _buffer[0];
   }
 
-  public void DumpRaw(IsoBmffBox box) {
+  [Conditional("DEBUG")]
+  internal void _dumpRaw(IsoBmffBox box) {
     _stream.Position = box.DataOffset;
 
     var length = checked((int)box.DataSize);
@@ -182,7 +183,7 @@ internal sealed class IsoBmffReader(Stream stream) {
 
       Debug.WriteLine(
         $"{new string(' ', depth * 2)}" +
-        $"{IsoBmffTypes.GetTypeName(box.Type),-4} " +
+        $"{box.TypeName,-4} " +
         $"0x{box.Type:X8} " +
         $"offset={box.Offset,10} " +
         $"size={box.Size,10} " +

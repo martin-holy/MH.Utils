@@ -476,12 +476,12 @@ public class IsoBmffLayoutPlannerTests {
     using var stream = IsoBmffFileTests._createTestFile(0, 128, withItemList: false);
 
     var file = new IsoBmffFile(stream);
-    var originalBoxes = file._metadata._getOriginalBoxes();
+    var originalBoxes = file._metadata._editor._getOriginalBoxes();
     var originalPlanner = new IsoBmffLayoutPlanner(originalBoxes, originalBoxes, file._reader.GetBoxChildrenOffset);
     var original = originalPlanner.CreateOriginalLayout();
 
     IsoBmffLayoutPlan CreatePlan() {
-      var editedBoxes = file._metadata._getEditedBoxes();
+      var editedBoxes = file._metadata._editor._getEditedBoxes();
       var planner = new IsoBmffLayoutPlanner(originalBoxes, editedBoxes, file._reader.GetBoxChildrenOffset);
 
       return planner.CreateEditedLayout(original, editedBoxes);
@@ -489,7 +489,7 @@ public class IsoBmffLayoutPlannerTests {
 
     file._metadata.SetKeywords("hello");
 
-    var editedBoxes = file._metadata._getEditedBoxes();
+    var editedBoxes = file._metadata._editor._getEditedBoxes();
     var keyw = editedBoxes.Single(x => x.Box.Type == IsoBmffTypes.Keyw);
     var data = editedBoxes.Single(x => x.Box.Type == IsoBmffTypes.Data);
     var meta = editedBoxes.Single(x => x.Box.Type == IsoBmffTypes.Meta);
@@ -636,8 +636,8 @@ public class IsoBmffLayoutPlannerTests {
     var file = new IsoBmffFile(stream);
     file._metadata.SetKeywords("layout-invariants");
 
-    var originalBoxes = file._metadata._getOriginalBoxes();
-    var editedBoxes = file._metadata._getEditedBoxes();
+    var originalBoxes = file._metadata._editor._getOriginalBoxes();
+    var editedBoxes = file._metadata._editor._getEditedBoxes();
     var original = new IsoBmffLayoutPlanner(
       originalBoxes,
       originalBoxes,

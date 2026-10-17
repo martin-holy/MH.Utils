@@ -248,13 +248,13 @@ public class IsoBmffLayoutDifferTests {
     using var stream = IsoBmffFileTests._createTestFile(0, 128, withItemList: false);
 
     var file = new IsoBmffFile(stream);
-    var originalBoxes = file._metadata._getOriginalBoxes();
+    var originalBoxes = file._metadata._editor._getOriginalBoxes();
     var originalPlanner = new IsoBmffLayoutPlanner(originalBoxes, originalBoxes, file._reader.GetBoxChildrenOffset);
     var original = originalPlanner.CreateOriginalLayout();
 
     file._metadata.SetKeywords("hello");
 
-    var editedBoxes = file._metadata._getEditedBoxes();
+    var editedBoxes = file._metadata._editor._getEditedBoxes();
     var planner = new IsoBmffLayoutPlanner(originalBoxes, editedBoxes, file._reader.GetBoxChildrenOffset);
     var plan = planner.CreateEditedLayout(original, editedBoxes);
     var diff = IsoBmffLayoutDiffer.Diff(

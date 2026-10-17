@@ -11,13 +11,28 @@ public class IsoBmffFileTests {
 
   //[TestMethod]
   public void DebugTest() {
-    var path = @"e:\!test\vid\input.mp4";
+    var path = @"e:\!test\vid\sup.mp4";
     //var path = @"e:\!test\vid\keywords-default.mp4";
     //var path = @"e:\!test\vid\keywords-itemlist.mp4";
     //var path = @"e:\!test\vid\keywords-keys.mp4";
     //var path = @"e:\!test\vid\keywords-xmp.mp4";
     //var path = @"e:\Pictures\01 Digital_Foto\-=Sklad\vid\new\20240929_162412.mp4"; // rotated 90
-    using var stream = File.OpenRead(path);
+
+    using var file = new IsoBmffFile(path);
+
+    Debug.WriteLine("original boxes");
+    file._reader._dumpBoxes();
+
+    //file._metadata.SetKeywords("jiný delší text než předtím");
+    //file._metadata.SetComment("test comment");
+    file._metadata.SetKeysKeywords("test keys keyword");
+    file._metadata.SetKeysComment("test keys comment");
+    file.Save();
+
+    Debug.WriteLine("edited boxes");
+    file._reader._dumpBoxes();
+
+    /*using var stream = File.OpenRead(path);
     var file = new IsoBmffFile(stream);
 
     if (file._metadata._getItemList() is { } itemList)
@@ -29,7 +44,7 @@ public class IsoBmffFileTests {
     Debug.WriteLine($"Metadata Keywords: {string.Join(", ", file._metadata.GetKeywords() ?? [])}");
 
     if (file._getXmp() is { } xmp)
-      Debug.WriteLine($"XMP Keywords: {string.Join(", ", xmp.GetKeywords() ?? [])}");
+      Debug.WriteLine($"XMP Keywords: {string.Join(", ", xmp.GetKeywords() ?? [])}");*/
 
     //file.DumpBoxes();
     //var boxes = file.ReadBoxes();
@@ -133,9 +148,9 @@ public class IsoBmffFileTests {
     using var stream = _createTestFile(withItemList: false);
 
     var file = new IsoBmffFile(stream);
-    var originalBoxes = file._metadata._getOriginalBoxes();
+    var originalBoxes = file._metadata._editor._getOriginalBoxes();
     var originalBoxSizes = originalBoxes.Select(x => x.Box.Size).ToArray();
-    var boxes = file._metadata._getEditedBoxes();
+    var boxes = file._metadata._editor._getEditedBoxes();
 
     var moovIndex = boxes.FindIndex(IsoBmffTypes.Moov);
     Assert.IsTrue(moovIndex >= 0);
@@ -146,7 +161,7 @@ public class IsoBmffFileTests {
 
     Assert.IsNotNull(itemList);
 
-    boxes = file._metadata._getEditedBoxes();
+    boxes = file._metadata._editor._getEditedBoxes();
 
     var udtaIndex = boxes.FindIndex(IsoBmffTypes.Udta, moovIndex);
     var metaIndex = boxes.FindIndex(IsoBmffTypes.Meta, udtaIndex);
@@ -174,13 +189,13 @@ public class IsoBmffFileTests {
     var secondItemList = file._metadata._getOrCreateItemList();
 
     Assert.AreSame(itemList, secondItemList);
-    Assert.AreEqual(boxes.Count, file._metadata._getEditedBoxes().Count);
+    Assert.AreEqual(boxes.Count, file._metadata._editor._getEditedBoxes().Count);
     Assert.AreEqual(originalMoovSize + 28, boxes[moovIndex].Box.Size);
 
     // Set Keywords
     file._metadata.SetKeywords("hello");
 
-    boxes = file._metadata._getEditedBoxes();
+    boxes = file._metadata._editor._getEditedBoxes();
 
     var keywIndex = boxes.FindIndex(IsoBmffTypes.Keyw, ilstIndex);
     var dataIndex = boxes.FindIndex(IsoBmffTypes.Data, keywIndex);
@@ -216,7 +231,7 @@ public class IsoBmffFileTests {
     Assert.AreEqual(1, keywCount);
     Assert.AreEqual(1, dataCount);
 
-    boxes = file._metadata._getEditedBoxes();
+    boxes = file._metadata._editor._getEditedBoxes();
     _assertKeywordData(boxes[dataIndex], "world");
 
     Assert.AreEqual(37, boxes[ilstIndex].Box.Size);
@@ -230,7 +245,7 @@ public class IsoBmffFileTests {
 
     Assert.AreEqual(longerValue, itemList.GetKeywords());
 
-    boxes = file._metadata._getEditedBoxes();
+    boxes = file._metadata._editor._getEditedBoxes();
 
     var valueSize = Encoding.UTF8.GetByteCount(longerValue);
     var expectedItemSize = 24 + valueSize;
@@ -250,7 +265,7 @@ public class IsoBmffFileTests {
 
     file._metadata.SetKeywords(smallerValue);
 
-    boxes = file._metadata._getEditedBoxes();
+    boxes = file._metadata._editor._getEditedBoxes();
 
     Assert.AreEqual(expectedSmallerItemSize, boxes[keywIndex].Box.Size);
     Assert.AreEqual(16 + smallerValueSize, boxes[dataIndex].Box.Size);
@@ -265,7 +280,7 @@ public class IsoBmffFileTests {
     // Remove
     file._metadata.SetKeywords(null);
 
-    boxes = file._metadata._getEditedBoxes();
+    boxes = file._metadata._editor._getEditedBoxes();
 
     keywIndex = boxes.FindIndex(IsoBmffTypes.Keyw, ilstIndex);
     Assert.AreEqual(-1, keywIndex);

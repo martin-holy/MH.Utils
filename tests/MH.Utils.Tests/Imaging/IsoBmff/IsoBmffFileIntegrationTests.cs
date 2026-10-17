@@ -10,7 +10,7 @@ public class IsoBmffFileIntegrationTests {
   public void EditItemListAndXmpKeywords_WritesAndReadsBothChanges() {
     using var input = _createTestFileWithXmp();
     var file = new IsoBmffFile(input);
-    var originalBoxes = file._metadata._getOriginalBoxes();
+    var originalBoxes = file._metadata._editor._getOriginalBoxes();
 
     var originalPlanner = new IsoBmffLayoutPlanner(originalBoxes, originalBoxes, file._reader.GetBoxChildrenOffset);
     var original = originalPlanner.CreateOriginalLayout();
@@ -21,7 +21,7 @@ public class IsoBmffFileIntegrationTests {
     var xmpBox = file._reader.Find(IsoBmffTypes.Uuid)
       ?? throw new InvalidDataException("XMP uuid box was not found.");
 
-    var editedBoxes = file._metadata._getEditedBoxes();
+    var editedBoxes = file._metadata._editor._getEditedBoxes();
     var editedXmpBox = editedBoxes.Single(x => x.Box.Type == IsoBmffTypes.Uuid && x.Box.Offset == xmpBox.Offset);
 
     var xmpPacket = file.Xmp.ToPacket();
@@ -71,7 +71,7 @@ public class IsoBmffFileIntegrationTests {
     Assert.IsNull(file._metadata._getItemList());
     Assert.IsNull(file._reader.Find(IsoBmffTypes.Uuid));
 
-    var originalBoxes = file._metadata._getOriginalBoxes();
+    var originalBoxes = file._metadata._editor._getOriginalBoxes();
     var originalPlanner = new IsoBmffLayoutPlanner(
       originalBoxes,
       originalBoxes,
@@ -137,7 +137,7 @@ public class IsoBmffFileIntegrationTests {
     input.Position = 0;
 
     var file = new IsoBmffFile(input);
-    var originalBoxes = file._metadata._getOriginalBoxes();
+    var originalBoxes = file._metadata._editor._getOriginalBoxes();
     var originalPlanner = new IsoBmffLayoutPlanner(
       originalBoxes,
       originalBoxes,
@@ -328,7 +328,7 @@ public class IsoBmffFileIntegrationTests {
         ?? throw new InvalidDataException("Test ftyp box was not found.");
 
       using (var file = new IsoBmffFile(path)) {
-        var originalBoxes = file._metadata._getOriginalBoxes();
+        var originalBoxes = file._metadata._editor._getOriginalBoxes();
         var originalPlanner = new IsoBmffLayoutPlanner(
           originalBoxes,
           originalBoxes,

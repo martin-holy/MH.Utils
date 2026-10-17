@@ -148,7 +148,7 @@ public class IsoBmffLayoutDifferTests {
     var reader = new IsoBmffReader(stream);
     var boxes = reader._readBoxes();
     var original = _createPlanner(boxes, reader).CreateOriginalLayout();
-    var node = boxes.First(x => x.Box.Type == IsoBmffTypes.Free);
+    var node = boxes.First(x => x.Box.IsFree);
     var newSize = original[node].Size + 8;
 
     var edited = new IsoBmffLayout(
@@ -170,7 +170,7 @@ public class IsoBmffLayoutDifferTests {
     var reader = new IsoBmffReader(stream);
     var boxes = reader._readBoxes();
     var original = _createPlanner(boxes, reader).CreateOriginalLayout();
-    var node = boxes.First(x => x.Box.Type == IsoBmffTypes.Free);
+    var node = boxes.First(x => x.Box.IsFree);
     var newOffset = original[node].Offset + 16;
 
     var edited = new IsoBmffLayout(
@@ -222,7 +222,7 @@ public class IsoBmffLayoutDifferTests {
     var moov = boxes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
     var originalMoov = original[moov];
     var originalFree = original.TopLevelBoxes
-      .Single(x => x.Node.Box.Type == IsoBmffTypes.Free && x.Offset > originalMoov.Offset);
+      .Single(x => x.Node.Box.IsFree && x.Offset > originalMoov.Offset);
 
     IsoBmffFileTests._resize(moov, moov.Box.Size - 8);
 
@@ -236,7 +236,7 @@ public class IsoBmffLayoutDifferTests {
     Assert.AreEqual(moov.Box.Size, BinaryPrimitives.ReadUInt32BigEndian(moovWrite.Data));
 
     var editedFree = plan.Layout.TopLevelBoxes
-      .Single(x => x.Node.Box.Type == IsoBmffTypes.Free && x.Offset >= plan.Layout[moov].End);
+      .Single(x => x.Node.Box.IsFree && x.Offset >= plan.Layout[moov].End);
     var freeWrite = diff.Writes.Single(x => x.Offset == editedFree.Offset);
 
     Assert.AreEqual(editedFree.Size, BinaryPrimitives.ReadUInt32BigEndian(freeWrite.Data));

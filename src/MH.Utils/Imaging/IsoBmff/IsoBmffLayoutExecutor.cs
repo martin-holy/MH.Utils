@@ -159,7 +159,7 @@ internal static class IsoBmffLayoutExecutor {
     IsoBmffLayout layout,
     Func<IsoBmffBox, long> getBoxChildrenOffset) {
 
-    var originalNode = _findOriginalNode(originalBoxes, node);
+    var originalNode = originalBoxes.FindByIdentity(node);
     long originalPrefixSize = 0;
 
     if (node.Data is { } data) {
@@ -202,7 +202,7 @@ internal static class IsoBmffLayoutExecutor {
     List<IsoBmffBoxNode> originalBoxes,
     IsoBmffLayout layout) {
 
-    var originalNode = _findOriginalNode(originalBoxes, node);
+    var originalNode = originalBoxes.FindByIdentity(node);
 
     if (node.Box.Type is IsoBmffTypes.Stco or IsoBmffTypes.Co64) {
       _writeChunkOffsetTable(source, destination, node, box, originalNode, originalBoxes, layout);
@@ -353,9 +353,6 @@ internal static class IsoBmffLayoutExecutor {
     source.Position = sourceBox!.Value.DataOffset + offset;
     source.ReadExactly(destination);
   }
-
-  private static IsoBmffBoxNode? _findOriginalNode(List<IsoBmffBoxNode> originalBoxes, IsoBmffBoxNode node) =>
-    originalBoxes.FirstOrDefault(x => ReferenceEquals(x.Identity, node.Identity));
 
   private static void _copyRange(Stream source, Stream destination, long sourceOffset, long length) {
     if (length < 0)

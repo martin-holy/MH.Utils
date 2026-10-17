@@ -82,6 +82,24 @@ internal sealed class IsoBmffEditor(IsoBmffReader reader) {
     return prefix;
   }
 
+  internal IsoBmffMetadataEntry AddEntry(string key, string value, uint itemType, IsoBmffBox ilst) {
+    var editedBoxes = _getEditedBoxes();
+    var payload = _createData(value);
+    var item = new IsoBmffBox(-1, 8, 8, itemType);
+    var data = new IsoBmffBox(-1, 8, 8 + payload.LongLength, IsoBmffTypes.Data);
+    var ilstIndex = editedBoxes.FindIndex(ilst);
+
+    if (ilstIndex < 0)
+      throw new InvalidOperationException("The ilst box was not found.");
+
+    var itemIndex = editedBoxes.InsertBox(item, ilstIndex);
+    var itemNode = editedBoxes[itemIndex];
+
+    editedBoxes.InsertBox(data, itemIndex, payload);
+
+    return new IsoBmffMetadataEntry(key, value, itemNode.Box, itemNode);
+  }
+
   public void RemoveEntry(IsoBmffMetadataEntry entry, string key) {
     var editedBoxes = _getEditedBoxes();
     var itemIndex = entry.Node is { } node

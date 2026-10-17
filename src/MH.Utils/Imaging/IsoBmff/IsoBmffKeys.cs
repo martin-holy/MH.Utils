@@ -97,13 +97,12 @@ internal sealed class IsoBmffKeys(IsoBmffReader reader, IsoBmffBox keys, IsoBmff
   private void _setValue(string key, string? value, IsoBmffEditor editor) {
     var entries = _getEntries();
 
-    foreach (var entry in entries) {
-      if (entry.Key != key)
-        continue;
-
-      if (value is null) {
+    var entryIndex = entries.FindIndex(x => x.Key == key);
+    if (entryIndex >= 0) {
+      var entry = entries[entryIndex];
+      if (value == null) {
         editor.RemoveEntry(entry, key);
-        entries.Remove(entry);
+        entries.RemoveAt(entryIndex);
       }
       else {
         editor._updateEntry(entry, value, key);
@@ -112,7 +111,7 @@ internal sealed class IsoBmffKeys(IsoBmffReader reader, IsoBmffBox keys, IsoBmff
       return;
     }
 
-    if (value is null) return;
+    if (value == null) return;
 
     var keyNames = _readKeys();
     var keyIndex = Array.IndexOf(keyNames, key);
@@ -121,20 +120,7 @@ internal sealed class IsoBmffKeys(IsoBmffReader reader, IsoBmffBox keys, IsoBmff
     if (keyIndex < 0)
       keyIndex = _addKey(key, editedBoxes);
 
-    var payload = IsoBmffEditor._createData(value);
-    var item = new IsoBmffBox(-1, 8, 8, (uint)keyIndex);
-    var data = new IsoBmffBox(-1, 8, 8 + payload.LongLength, IsoBmffTypes.Data);
-    var ilstIndex = editedBoxes.FindIndex(ilst);
-
-    if (ilstIndex < 0)
-      throw new InvalidOperationException("The ilst box was not found.");
-
-    var itemIndexToInsert = editedBoxes.InsertBox(item, ilstIndex);
-    var itemNode = editedBoxes[itemIndexToInsert];
-
-    editedBoxes.InsertBox(data, itemIndexToInsert, payload);
-
-    entries.Add(new IsoBmffMetadataEntry(key, value, itemNode.Box, itemNode));
+    entries.Add(editor.AddEntry(key, value, (uint)keyIndex, ilst));
   }
 
   private int _addKey(string key, List<IsoBmffBoxNode> editedBoxes) {

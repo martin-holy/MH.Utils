@@ -219,7 +219,7 @@ internal static class IsoBmffLayoutExecutor {
       return;
     }
 
-    if (node.Box.Type == IsoBmffTypes.Free) {
+    if (node.Box.IsFree) {
       _writeZeros(destination, dataSize);
       return;
     }

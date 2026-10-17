@@ -17,8 +17,7 @@ internal static class IsoBmffLayoutDiffer {
     }
 
     foreach (var (box, old) in movedBoxes) {
-      if (box.Node.Box.Type == IsoBmffTypes.Free)
-        continue;
+      if (box.Node.Box.IsFree) continue;
 
       var offsetDelta = box.Offset - old.Offset;
       var coveredByMovedAncestor = movedBoxes.Any(candidate =>
@@ -35,9 +34,7 @@ internal static class IsoBmffLayoutDiffer {
 
     foreach (var box in edited.Boxes) {
       var isNew = !original.TryGetValue(box.Node, out var old);
-      var headerChanged = isNew ||
-        old!.Size != box.Size ||
-        (box.Node.Box.Type == IsoBmffTypes.Free && old.Offset != box.Offset);
+      var headerChanged = isNew || old!.Size != box.Size || (box.Node.Box.IsFree && old.Offset != box.Offset);
 
       if (headerChanged)
         result.Writes.Add(new IsoBmffWrite(box.Offset, _createHeader(box)));

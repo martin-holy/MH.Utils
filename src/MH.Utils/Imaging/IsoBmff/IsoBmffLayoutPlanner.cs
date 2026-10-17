@@ -283,12 +283,8 @@ internal sealed class IsoBmffLayoutPlanner {
   private int _findFreeAfter(List<_WorkBox> work, int rootIndex) {
     for (var i = rootIndex + 1; i < work.Count; i++) {
       var box = work[i];
-
-      if (_isExpensive(box))
-        return -1;
-
-      if (box.Node.Box.Type == IsoBmffTypes.Free)
-        return i;
+      if (_isExpensive(box)) return -1;
+      if (box.Node.Box.IsFree) return i;
     }
 
     return -1;
@@ -297,26 +293,21 @@ internal sealed class IsoBmffLayoutPlanner {
   private int _findFreeBefore(List<_WorkBox> work, int rootIndex) {
     for (var i = rootIndex - 1; i >= 0; i--) {
       var box = work[i];
-
-      if (_isExpensive(box))
-        return -1;
-
-      if (box.Node.Box.Type == IsoBmffTypes.Free)
-        return i;
+      if (_isExpensive(box)) return -1;
+      if (box.Node.Box.IsFree) return i;
     }
 
     return -1;
   }
 
   private bool _isExpensive(_WorkBox box) =>
-    box.Node.Box.Type != IsoBmffTypes.Free &&
-    box.Size >= _expensiveBoxThreshold;
+    !box.Node.Box.IsFree && box.Size >= _expensiveBoxThreshold;
 
   private bool _normalizeFreeBoxes(List<_WorkBox> work, ref int rootIndex) {
     for (var i = 0; i < work.Count;) {
       var free = work[i];
 
-      if (free.Node.Box.Type != IsoBmffTypes.Free) {
+      if (!free.Node.Box.IsFree) {
         i++;
         continue;
       }
@@ -370,7 +361,7 @@ internal sealed class IsoBmffLayoutPlanner {
 
   private int _findFreeAfterFragment(List<_WorkBox> work, int fragmentIndex) {
     for (var i = fragmentIndex + 1; i < work.Count; i++) {
-      if (work[i].Node.Box.Type == IsoBmffTypes.Free) return i;
+      if (work[i].Node.Box.IsFree) return i;
       if (_isExpensive(work[i])) return -1;
     }
 
@@ -379,7 +370,7 @@ internal sealed class IsoBmffLayoutPlanner {
 
   private int _findFreeBeforeFragment(List<_WorkBox> work, int fragmentIndex) {
     for (var i = fragmentIndex - 1; i >= 0; i--) {
-      if (work[i].Node.Box.Type == IsoBmffTypes.Free) return i;
+      if (work[i].Node.Box.IsFree) return i;
       if (_isExpensive(work[i])) return -1;
     }
 

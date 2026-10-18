@@ -98,11 +98,7 @@ internal static class IsoBmffBoxNodeExtensions {
     while (index < boxes.Count && _isDescendantOf(boxes[index], parentIndex, boxes))
       index++;
 
-    for (var i = 0; i < boxes.Count; i++)
-      if (boxes[i].Parent >= index)
-        boxes[i].Parent++;
-
-    boxes.Insert(index, new IsoBmffBoxNode(box, parentIndex, data: data));
+    boxes._insertNode(index, new IsoBmffBoxNode(box, parentIndex, data: data));
     boxes.UpdateParentSizes(parentIndex, box.Size);
 
     return index;
@@ -117,13 +113,17 @@ internal static class IsoBmffBoxNodeExtensions {
     if (index < 0)
       index = boxes.Count;
 
+    boxes._insertNode(index, node);
+
+    return node;
+  }
+
+  private static void _insertNode(this List<IsoBmffBoxNode> boxes, int index, IsoBmffBoxNode node) {
     for (var i = 0; i < boxes.Count; i++)
       if (boxes[i].Parent >= index)
         boxes[i].Parent++;
 
     boxes.Insert(index, node);
-
-    return node;
   }
 
   private static bool _isDescendantOf(IsoBmffBoxNode node, int ancestorIndex, List<IsoBmffBoxNode> boxes) {

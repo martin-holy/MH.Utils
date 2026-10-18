@@ -118,16 +118,16 @@ public class IsoBmffLayoutExecutorTests {
     source.Position = 0;
 
     var reader = new IsoBmffReader(source);
-    var originalBoxes = reader._readBoxes();
-    var stco = originalBoxes.Single(x => x.Box.Type == IsoBmffTypes.Stco);
-    var co64 = originalBoxes.Single(x => x.Box.Type == IsoBmffTypes.Co64);
-    var mdat = originalBoxes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
-    var editedBoxes = originalBoxes.ToList();
-    var free = new IsoBmffBoxNode(new IsoBmffBox(-1, 8, 8, IsoBmffTypes.Free), -1);
+    var originalNodes = reader._readNodes();
+    var stco = originalNodes.Single(x => x.Box.Type == IsoBmffTypes.Stco);
+    var co64 = originalNodes.Single(x => x.Box.Type == IsoBmffTypes.Co64);
+    var mdat = originalNodes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
+    var editedNodes = originalNodes.ToList();
+    var free = new IsoBmffNode(new IsoBmffBox(-1, 8, 8, IsoBmffTypes.Free), -1);
 
-    editedBoxes.Insert(editedBoxes.IndexOf(mdat), free);
+    editedNodes.Insert(editedNodes.IndexOf(mdat), free);
 
-    var layoutBoxes = originalBoxes
+    var layoutBoxes = originalNodes
       .Select(x => new IsoBmffLayoutBox(
         x,
         x.Box.Offset + (ReferenceEquals(x, mdat) ? 8 : 0),
@@ -140,16 +140,16 @@ public class IsoBmffLayoutExecutorTests {
     IsoBmffLayoutExecutor.ExecuteFullRewrite(
       source,
       destination,
-      originalBoxes,
-      editedBoxes,
+      originalNodes,
+      editedNodes,
       layout,
       reader.GetBoxChildrenOffset);
 
     var rewrittenReader = new IsoBmffReader(destination);
-    var rewrittenBoxes = rewrittenReader._readBoxes();
-    var rewrittenStco = rewrittenBoxes.Single(x => x.Box.Type == IsoBmffTypes.Stco).Box;
-    var rewrittenCo64 = rewrittenBoxes.Single(x => x.Box.Type == IsoBmffTypes.Co64).Box;
-    var rewrittenMdat = rewrittenBoxes.Single(x => x.Box.Type == IsoBmffTypes.Mdat).Box;
+    var rewrittenNodes = rewrittenReader._readNodes();
+    var rewrittenStco = rewrittenNodes.Single(x => x.Box.Type == IsoBmffTypes.Stco).Box;
+    var rewrittenCo64 = rewrittenNodes.Single(x => x.Box.Type == IsoBmffTypes.Co64).Box;
+    var rewrittenMdat = rewrittenNodes.Single(x => x.Box.Type == IsoBmffTypes.Mdat).Box;
     var expectedOffset = checked((ulong)rewrittenMdat.DataOffset);
 
     Assert.AreEqual(source.Length + 8, destination.Length);

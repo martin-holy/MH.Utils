@@ -10,9 +10,9 @@ public class IsoBmffFileIntegrationTests {
   public void EditItemListAndXmpKeywords_WritesAndReadsBothChanges() {
     using var input = _createTestFileWithXmp();
     var file = new IsoBmffFile(input);
-    var originalBoxes = file._metadata._editor._getOriginalBoxes();
+    var originalNodes = file._metadata._editor._getOriginalNodes();
 
-    var originalPlanner = new IsoBmffLayoutPlanner(originalBoxes, originalBoxes, file._reader.GetBoxChildrenOffset);
+    var originalPlanner = new IsoBmffLayoutPlanner(originalNodes, originalNodes, file._reader.GetBoxChildrenOffset);
     var original = originalPlanner.CreateOriginalLayout();
 
     file._metadata.SetKeywords("box-keyword");
@@ -21,8 +21,8 @@ public class IsoBmffFileIntegrationTests {
     var xmpBox = file._reader.Find(IsoBmffTypes.Uuid)
       ?? throw new InvalidDataException("XMP uuid box was not found.");
 
-    var editedBoxes = file._metadata._editor.GetEditedBoxes();
-    var editedXmpBox = editedBoxes.Single(x => x.Box.Type == IsoBmffTypes.Uuid && x.Box.Offset == xmpBox.Offset);
+    var editedNodes = file._metadata._editor.GetEditedNodes();
+    var editedXmpNode = editedNodes.Single(x => x.Box.Type == IsoBmffTypes.Uuid && x.Box.Offset == xmpBox.Offset);
 
     var xmpPacket = file.Xmp.ToPacket();
     var xmpData = new byte[16 + xmpPacket.Length];
@@ -31,17 +31,17 @@ public class IsoBmffFileIntegrationTests {
     input.ReadExactly(xmpData.AsSpan(0, 16));
     xmpPacket.CopyTo(xmpData, 16);
 
-    editedXmpBox.Data = xmpData;
+    editedXmpNode.Data = xmpData;
 
-    var editedXmpSize = editedXmpBox.Box.HeaderSize + xmpData.LongLength;
-    editedXmpBox.Box = new IsoBmffBox(editedXmpBox.Box.Offset, editedXmpBox.Box.HeaderSize, editedXmpSize, editedXmpBox.Box.Type);
+    var editedXmpSize = editedXmpNode.Box.HeaderSize + xmpData.LongLength;
+    editedXmpNode.Box = new IsoBmffBox(editedXmpNode.Box.Offset, editedXmpNode.Box.HeaderSize, editedXmpSize, editedXmpNode.Box.Type);
 
-    var planner = new IsoBmffLayoutPlanner(originalBoxes, editedBoxes, file._reader.GetBoxChildrenOffset);
-    var plan = planner.CreateEditedLayout(original, editedBoxes);
+    var planner = new IsoBmffLayoutPlanner(originalNodes, editedNodes, file._reader.GetBoxChildrenOffset);
+    var plan = planner.CreateEditedLayout(original, editedNodes);
 
     Assert.IsFalse(plan.RequiresFullRewrite);
 
-    var diff = IsoBmffLayoutDiffer.Diff(original, plan.Layout, editedBoxes.Where(x => x.Data is not null));
+    var diff = IsoBmffLayoutDiffer.Diff(original, plan.Layout, editedNodes.Where(x => x.Data is not null));
 
     var originalBytes = input.ToArray();
     using var output = new MemoryStream();
@@ -71,28 +71,28 @@ public class IsoBmffFileIntegrationTests {
     Assert.IsNull(file._metadata._getItemList());
     Assert.IsNull(file._reader.Find(IsoBmffTypes.Uuid));
 
-    var originalBoxes = file._metadata._editor._getOriginalBoxes();
+    var originalNodes = file._metadata._editor._getOriginalNodes();
     var originalPlanner = new IsoBmffLayoutPlanner(
-      originalBoxes,
-      originalBoxes,
+      originalNodes,
+      originalNodes,
       file._reader.GetBoxChildrenOffset);
     var original = originalPlanner.CreateOriginalLayout();
 
     file._metadata.SetKeywords("box-keyword");
     file.Xmp.SetKeywords(["xmp-keyword"]);
 
-    var editedBoxes = file._getEditedBoxes();
-    var xmpBox = editedBoxes.Single(x =>
+    var editedNodes = file._getEditedNodes();
+    var xmpBox = editedNodes.Single(x =>
       x.Box.Type == IsoBmffTypes.Uuid &&
       x.Box.Offset == -1);
 
     Assert.IsNotNull(xmpBox.Data);
 
     var planner = new IsoBmffLayoutPlanner(
-      originalBoxes,
-      editedBoxes,
+      originalNodes,
+      editedNodes,
       file._reader.GetBoxChildrenOffset);
-    var plan = planner.CreateEditedLayout(original, editedBoxes);
+    var plan = planner.CreateEditedLayout(original, editedNodes);
 
     Assert.IsFalse(plan.RequiresFullRewrite);
     Assert.IsTrue(plan.Layout.TryGetValue(xmpBox, out _));
@@ -100,7 +100,7 @@ public class IsoBmffFileIntegrationTests {
     var diff = IsoBmffLayoutDiffer.Diff(
       original,
       plan.Layout,
-      editedBoxes.Where(x => x.Data is not null));
+      editedNodes.Where(x => x.Data is not null));
 
     var originalBytes = input.ToArray();
     using var output = new MemoryStream();
@@ -123,9 +123,9 @@ public class IsoBmffFileIntegrationTests {
     using var input = IsoBmffFileTests._createTestFile(beforeFreeSize: 0, afterFreeSize: 0, withItemList: false);
 
     var inputReader = new IsoBmffReader(input);
-    var inputBoxes = inputReader._readBoxes();
-    var inputMdat = inputBoxes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
-    var inputCo64 = inputBoxes.Single(x => x.Box.Type == IsoBmffTypes.Co64);
+    var inputNodes = inputReader._readNodes();
+    var inputMdat = inputNodes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
+    var inputCo64 = inputNodes.Single(x => x.Box.Type == IsoBmffTypes.Co64);
     var co64Data = new byte[checked((int)inputCo64.Box.DataSize)];
 
     BinaryPrimitives.WriteUInt32BigEndian(co64Data.AsSpan(4), 2);
@@ -137,22 +137,22 @@ public class IsoBmffFileIntegrationTests {
     input.Position = 0;
 
     var file = new IsoBmffFile(input);
-    var originalBoxes = file._metadata._editor._getOriginalBoxes();
+    var originalNodes = file._metadata._editor._getOriginalNodes();
     var originalPlanner = new IsoBmffLayoutPlanner(
-      originalBoxes,
-      originalBoxes,
+      originalNodes,
+      originalNodes,
       file._reader.GetBoxChildrenOffset);
     var original = originalPlanner.CreateOriginalLayout();
 
     file._metadata.SetKeywords("box-keyword");
     file.Xmp.SetKeywords(["xmp-keyword"]);
 
-    var editedBoxes = file._getEditedBoxes();
+    var editedNodes = file._getEditedNodes();
     var planner = new IsoBmffLayoutPlanner(
-      originalBoxes,
-      editedBoxes,
+      originalNodes,
+      editedNodes,
       file._reader.GetBoxChildrenOffset);
-    var plan = planner.CreateEditedLayout(original, editedBoxes);
+    var plan = planner.CreateEditedLayout(original, editedNodes);
 
     Assert.IsTrue(plan.RequiresFullRewrite);
 
@@ -161,8 +161,8 @@ public class IsoBmffFileIntegrationTests {
     IsoBmffLayoutExecutor.ExecuteFullRewrite(
       input,
       output,
-      originalBoxes,
-      editedBoxes,
+      originalNodes,
+      editedNodes,
       plan.Layout,
       file._reader.GetBoxChildrenOffset);
 
@@ -174,9 +174,9 @@ public class IsoBmffFileIntegrationTests {
     Assert.AreEqual("box-keyword", rewrittenFile._metadata.GetItemListKeywords());
     CollectionAssert.AreEqual(new[] { "xmp-keyword" }, rewrittenFile.Xmp.GetKeywords());
 
-    var rewrittenBoxes = rewrittenFile._reader._readBoxes();
-    var rewrittenMdat = rewrittenBoxes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
-    var rewrittenCo64 = rewrittenBoxes.Single(x => x.Box.Type == IsoBmffTypes.Co64);
+    var rewrittenNodes = rewrittenFile._reader._readNodes();
+    var rewrittenMdat = rewrittenNodes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
+    var rewrittenCo64 = rewrittenNodes.Single(x => x.Box.Type == IsoBmffTypes.Co64);
 
     Assert.AreEqual(
       checked((ulong)rewrittenMdat.Box.DataOffset),
@@ -264,9 +264,9 @@ public class IsoBmffFileIntegrationTests {
       Assert.IsTrue(new FileInfo(path).Length > originalLength);
 
       using var rewrittenFile = new IsoBmffFile(path);
-      var boxes = rewrittenFile._reader._readBoxes();
-      var mdat = boxes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
-      var co64 = boxes.Single(x => x.Box.Type == IsoBmffTypes.Co64);
+      var nodes = rewrittenFile._reader._readNodes();
+      var mdat = nodes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
+      var co64 = nodes.Single(x => x.Box.Type == IsoBmffTypes.Co64);
 
       Assert.AreEqual("box-keyword", rewrittenFile._metadata.GetItemListKeywords());
       CollectionAssert.AreEqual(new[] { "xmp-keyword" }, rewrittenFile.Xmp.GetKeywords());
@@ -328,34 +328,34 @@ public class IsoBmffFileIntegrationTests {
         ?? throw new InvalidDataException("Test ftyp box was not found.");
 
       using (var file = new IsoBmffFile(path)) {
-        var originalBoxes = file._metadata._editor._getOriginalBoxes();
+        var originalNodes = file._metadata._editor._getOriginalNodes();
         var originalPlanner = new IsoBmffLayoutPlanner(
-          originalBoxes,
-          originalBoxes,
+          originalNodes,
+          originalNodes,
           file._reader.GetBoxChildrenOffset);
         var original = originalPlanner.CreateOriginalLayout();
-        var originalXmp = originalBoxes.Single(x => x.Box.Type == IsoBmffTypes.Uuid);
+        var originalXmp = originalNodes.Single(x => x.Box.Type == IsoBmffTypes.Uuid);
 
         file._metadata.SetKeywords("intermediate-box-keyword");
         file._metadata.SetKeywords("box-keyword");
         file.Xmp.SetKeywords(["intermediate-xmp-keyword"]);
         file.Xmp.SetKeywords(["xmp-keyword"]);
 
-        var editedBoxes = file._getEditedBoxes();
+        var editedNodes = file._getEditedNodes();
         var planner = new IsoBmffLayoutPlanner(
-          originalBoxes,
-          editedBoxes,
+          originalNodes,
+          editedNodes,
           file._reader.GetBoxChildrenOffset);
-        var plan = planner.CreateEditedLayout(original, editedBoxes);
+        var plan = planner.CreateEditedLayout(original, editedNodes);
 
         Assert.IsFalse(plan.RequiresFullRewrite);
 
-        var editedXmp = editedBoxes.Single(x => x.Box.Type == IsoBmffTypes.Uuid);
+        var editedXmp = editedNodes.Single(x => x.Box.Type == IsoBmffTypes.Uuid);
         var plannedXmp = plan.Layout[editedXmp];
         var diff = IsoBmffLayoutDiffer.Diff(
           original,
           plan.Layout,
-          editedBoxes.Where(x => x.Data is not null));
+          editedNodes.Where(x => x.Data is not null));
 
         Assert.AreNotEqual(originalXmp.Box.Offset, plannedXmp.Offset);
         Assert.IsTrue(diff.Moves.Any(x =>
@@ -367,9 +367,9 @@ public class IsoBmffFileIntegrationTests {
 
       var rewrittenBytes = File.ReadAllBytes(path);
       var rewrittenFile = new IsoBmffFile(path);
-      var rewrittenBoxes = rewrittenFile._reader._readBoxes();
-      var rewrittenMdat = rewrittenBoxes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
-      var rewrittenFtyp = rewrittenBoxes.Single(x => x.Box.Type == IsoBmffTypes.Ftyp);
+      var rewrittenNodes = rewrittenFile._reader._readNodes();
+      var rewrittenMdat = rewrittenNodes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
+      var rewrittenFtyp = rewrittenNodes.Single(x => x.Box.Type == IsoBmffTypes.Ftyp);
 
       Assert.AreEqual(originalMdatBox.Offset, rewrittenMdat.Box.Offset);
       Assert.AreEqual(originalFtypSize, rewrittenFtyp.Box.Size);
@@ -396,16 +396,16 @@ public class IsoBmffFileIntegrationTests {
   public void FindXmp_SkipsUuidBoxesWithOtherUserTypes() {
     using var input = _createTestFileWithOtherUuidBeforeXmp();
     var reader = new IsoBmffReader(input);
-    var uuidBoxes = reader._readBoxes()
+    var uuidNodes = reader._readNodes()
       .Where(x => x.Box.Type == IsoBmffTypes.Uuid)
       .ToArray();
 
-    Assert.AreEqual(2, uuidBoxes.Length);
+    Assert.AreEqual(2, uuidNodes.Length);
 
     var entry = IsoBmffXmp.Find(input, reader);
 
     Assert.IsNotNull(entry);
-    Assert.AreEqual(uuidBoxes[1].Box.Offset, entry!.Item!.Value.Offset);
+    Assert.AreEqual(uuidNodes[1].Box.Offset, entry!.Item!.Value.Offset);
     StringAssert.Contains(entry.Value, "initial-xmp");
   }
 
@@ -469,9 +469,9 @@ public class IsoBmffFileIntegrationTests {
 
   private static void _setCo64Offsets(Stream stream) {
     var reader = new IsoBmffReader(stream);
-    var boxes = reader._readBoxes();
-    var co64 = boxes.Single(x => x.Box.Type == IsoBmffTypes.Co64);
-    var mdat = boxes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
+    var nodes = reader._readNodes();
+    var co64 = nodes.Single(x => x.Box.Type == IsoBmffTypes.Co64);
+    var mdat = nodes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
     var data = new byte[checked((int)co64.Box.DataSize)];
 
     BinaryPrimitives.WriteUInt32BigEndian(data.AsSpan(4), 2);

@@ -10,11 +10,11 @@ public class IsoBmffLayoutPlannerTests {
     using var stream = IsoBmffFileTests._createTestFile(32, 32);
 
     var reader = new IsoBmffReader(stream);
-    var boxes = reader._readBoxes();
-    var planner = new IsoBmffLayoutPlanner(boxes, reader.GetBoxChildrenOffset);
+    var nodes = reader._readNodes();
+    var planner = new IsoBmffLayoutPlanner(nodes, reader.GetBoxChildrenOffset);
 
     var original = planner.CreateOriginalLayout();
-    var plan = planner.CreateEditedLayout(original, boxes.Single(x => x.Box.Type == IsoBmffTypes.Moov));
+    var plan = planner.CreateEditedLayout(original, nodes.Single(x => x.Box.Type == IsoBmffTypes.Moov));
 
     Assert.IsFalse(plan.RequiresFullRewrite);
     _assertSameLayout(original, plan.Layout);
@@ -26,11 +26,11 @@ public class IsoBmffLayoutPlannerTests {
     using var stream = IsoBmffFileTests._createTestFile(0, 64);
 
     var reader = new IsoBmffReader(stream);
-    var boxes = reader._readBoxes();
-    var moov = boxes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
-    var mdat = boxes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
+    var nodes = reader._readNodes();
+    var moov = nodes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
+    var mdat = nodes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
 
-    var planner = new IsoBmffLayoutPlanner(boxes, reader.GetBoxChildrenOffset);
+    var planner = new IsoBmffLayoutPlanner(nodes, reader.GetBoxChildrenOffset);
     var original = planner.CreateOriginalLayout();
     var originalSize = moov.Box.Size;
 
@@ -50,11 +50,11 @@ public class IsoBmffLayoutPlannerTests {
     using var stream = IsoBmffFileTests._createTestFile(64, 0);
 
     var reader = new IsoBmffReader(stream);
-    var boxes = reader._readBoxes();
-    var moov = boxes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
-    var mdat = boxes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
+    var nodes = reader._readNodes();
+    var moov = nodes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
+    var mdat = nodes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
 
-    var planner = new IsoBmffLayoutPlanner(boxes, reader.GetBoxChildrenOffset);
+    var planner = new IsoBmffLayoutPlanner(nodes, reader.GetBoxChildrenOffset);
     var original = planner.CreateOriginalLayout();
     var originalSize = moov.Box.Size;
 
@@ -75,11 +75,11 @@ public class IsoBmffLayoutPlannerTests {
     using var stream = IsoBmffFileTests._createTestFile(16, 16);
 
     var reader = new IsoBmffReader(stream);
-    var boxes = reader._readBoxes();
-    var moov = boxes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
-    var mdat = boxes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
+    var nodes = reader._readNodes();
+    var moov = nodes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
+    var mdat = nodes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
 
-    var planner = new IsoBmffLayoutPlanner(boxes, reader.GetBoxChildrenOffset);
+    var planner = new IsoBmffLayoutPlanner(nodes, reader.GetBoxChildrenOffset);
     var original = planner.CreateOriginalLayout();
     var originalSize = moov.Box.Size;
 
@@ -99,13 +99,13 @@ public class IsoBmffLayoutPlannerTests {
     using var stream = IsoBmffFileTests._createTestFile(32, 32);
 
     var reader = new IsoBmffReader(stream);
-    var boxes = reader._readBoxes();
-    var moov = boxes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
-    var mdat = boxes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
-    var freeBefore = boxes.Single(x => x.Box.IsFree && x.Box.End <= moov.Box.Offset);
-    var freeAfter = boxes.Single(x => x.Box.IsFree && x.Box.Offset >= moov.Box.End);
+    var nodes = reader._readNodes();
+    var moov = nodes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
+    var mdat = nodes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
+    var freeBefore = nodes.Single(x => x.Box.IsFree && x.Box.End <= moov.Box.Offset);
+    var freeAfter = nodes.Single(x => x.Box.IsFree && x.Box.Offset >= moov.Box.End);
 
-    var planner = new IsoBmffLayoutPlanner(boxes, reader.GetBoxChildrenOffset);
+    var planner = new IsoBmffLayoutPlanner(nodes, reader.GetBoxChildrenOffset);
     var original = planner.CreateOriginalLayout();
 
     var originalMoovSize = moov.Box.Size;
@@ -131,10 +131,10 @@ public class IsoBmffLayoutPlannerTests {
     using var stream = IsoBmffFileTests._createTestFile(0, 32);
 
     var reader = new IsoBmffReader(stream);
-    var boxes = reader._readBoxes();
-    var moov = boxes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
+    var nodes = reader._readNodes();
+    var moov = nodes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
 
-    var planner = new IsoBmffLayoutPlanner(boxes, reader.GetBoxChildrenOffset);
+    var planner = new IsoBmffLayoutPlanner(nodes, reader.GetBoxChildrenOffset);
     var original = planner.CreateOriginalLayout();
 
     IsoBmffFileTests._resize(moov, moov.Box.Size + 25);
@@ -150,12 +150,12 @@ public class IsoBmffLayoutPlannerTests {
     using var stream = IsoBmffFileTests._createTestFile(0, 32);
 
     var reader = new IsoBmffReader(stream);
-    var boxes = reader._readBoxes();
-    var moov = boxes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
-    var free = boxes.Single(x => x.Box.IsFree);
-    var mdat = boxes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
+    var nodes = reader._readNodes();
+    var moov = nodes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
+    var free = nodes.Single(x => x.Box.IsFree);
+    var mdat = nodes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
 
-    var planner = new IsoBmffLayoutPlanner(boxes, reader.GetBoxChildrenOffset);
+    var planner = new IsoBmffLayoutPlanner(nodes, reader.GetBoxChildrenOffset);
     var original = planner.CreateOriginalLayout();
     var originalSize = moov.Box.Size;
 
@@ -177,15 +177,15 @@ public class IsoBmffLayoutPlannerTests {
     using var stream = IsoBmffFileTests._createTestFile(0, 32);
 
     var reader = new IsoBmffReader(stream);
-    var boxes = reader._readBoxes();
-    var moov = boxes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
-    var mdat = boxes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
+    var nodes = reader._readNodes();
+    var moov = nodes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
+    var mdat = nodes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
 
-    var uuid = new IsoBmffBoxNode(new IsoBmffBox(moov.Box.End, 8, 20, IsoBmffTypes.Uuid), -1);
+    var uuid = new IsoBmffNode(new IsoBmffBox(moov.Box.End, 8, 20, IsoBmffTypes.Uuid), -1);
 
-    boxes.Insert(boxes.IndexOf(moov) + 1, uuid);
+    nodes.Insert(nodes.IndexOf(moov) + 1, uuid);
 
-    var planner = new IsoBmffLayoutPlanner(boxes, reader.GetBoxChildrenOffset);
+    var planner = new IsoBmffLayoutPlanner(nodes, reader.GetBoxChildrenOffset);
     var original = planner.CreateOriginalLayout();
     var originalUuidOffset = original[uuid].Offset;
 
@@ -204,12 +204,12 @@ public class IsoBmffLayoutPlannerTests {
     using var stream = IsoBmffFileTests._createTestFile(0, 32);
 
     var reader = new IsoBmffReader(stream);
-    var boxes = reader._readBoxes();
-    var moov = boxes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
-    var free = boxes.Single(x => x.Box.IsFree);
-    var mdat = boxes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
+    var nodes = reader._readNodes();
+    var moov = nodes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
+    var free = nodes.Single(x => x.Box.IsFree);
+    var mdat = nodes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
 
-    var planner = new IsoBmffLayoutPlanner(boxes, reader.GetBoxChildrenOffset);
+    var planner = new IsoBmffLayoutPlanner(nodes, reader.GetBoxChildrenOffset);
     var original = planner.CreateOriginalLayout();
 
     IsoBmffFileTests._resize(moov, moov.Box.Size - 3);
@@ -228,10 +228,10 @@ public class IsoBmffLayoutPlannerTests {
     using var stream = IsoBmffFileTests._createTestFile(0, 0);
 
     var reader = new IsoBmffReader(stream);
-    var boxes = reader._readBoxes();
-    var moov = boxes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
+    var nodes = reader._readNodes();
+    var moov = nodes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
 
-    var planner = new IsoBmffLayoutPlanner(boxes, reader.GetBoxChildrenOffset);
+    var planner = new IsoBmffLayoutPlanner(nodes, reader.GetBoxChildrenOffset);
     var original = planner.CreateOriginalLayout();
 
     IsoBmffFileTests._resize(moov, moov.Box.Size - 3);
@@ -247,10 +247,10 @@ public class IsoBmffLayoutPlannerTests {
     using var stream = IsoBmffFileTests._createTestFile(0, 0);
 
     var reader = new IsoBmffReader(stream);
-    var boxes = reader._readBoxes();
-    var moov = boxes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
+    var nodes = reader._readNodes();
+    var moov = nodes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
 
-    var planner = new IsoBmffLayoutPlanner(boxes, reader.GetBoxChildrenOffset);
+    var planner = new IsoBmffLayoutPlanner(nodes, reader.GetBoxChildrenOffset);
     var original = planner.CreateOriginalLayout();
 
     IsoBmffFileTests._resize(moov, moov.Box.Size - 16);
@@ -272,10 +272,10 @@ public class IsoBmffLayoutPlannerTests {
     using var stream = IsoBmffFileTests._createTestFile(0, 0);
 
     var reader = new IsoBmffReader(stream);
-    var boxes = reader._readBoxes();
+    var nodes = reader._readNodes();
 
-    var moov = boxes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
-    var mdat = boxes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
+    var moov = nodes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
+    var mdat = nodes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
 
     mdat.Box = new IsoBmffBox(
       mdat.Box.Offset,
@@ -284,7 +284,7 @@ public class IsoBmffLayoutPlannerTests {
       mdat.Box.Type);
 
     var planner = new IsoBmffLayoutPlanner(
-      boxes,
+      nodes,
       reader.GetBoxChildrenOffset,
       IsoBmffFileTests.ExpensiveBoxSize);
 
@@ -302,17 +302,17 @@ public class IsoBmffLayoutPlannerTests {
     using var stream = IsoBmffFileTests._createTestFile(0, 0);
 
     var reader = new IsoBmffReader(stream);
-    var boxes = reader._readBoxes();
+    var nodes = reader._readNodes();
 
-    var moov = boxes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
-    var large = new IsoBmffBoxNode(
+    var moov = nodes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
+    var large = new IsoBmffNode(
       new IsoBmffBox(moov.Box.End, 8, IsoBmffFileTests.ExpensiveBoxSize, IsoBmffTypes.Uuid),
       -1);
 
-    boxes.Insert(boxes.IndexOf(moov) + 1, large);
+    nodes.Insert(nodes.IndexOf(moov) + 1, large);
 
     var planner = new IsoBmffLayoutPlanner(
-      boxes,
+      nodes,
       reader.GetBoxChildrenOffset,
       IsoBmffFileTests.ExpensiveBoxSize);
 
@@ -328,22 +328,22 @@ public class IsoBmffLayoutPlannerTests {
   public void Layout_MultipleEdits_GrowBoth_UsesSameFree() {
     using var stream = IsoBmffFileTests._createTestFile();
     var reader = new IsoBmffReader(stream);
-    var boxes = reader._readBoxes();
+    var nodes = reader._readNodes();
 
-    var moov = boxes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
-    var mdat = boxes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
-    var free = boxes.Single(x => x.Box.IsFree && x.Box.Offset >= moov.Box.End);
+    var moov = nodes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
+    var mdat = nodes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
+    var free = nodes.Single(x => x.Box.IsFree && x.Box.Offset >= moov.Box.End);
 
-    var uuid = new IsoBmffBoxNode(new IsoBmffBox(moov.Box.End, 8, 20, IsoBmffTypes.Uuid), -1);
+    var uuid = new IsoBmffNode(new IsoBmffBox(moov.Box.End, 8, 20, IsoBmffTypes.Uuid), -1);
 
-    boxes.Insert(boxes.IndexOf(moov) + 1, uuid);
+    nodes.Insert(nodes.IndexOf(moov) + 1, uuid);
 
-    var original = new IsoBmffLayout(boxes.Select(x => new IsoBmffLayoutBox(x, x.Box.Offset, x.Box.Size)));
+    var original = new IsoBmffLayout(nodes.Select(x => new IsoBmffLayoutBox(x, x.Box.Offset, x.Box.Size)));
 
     moov.Box = new IsoBmffBox(moov.Box.Offset, moov.Box.HeaderSize, moov.Box.Size + 8, moov.Box.Type);
     uuid.Box = new IsoBmffBox(uuid.Box.Offset, uuid.Box.HeaderSize, uuid.Box.Size + 8, uuid.Box.Type);
 
-    var planner = new IsoBmffLayoutPlanner(boxes, reader.GetBoxChildrenOffset);
+    var planner = new IsoBmffLayoutPlanner(nodes, reader.GetBoxChildrenOffset);
     var plan = planner.CreateEditedLayout(original, [moov, uuid]);
     var edited = plan.Layout;
 
@@ -358,23 +358,23 @@ public class IsoBmffLayoutPlannerTests {
   public void Layout_MultipleEdits_FirstGrowthMovesSecondEditedBox() {
     using var stream = IsoBmffFileTests._createTestFile();
     var reader = new IsoBmffReader(stream);
-    var boxes = reader._readBoxes();
+    var nodes = reader._readNodes();
 
-    var moov = boxes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
-    var mdat = boxes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
+    var moov = nodes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
+    var mdat = nodes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
 
-    var uuid = new IsoBmffBoxNode(new IsoBmffBox(moov.Box.End, 8, 20, IsoBmffTypes.Uuid), -1);
+    var uuid = new IsoBmffNode(new IsoBmffBox(moov.Box.End, 8, 20, IsoBmffTypes.Uuid), -1);
 
-    boxes.Insert(boxes.IndexOf(moov) + 1, uuid);
+    nodes.Insert(nodes.IndexOf(moov) + 1, uuid);
 
-    var original = new IsoBmffLayout(boxes.Select(x => new IsoBmffLayoutBox(x, x.Box.Offset, x.Box.Size)));
+    var original = new IsoBmffLayout(nodes.Select(x => new IsoBmffLayoutBox(x, x.Box.Offset, x.Box.Size)));
 
     var originalUuidOffset = uuid.Box.Offset;
 
     moov.Box = new IsoBmffBox(moov.Box.Offset, moov.Box.HeaderSize, moov.Box.Size + 8, moov.Box.Type);
     uuid.Box = new IsoBmffBox(uuid.Box.Offset, uuid.Box.HeaderSize, uuid.Box.Size + 8, uuid.Box.Type);
 
-    var planner = new IsoBmffLayoutPlanner(boxes, reader.GetBoxChildrenOffset);
+    var planner = new IsoBmffLayoutPlanner(nodes, reader.GetBoxChildrenOffset);
     var plan = planner.CreateEditedLayout(original, [moov, uuid]);
     var edited = plan.Layout;
 
@@ -387,22 +387,22 @@ public class IsoBmffLayoutPlannerTests {
   public void Layout_MultipleEdits_GrowAndShrink_Cancels() {
     using var stream = IsoBmffFileTests._createTestFile();
     var reader = new IsoBmffReader(stream);
-    var boxes = reader._readBoxes();
+    var nodes = reader._readNodes();
 
-    var moov = boxes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
-    var mdat = boxes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
-    var free = boxes.Single(x => x.Box.IsFree && x.Box.Offset >= moov.Box.End);
+    var moov = nodes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
+    var mdat = nodes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
+    var free = nodes.Single(x => x.Box.IsFree && x.Box.Offset >= moov.Box.End);
 
-    var uuid = new IsoBmffBoxNode(new IsoBmffBox(moov.Box.End, 8, 20, IsoBmffTypes.Uuid), -1);
+    var uuid = new IsoBmffNode(new IsoBmffBox(moov.Box.End, 8, 20, IsoBmffTypes.Uuid), -1);
 
-    boxes.Insert(boxes.IndexOf(moov) + 1, uuid);
+    nodes.Insert(nodes.IndexOf(moov) + 1, uuid);
 
-    var original = new IsoBmffLayout(boxes.Select(x => new IsoBmffLayoutBox(x, x.Box.Offset, x.Box.Size)));
+    var original = new IsoBmffLayout(nodes.Select(x => new IsoBmffLayoutBox(x, x.Box.Offset, x.Box.Size)));
 
     moov.Box = new IsoBmffBox(moov.Box.Offset, moov.Box.HeaderSize, moov.Box.Size + 12, moov.Box.Type);
     uuid.Box = new IsoBmffBox(uuid.Box.Offset, uuid.Box.HeaderSize, uuid.Box.Size - 12, uuid.Box.Type);
 
-    var planner = new IsoBmffLayoutPlanner(boxes, reader.GetBoxChildrenOffset);
+    var planner = new IsoBmffLayoutPlanner(nodes, reader.GetBoxChildrenOffset);
     var plan = planner.CreateEditedLayout(original, [moov, uuid]);
     var edited = plan.Layout;
 
@@ -417,22 +417,22 @@ public class IsoBmffLayoutPlannerTests {
   public void Layout_MultipleEdits_ShrinkBoth_EnlargesSameFree() {
     using var stream = IsoBmffFileTests._createTestFile();
     var reader = new IsoBmffReader(stream);
-    var boxes = reader._readBoxes();
+    var nodes = reader._readNodes();
 
-    var moov = boxes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
-    var free = boxes.Single(x => x.Box.IsFree && x.Box.Offset >= moov.Box.End);
-    var mdat = boxes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
+    var moov = nodes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
+    var free = nodes.Single(x => x.Box.IsFree && x.Box.Offset >= moov.Box.End);
+    var mdat = nodes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
 
-    var uuid = new IsoBmffBoxNode(new IsoBmffBox(moov.Box.End, 8, 20, IsoBmffTypes.Uuid), -1);
+    var uuid = new IsoBmffNode(new IsoBmffBox(moov.Box.End, 8, 20, IsoBmffTypes.Uuid), -1);
 
-    boxes.Insert(boxes.IndexOf(moov) + 1, uuid);
+    nodes.Insert(nodes.IndexOf(moov) + 1, uuid);
 
-    var original = new IsoBmffLayout(boxes.Select(x => new IsoBmffLayoutBox(x, x.Box.Offset, x.Box.Size)));
+    var original = new IsoBmffLayout(nodes.Select(x => new IsoBmffLayoutBox(x, x.Box.Offset, x.Box.Size)));
 
     moov.Box = new IsoBmffBox(moov.Box.Offset, moov.Box.HeaderSize, moov.Box.Size - 8, moov.Box.Type);
     uuid.Box = new IsoBmffBox(uuid.Box.Offset, uuid.Box.HeaderSize, uuid.Box.Size - 8, uuid.Box.Type);
 
-    var planner = new IsoBmffLayoutPlanner(boxes, reader.GetBoxChildrenOffset);
+    var planner = new IsoBmffLayoutPlanner(nodes, reader.GetBoxChildrenOffset);
     var plan = planner.CreateEditedLayout(original, [moov, uuid]);
     var edited = plan.Layout;
 
@@ -447,21 +447,21 @@ public class IsoBmffLayoutPlannerTests {
   public void Layout_MultipleEdits_ReverseInputOrder_IsDeterministic() {
     using var stream = IsoBmffFileTests._createTestFile();
     var reader = new IsoBmffReader(stream);
-    var boxes = reader._readBoxes();
+    var nodes = reader._readNodes();
 
-    var moov = boxes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
-    var mdat = boxes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
+    var moov = nodes.Single(x => x.Box.Type == IsoBmffTypes.Moov);
+    var mdat = nodes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
 
-    var uuid = new IsoBmffBoxNode(new IsoBmffBox(moov.Box.End, 8, 20, IsoBmffTypes.Uuid), -1);
+    var uuid = new IsoBmffNode(new IsoBmffBox(moov.Box.End, 8, 20, IsoBmffTypes.Uuid), -1);
 
-    boxes.Insert(boxes.IndexOf(moov) + 1, uuid);
+    nodes.Insert(nodes.IndexOf(moov) + 1, uuid);
 
-    var original = new IsoBmffLayout(boxes.Select(x => new IsoBmffLayoutBox(x, x.Box.Offset, x.Box.Size)));
+    var original = new IsoBmffLayout(nodes.Select(x => new IsoBmffLayoutBox(x, x.Box.Offset, x.Box.Size)));
 
     moov.Box = new IsoBmffBox(moov.Box.Offset, moov.Box.HeaderSize, moov.Box.Size + 8, moov.Box.Type);
     uuid.Box = new IsoBmffBox(uuid.Box.Offset, uuid.Box.HeaderSize, uuid.Box.Size + 8, uuid.Box.Type);
 
-    var planner = new IsoBmffLayoutPlanner(boxes, reader.GetBoxChildrenOffset);
+    var planner = new IsoBmffLayoutPlanner(nodes, reader.GetBoxChildrenOffset);
     var plan = planner.CreateEditedLayout(original, [uuid, moov]);
     var edited = plan.Layout;
 
@@ -476,24 +476,24 @@ public class IsoBmffLayoutPlannerTests {
     using var stream = IsoBmffFileTests._createTestFile(0, 128, withItemList: false);
 
     var file = new IsoBmffFile(stream);
-    var originalBoxes = file._metadata._editor._getOriginalBoxes();
-    var originalPlanner = new IsoBmffLayoutPlanner(originalBoxes, originalBoxes, file._reader.GetBoxChildrenOffset);
+    var originalNodes = file._metadata._editor._getOriginalNodes();
+    var originalPlanner = new IsoBmffLayoutPlanner(originalNodes, originalNodes, file._reader.GetBoxChildrenOffset);
     var original = originalPlanner.CreateOriginalLayout();
 
     IsoBmffLayoutPlan CreatePlan() {
-      var editedBoxes = file._metadata._editor.GetEditedBoxes();
-      var planner = new IsoBmffLayoutPlanner(originalBoxes, editedBoxes, file._reader.GetBoxChildrenOffset);
+      var editedNodes = file._metadata._editor.GetEditedNodes();
+      var planner = new IsoBmffLayoutPlanner(originalNodes, editedNodes, file._reader.GetBoxChildrenOffset);
 
-      return planner.CreateEditedLayout(original, editedBoxes);
+      return planner.CreateEditedLayout(original, editedNodes);
     }
 
     file._metadata.SetKeywords("hello");
 
-    var editedBoxes = file._metadata._editor.GetEditedBoxes();
-    var keyw = editedBoxes.Single(x => x.Box.Type == IsoBmffTypes.Keyw);
-    var data = editedBoxes.Single(x => x.Box.Type == IsoBmffTypes.Data);
-    var meta = editedBoxes.Single(x => x.Box.Type == IsoBmffTypes.Meta);
-    var ilst = editedBoxes.Single(x => x.Box.Type == IsoBmffTypes.Ilst);
+    var editedNodes = file._metadata._editor.GetEditedNodes();
+    var keyw = editedNodes.Single(x => x.Box.Type == IsoBmffTypes.Keyw);
+    var data = editedNodes.Single(x => x.Box.Type == IsoBmffTypes.Data);
+    var meta = editedNodes.Single(x => x.Box.Type == IsoBmffTypes.Meta);
+    var ilst = editedNodes.Single(x => x.Box.Type == IsoBmffTypes.Ilst);
 
     var plan = CreatePlan();
 
@@ -525,29 +525,29 @@ public class IsoBmffLayoutPlannerTests {
   public void Layout_InsertTopLevelBox_ConsumesAdjacentFreeSpace() {
     using var stream = IsoBmffFileTests._createTestFile(0, 64);
     var reader = new IsoBmffReader(stream);
-    var originalBoxes = reader._readBoxes();
-    var editedBoxes = originalBoxes.ToList();
-    var mdat = originalBoxes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
-    var free = originalBoxes.Single(x => x.Box.IsFree && x.Box.Offset < mdat.Box.Offset);
-    var newBox = new IsoBmffBoxNode(new IsoBmffBox(-1, 8, 24, IsoBmffTypes.Uuid), -1, data: new byte[16]);
+    var originalNodes = reader._readNodes();
+    var editedNodes = originalNodes.ToList();
+    var mdat = originalNodes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
+    var free = originalNodes.Single(x => x.Box.IsFree && x.Box.Offset < mdat.Box.Offset);
+    var newNode = new IsoBmffNode(new IsoBmffBox(-1, 8, 24, IsoBmffTypes.Uuid), -1, data: new byte[16]);
 
     var original = new IsoBmffLayoutPlanner(
-      originalBoxes,
-      originalBoxes,
+      originalNodes,
+      originalNodes,
       reader.GetBoxChildrenOffset).CreateOriginalLayout();
 
-    editedBoxes.Insert(editedBoxes.IndexOf(mdat), newBox);
+    editedNodes.Insert(editedNodes.IndexOf(mdat), newNode);
 
     var plan = new IsoBmffLayoutPlanner(
-      originalBoxes,
-      editedBoxes,
-      reader.GetBoxChildrenOffset).CreateEditedLayout(original, editedBoxes);
+      originalNodes,
+      editedNodes,
+      reader.GetBoxChildrenOffset).CreateEditedLayout(original, editedNodes);
 
     Assert.IsFalse(plan.RequiresFullRewrite);
     Assert.AreEqual(original[mdat].Offset, plan.Layout[mdat].Offset);
-    Assert.AreEqual(original[free].Size - newBox.Box.Size, plan.Layout[free].Size);
-    Assert.AreEqual(original[mdat].Offset - newBox.Box.Size, plan.Layout[newBox].Offset);
-    Assert.AreEqual(original[mdat].Offset, plan.Layout[newBox].End);
+    Assert.AreEqual(original[free].Size - newNode.Box.Size, plan.Layout[free].Size);
+    Assert.AreEqual(original[mdat].Offset - newNode.Box.Size, plan.Layout[newNode].Offset);
+    Assert.AreEqual(original[mdat].Offset, plan.Layout[newNode].End);
     _assertValidTopLevelLayout(plan.Layout, stream.Length);
   }
 
@@ -555,33 +555,33 @@ public class IsoBmffLayoutPlannerTests {
   public void Layout_InsertTopLevelBox_WithoutFreeSpaceRequiresFullRewrite() {
     using var stream = IsoBmffFileTests._createTestFile(0, 0);
     var reader = new IsoBmffReader(stream);
-    var originalBoxes = reader._readBoxes();
-    var editedBoxes = originalBoxes.ToList();
-    var mdat = originalBoxes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
-    var newBox = new IsoBmffBoxNode(new IsoBmffBox(-1, 8, 24, IsoBmffTypes.Uuid), -1, data: new byte[16]);
+    var originalNodes = reader._readNodes();
+    var editedNodes = originalNodes.ToList();
+    var mdat = originalNodes.Single(x => x.Box.Type == IsoBmffTypes.Mdat);
+    var newNode = new IsoBmffNode(new IsoBmffBox(-1, 8, 24, IsoBmffTypes.Uuid), -1, data: new byte[16]);
 
     var original = new IsoBmffLayoutPlanner(
-      originalBoxes,
-      originalBoxes,
+      originalNodes,
+      originalNodes,
       reader.GetBoxChildrenOffset).CreateOriginalLayout();
 
-    editedBoxes.Insert(editedBoxes.IndexOf(mdat), newBox);
+    editedNodes.Insert(editedNodes.IndexOf(mdat), newNode);
 
     var plan = new IsoBmffLayoutPlanner(
-      originalBoxes,
-      editedBoxes,
-      reader.GetBoxChildrenOffset).CreateEditedLayout(original, editedBoxes);
+      originalNodes,
+      editedNodes,
+      reader.GetBoxChildrenOffset).CreateEditedLayout(original, editedNodes);
 
     Assert.IsTrue(plan.RequiresFullRewrite);
-    Assert.IsTrue(plan.Layout.TryGetValue(newBox, out _));
-    Assert.AreEqual(stream.Length + newBox.Box.Size, plan.Layout.TopLevelBoxes.Last().End);
+    Assert.IsTrue(plan.Layout.TryGetValue(newNode, out _));
+    Assert.AreEqual(stream.Length + newNode.Box.Size, plan.Layout.TopLevelBoxes.Last().End);
   }
 
   [TestMethod]
   public void Layout_GrowingPast32BitSize_PromotesHeaderAndRequiresRewrite() {
     var originalSize = (long)uint.MaxValue - 8;
-    var originalNode = new IsoBmffBoxNode(new IsoBmffBox(0, 8, originalSize, IsoBmffTypes.Moov), -1);
-    var editedNode = new IsoBmffBoxNode(new IsoBmffBox(0, 8, originalSize + 16, IsoBmffTypes.Moov), -1, originalNode);
+    var originalNode = new IsoBmffNode(new IsoBmffBox(0, 8, originalSize, IsoBmffTypes.Moov), -1);
+    var editedNode = new IsoBmffNode(new IsoBmffBox(0, 8, originalSize + 16, IsoBmffTypes.Moov), -1, originalNode);
 
     var original = new IsoBmffLayout([new IsoBmffLayoutBox(originalNode, 0, originalSize)]);
     var planner = new IsoBmffLayoutPlanner([originalNode], [editedNode], _ => 0);
@@ -610,8 +610,8 @@ public class IsoBmffLayoutPlannerTests {
 
     Assert.AreEqual(12, originalBox.Size);
 
-    var originalNode = new IsoBmffBoxNode(originalBox, -1);
-    var editedNode = new IsoBmffBoxNode(
+    var originalNode = new IsoBmffNode(originalBox, -1);
+    var editedNode = new IsoBmffNode(
       new IsoBmffBox(originalBox.Offset, originalBox.HeaderSize, 10, originalBox.Type),
       -1,
       originalNode);
@@ -636,23 +636,22 @@ public class IsoBmffLayoutPlannerTests {
     var file = new IsoBmffFile(stream);
     file._metadata.SetKeywords("layout-invariants");
 
-    var originalBoxes = file._metadata._editor._getOriginalBoxes();
-    var editedBoxes = file._metadata._editor.GetEditedBoxes();
+    var originalNodes = file._metadata._editor._getOriginalNodes();
+    var editedNodes = file._metadata._editor.GetEditedNodes();
     var original = new IsoBmffLayoutPlanner(
-      originalBoxes,
-      originalBoxes,
+      originalNodes,
+      originalNodes,
       file._reader.GetBoxChildrenOffset).CreateOriginalLayout();
     var plan = new IsoBmffLayoutPlanner(
-      originalBoxes,
-      editedBoxes,
-      file._reader.GetBoxChildrenOffset).CreateEditedLayout(original, editedBoxes);
+      originalNodes,
+      editedNodes,
+      file._reader.GetBoxChildrenOffset).CreateEditedLayout(original, editedNodes);
 
     Assert.IsFalse(plan.RequiresFullRewrite);
-    _assertValidLayout(plan.Layout, editedBoxes, stream.Length);
+    _assertValidLayout(plan.Layout, editedNodes, stream.Length);
   }
 
-  private static void _assertValidLayout(IsoBmffLayout layout, IReadOnlyList<IsoBmffBoxNode> nodes, long expectedFileSize) {
-
+  private static void _assertValidLayout(IsoBmffLayout layout, IReadOnlyList<IsoBmffNode> nodes, long expectedFileSize) {
     var boxes = layout.Boxes.ToList();
 
     Assert.IsTrue(boxes.Count > 0);

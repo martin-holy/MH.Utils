@@ -60,7 +60,7 @@ public class IsoBmffFileTests {
 
   [TestMethod]
   public void InsertBox_PreservesHierarchyOrder() {
-    var boxes = new List<IsoBmffBoxNode> {
+    var nodes = new List<IsoBmffNode> {
       new(new IsoBmffBox(0, 8, 100, IsoBmffTypes.Moov), -1),
       new(new IsoBmffBox(8, 8, 20, IsoBmffTypes.Mvhd), 0),
       new(new IsoBmffBox(28, 8, 40, IsoBmffTypes.Udta), 0),
@@ -69,41 +69,41 @@ public class IsoBmffFileTests {
       new(new IsoBmffBox(68, 8, 50, IsoBmffTypes.Trak), 0),
     };
 
-    var keywIndex = boxes.InsertBox(IsoBmffTypes.Keyw, 29, 4);
-    var dataIndex = boxes.InsertBox(IsoBmffTypes.Data, 21, keywIndex);
+    var keywIndex = nodes.InsertNode(IsoBmffTypes.Keyw, 29, 4);
+    var dataIndex = nodes.InsertNode(IsoBmffTypes.Data, 21, keywIndex);
 
     Assert.AreEqual(5, keywIndex);
     Assert.AreEqual(6, dataIndex);
 
-    Assert.AreEqual(IsoBmffTypes.Moov, boxes[0].Box.Type);
-    Assert.AreEqual(IsoBmffTypes.Mvhd, boxes[1].Box.Type);
-    Assert.AreEqual(IsoBmffTypes.Udta, boxes[2].Box.Type);
-    Assert.AreEqual(IsoBmffTypes.Meta, boxes[3].Box.Type);
-    Assert.AreEqual(IsoBmffTypes.Ilst, boxes[4].Box.Type);
-    Assert.AreEqual(IsoBmffTypes.Keyw, boxes[5].Box.Type);
-    Assert.AreEqual(IsoBmffTypes.Data, boxes[6].Box.Type);
-    Assert.AreEqual(IsoBmffTypes.Trak, boxes[7].Box.Type);
+    Assert.AreEqual(IsoBmffTypes.Moov, nodes[0].Box.Type);
+    Assert.AreEqual(IsoBmffTypes.Mvhd, nodes[1].Box.Type);
+    Assert.AreEqual(IsoBmffTypes.Udta, nodes[2].Box.Type);
+    Assert.AreEqual(IsoBmffTypes.Meta, nodes[3].Box.Type);
+    Assert.AreEqual(IsoBmffTypes.Ilst, nodes[4].Box.Type);
+    Assert.AreEqual(IsoBmffTypes.Keyw, nodes[5].Box.Type);
+    Assert.AreEqual(IsoBmffTypes.Data, nodes[6].Box.Type);
+    Assert.AreEqual(IsoBmffTypes.Trak, nodes[7].Box.Type);
 
-    Assert.AreEqual(-1, boxes[0].Parent);
-    Assert.AreEqual(0, boxes[1].Parent);
-    Assert.AreEqual(0, boxes[2].Parent);
-    Assert.AreEqual(2, boxes[3].Parent);
-    Assert.AreEqual(3, boxes[4].Parent);
-    Assert.AreEqual(4, boxes[5].Parent);
-    Assert.AreEqual(5, boxes[6].Parent);
-    Assert.AreEqual(0, boxes[7].Parent);
+    Assert.AreEqual(-1, nodes[0].Parent);
+    Assert.AreEqual(0, nodes[1].Parent);
+    Assert.AreEqual(0, nodes[2].Parent);
+    Assert.AreEqual(2, nodes[3].Parent);
+    Assert.AreEqual(3, nodes[4].Parent);
+    Assert.AreEqual(4, nodes[5].Parent);
+    Assert.AreEqual(5, nodes[6].Parent);
+    Assert.AreEqual(0, nodes[7].Parent);
 
-    var secondKeywIndex = boxes.InsertBox(IsoBmffTypes.Keyw, 30, 4);
+    var secondKeywIndex = nodes.InsertNode(IsoBmffTypes.Keyw, 30, 4);
 
     Assert.AreEqual(7, secondKeywIndex);
-    Assert.AreEqual(IsoBmffTypes.Keyw, boxes[7].Box.Type);
-    Assert.AreEqual(4, boxes[7].Parent);
-    Assert.AreEqual(IsoBmffTypes.Trak, boxes[8].Box.Type);
+    Assert.AreEqual(IsoBmffTypes.Keyw, nodes[7].Box.Type);
+    Assert.AreEqual(4, nodes[7].Parent);
+    Assert.AreEqual(IsoBmffTypes.Trak, nodes[8].Box.Type);
   }
 
   [TestMethod]
   public void RemoveBox_UpdatesParentIndexes() {
-    var boxes = new List<IsoBmffBoxNode> {
+    var nodes = new List<IsoBmffNode> {
       new(new IsoBmffBox(0, 8, 200, IsoBmffTypes.Moov), -1),
       new(new IsoBmffBox(8, 8, 20, IsoBmffTypes.Mvhd), 0),
 
@@ -118,29 +118,29 @@ public class IsoBmffFileTests {
     };
 
     // Remove keyw + its data.
-    boxes.RemoveBox(5);
+    nodes.RemoveNode(5);
 
-    Assert.AreEqual(IsoBmffTypes.Moov, boxes[0].Box.Type);
-    Assert.AreEqual(IsoBmffTypes.Mvhd, boxes[1].Box.Type);
-    Assert.AreEqual(IsoBmffTypes.Udta, boxes[2].Box.Type);
-    Assert.AreEqual(IsoBmffTypes.Meta, boxes[3].Box.Type);
-    Assert.AreEqual(IsoBmffTypes.Ilst, boxes[4].Box.Type);
-    Assert.AreEqual(IsoBmffTypes.Trak, boxes[5].Box.Type);
-    Assert.AreEqual(IsoBmffTypes.Mdia, boxes[6].Box.Type);
+    Assert.AreEqual(IsoBmffTypes.Moov, nodes[0].Box.Type);
+    Assert.AreEqual(IsoBmffTypes.Mvhd, nodes[1].Box.Type);
+    Assert.AreEqual(IsoBmffTypes.Udta, nodes[2].Box.Type);
+    Assert.AreEqual(IsoBmffTypes.Meta, nodes[3].Box.Type);
+    Assert.AreEqual(IsoBmffTypes.Ilst, nodes[4].Box.Type);
+    Assert.AreEqual(IsoBmffTypes.Trak, nodes[5].Box.Type);
+    Assert.AreEqual(IsoBmffTypes.Mdia, nodes[6].Box.Type);
 
-    Assert.AreEqual(-1, boxes[0].Parent);
-    Assert.AreEqual(0, boxes[1].Parent);
-    Assert.AreEqual(0, boxes[2].Parent);
-    Assert.AreEqual(2, boxes[3].Parent);
-    Assert.AreEqual(3, boxes[4].Parent);
-    Assert.AreEqual(0, boxes[5].Parent);
-    Assert.AreEqual(5, boxes[6].Parent);
+    Assert.AreEqual(-1, nodes[0].Parent);
+    Assert.AreEqual(0, nodes[1].Parent);
+    Assert.AreEqual(0, nodes[2].Parent);
+    Assert.AreEqual(2, nodes[3].Parent);
+    Assert.AreEqual(3, nodes[4].Parent);
+    Assert.AreEqual(0, nodes[5].Parent);
+    Assert.AreEqual(5, nodes[6].Parent);
 
-    Assert.AreEqual(180, boxes[0].Box.Size);
-    Assert.AreEqual(20, boxes[1].Box.Size);
-    Assert.AreEqual(40, boxes[2].Box.Size);
-    Assert.AreEqual(20, boxes[3].Box.Size);
-    Assert.AreEqual(10, boxes[4].Box.Size);
+    Assert.AreEqual(180, nodes[0].Box.Size);
+    Assert.AreEqual(20, nodes[1].Box.Size);
+    Assert.AreEqual(40, nodes[2].Box.Size);
+    Assert.AreEqual(20, nodes[3].Box.Size);
+    Assert.AreEqual(10, nodes[4].Box.Size);
   }
 
   [TestMethod]
@@ -148,75 +148,75 @@ public class IsoBmffFileTests {
     using var stream = _createTestFile(withItemList: false);
 
     var file = new IsoBmffFile(stream);
-    var originalBoxes = file._metadata._editor._getOriginalBoxes();
-    var originalBoxSizes = originalBoxes.Select(x => x.Box.Size).ToArray();
-    var boxes = file._metadata._editor.GetEditedBoxes();
+    var originalNodes = file._metadata._editor._getOriginalNodes();
+    var originalBoxSizes = originalNodes.Select(x => x.Box.Size).ToArray();
+    var nodes = file._metadata._editor.GetEditedNodes();
 
-    var moovIndex = boxes.FindIndex(IsoBmffTypes.Moov);
+    var moovIndex = nodes.FindIndex(IsoBmffTypes.Moov);
     Assert.IsTrue(moovIndex >= 0);
 
-    var originalMoovSize = boxes[moovIndex].Box.Size;
+    var originalMoovSize = nodes[moovIndex].Box.Size;
 
     var itemList = file._metadata._getOrCreateItemList();
 
     Assert.IsNotNull(itemList);
 
-    boxes = file._metadata._editor.GetEditedBoxes();
+    nodes = file._metadata._editor.GetEditedNodes();
 
-    var udtaIndex = boxes.FindIndex(IsoBmffTypes.Udta, moovIndex);
-    var metaIndex = boxes.FindIndex(IsoBmffTypes.Meta, udtaIndex);
-    var ilstIndex = boxes.FindIndex(IsoBmffTypes.Ilst, metaIndex);
+    var udtaIndex = nodes.FindIndex(IsoBmffTypes.Udta, moovIndex);
+    var metaIndex = nodes.FindIndex(IsoBmffTypes.Meta, udtaIndex);
+    var ilstIndex = nodes.FindIndex(IsoBmffTypes.Ilst, metaIndex);
 
     Assert.IsTrue(udtaIndex >= 0);
     Assert.IsTrue(metaIndex >= 0);
     Assert.IsTrue(ilstIndex >= 0);
 
-    Assert.AreEqual(moovIndex, boxes[udtaIndex].Parent);
-    Assert.AreEqual(udtaIndex, boxes[metaIndex].Parent);
-    Assert.AreEqual(metaIndex, boxes[ilstIndex].Parent);
+    Assert.AreEqual(moovIndex, nodes[udtaIndex].Parent);
+    Assert.AreEqual(udtaIndex, nodes[metaIndex].Parent);
+    Assert.AreEqual(metaIndex, nodes[ilstIndex].Parent);
 
-    Assert.AreEqual(-1, boxes[udtaIndex].Box.Offset);
-    Assert.AreEqual(-1, boxes[metaIndex].Box.Offset);
-    Assert.AreEqual(-1, boxes[ilstIndex].Box.Offset);
+    Assert.AreEqual(-1, nodes[udtaIndex].Box.Offset);
+    Assert.AreEqual(-1, nodes[metaIndex].Box.Offset);
+    Assert.AreEqual(-1, nodes[ilstIndex].Box.Offset);
 
-    Assert.AreEqual(28, boxes[udtaIndex].Box.Size);
-    Assert.AreEqual(20, boxes[metaIndex].Box.Size);
-    Assert.AreEqual(8, boxes[ilstIndex].Box.Size);
-    CollectionAssert.AreEqual(new byte[4], boxes[metaIndex].Data);
+    Assert.AreEqual(28, nodes[udtaIndex].Box.Size);
+    Assert.AreEqual(20, nodes[metaIndex].Box.Size);
+    Assert.AreEqual(8, nodes[ilstIndex].Box.Size);
+    CollectionAssert.AreEqual(new byte[4], nodes[metaIndex].Data);
 
-    Assert.AreEqual(originalMoovSize + 28, boxes[moovIndex].Box.Size);
+    Assert.AreEqual(originalMoovSize + 28, nodes[moovIndex].Box.Size);
 
     var secondItemList = file._metadata._getOrCreateItemList();
 
     Assert.AreSame(itemList, secondItemList);
-    Assert.AreEqual(boxes.Count, file._metadata._editor.GetEditedBoxes().Count);
-    Assert.AreEqual(originalMoovSize + 28, boxes[moovIndex].Box.Size);
+    Assert.AreEqual(nodes.Count, file._metadata._editor.GetEditedNodes().Count);
+    Assert.AreEqual(originalMoovSize + 28, nodes[moovIndex].Box.Size);
 
     // Set Keywords
     file._metadata.SetKeywords("hello");
 
-    boxes = file._metadata._editor.GetEditedBoxes();
+    nodes = file._metadata._editor.GetEditedNodes();
 
-    var keywIndex = boxes.FindIndex(IsoBmffTypes.Keyw, ilstIndex);
-    var dataIndex = boxes.FindIndex(IsoBmffTypes.Data, keywIndex);
+    var keywIndex = nodes.FindIndex(IsoBmffTypes.Keyw, ilstIndex);
+    var dataIndex = nodes.FindIndex(IsoBmffTypes.Data, keywIndex);
 
     Assert.IsTrue(keywIndex >= 0);
     Assert.IsTrue(dataIndex >= 0);
 
-    Assert.AreEqual(ilstIndex, boxes[keywIndex].Parent);
-    Assert.AreEqual(keywIndex, boxes[dataIndex].Parent);
+    Assert.AreEqual(ilstIndex, nodes[keywIndex].Parent);
+    Assert.AreEqual(keywIndex, nodes[dataIndex].Parent);
 
-    Assert.AreEqual(-1, boxes[keywIndex].Box.Offset);
-    Assert.AreEqual(-1, boxes[dataIndex].Box.Offset);
+    Assert.AreEqual(-1, nodes[keywIndex].Box.Offset);
+    Assert.AreEqual(-1, nodes[dataIndex].Box.Offset);
 
-    Assert.AreEqual(29, boxes[keywIndex].Box.Size);
-    Assert.AreEqual(21, boxes[dataIndex].Box.Size);
-    _assertKeywordData(boxes[dataIndex], "hello");
+    Assert.AreEqual(29, nodes[keywIndex].Box.Size);
+    Assert.AreEqual(21, nodes[dataIndex].Box.Size);
+    _assertKeywordData(nodes[dataIndex], "hello");
 
-    Assert.AreEqual(37, boxes[ilstIndex].Box.Size);
-    Assert.AreEqual(49, boxes[metaIndex].Box.Size);
-    Assert.AreEqual(57, boxes[udtaIndex].Box.Size);
-    Assert.AreEqual(originalMoovSize + 57, boxes[moovIndex].Box.Size);
+    Assert.AreEqual(37, nodes[ilstIndex].Box.Size);
+    Assert.AreEqual(49, nodes[metaIndex].Box.Size);
+    Assert.AreEqual(57, nodes[udtaIndex].Box.Size);
+    Assert.AreEqual(originalMoovSize + 57, nodes[moovIndex].Box.Size);
 
     Assert.AreEqual("hello", itemList.GetKeywords());
 
@@ -225,19 +225,19 @@ public class IsoBmffFileTests {
 
     Assert.AreEqual("world", itemList.GetKeywords());
 
-    var keywCount = boxes.Count(x => x.Box.Type == IsoBmffTypes.Keyw);
-    var dataCount = boxes.Count(x => x.Box.Type == IsoBmffTypes.Data);
+    var keywCount = nodes.Count(x => x.Box.Type == IsoBmffTypes.Keyw);
+    var dataCount = nodes.Count(x => x.Box.Type == IsoBmffTypes.Data);
 
     Assert.AreEqual(1, keywCount);
     Assert.AreEqual(1, dataCount);
 
-    boxes = file._metadata._editor.GetEditedBoxes();
-    _assertKeywordData(boxes[dataIndex], "world");
+    nodes = file._metadata._editor.GetEditedNodes();
+    _assertKeywordData(nodes[dataIndex], "world");
 
-    Assert.AreEqual(37, boxes[ilstIndex].Box.Size);
-    Assert.AreEqual(49, boxes[metaIndex].Box.Size);
-    Assert.AreEqual(57, boxes[udtaIndex].Box.Size);
-    Assert.AreEqual(originalMoovSize + 28 + 29, boxes[moovIndex].Box.Size);
+    Assert.AreEqual(37, nodes[ilstIndex].Box.Size);
+    Assert.AreEqual(49, nodes[metaIndex].Box.Size);
+    Assert.AreEqual(57, nodes[udtaIndex].Box.Size);
+    Assert.AreEqual(originalMoovSize + 28 + 29, nodes[moovIndex].Box.Size);
 
     // Update Keywords 2
     const string longerValue = "a much longer keyword value";
@@ -245,18 +245,18 @@ public class IsoBmffFileTests {
 
     Assert.AreEqual(longerValue, itemList.GetKeywords());
 
-    boxes = file._metadata._editor.GetEditedBoxes();
+    nodes = file._metadata._editor.GetEditedNodes();
 
     var valueSize = Encoding.UTF8.GetByteCount(longerValue);
     var expectedItemSize = 24 + valueSize;
 
-    Assert.AreEqual(expectedItemSize, boxes[keywIndex].Box.Size);
-    Assert.AreEqual(16 + valueSize, boxes[dataIndex].Box.Size);
-    _assertKeywordData(boxes[dataIndex], longerValue);
+    Assert.AreEqual(expectedItemSize, nodes[keywIndex].Box.Size);
+    Assert.AreEqual(16 + valueSize, nodes[dataIndex].Box.Size);
+    _assertKeywordData(nodes[dataIndex], longerValue);
 
-    Assert.AreEqual(8 + expectedItemSize, boxes[ilstIndex].Box.Size);
-    Assert.AreEqual(20 + expectedItemSize, boxes[metaIndex].Box.Size);
-    Assert.AreEqual(28 + expectedItemSize, boxes[udtaIndex].Box.Size);
+    Assert.AreEqual(8 + expectedItemSize, nodes[ilstIndex].Box.Size);
+    Assert.AreEqual(20 + expectedItemSize, nodes[metaIndex].Box.Size);
+    Assert.AreEqual(28 + expectedItemSize, nodes[udtaIndex].Box.Size);
 
     // Update Keywords 3
     const string smallerValue = "x";
@@ -265,36 +265,36 @@ public class IsoBmffFileTests {
 
     file._metadata.SetKeywords(smallerValue);
 
-    boxes = file._metadata._editor.GetEditedBoxes();
+    nodes = file._metadata._editor.GetEditedNodes();
 
-    Assert.AreEqual(expectedSmallerItemSize, boxes[keywIndex].Box.Size);
-    Assert.AreEqual(16 + smallerValueSize, boxes[dataIndex].Box.Size);
-    _assertKeywordData(boxes[dataIndex], smallerValue);
+    Assert.AreEqual(expectedSmallerItemSize, nodes[keywIndex].Box.Size);
+    Assert.AreEqual(16 + smallerValueSize, nodes[dataIndex].Box.Size);
+    _assertKeywordData(nodes[dataIndex], smallerValue);
 
-    Assert.AreEqual(8 + expectedSmallerItemSize, boxes[ilstIndex].Box.Size);
-    Assert.AreEqual(20 + expectedSmallerItemSize, boxes[metaIndex].Box.Size);
-    Assert.AreEqual(28 + expectedSmallerItemSize, boxes[udtaIndex].Box.Size);
+    Assert.AreEqual(8 + expectedSmallerItemSize, nodes[ilstIndex].Box.Size);
+    Assert.AreEqual(20 + expectedSmallerItemSize, nodes[metaIndex].Box.Size);
+    Assert.AreEqual(28 + expectedSmallerItemSize, nodes[udtaIndex].Box.Size);
 
     Assert.AreEqual("x", itemList.GetKeywords());
 
     // Remove
     file._metadata.SetKeywords(null);
 
-    boxes = file._metadata._editor.GetEditedBoxes();
+    nodes = file._metadata._editor.GetEditedNodes();
 
-    keywIndex = boxes.FindIndex(IsoBmffTypes.Keyw, ilstIndex);
+    keywIndex = nodes.FindIndex(IsoBmffTypes.Keyw, ilstIndex);
     Assert.AreEqual(-1, keywIndex);
 
-    dataIndex = boxes.FindIndex(IsoBmffTypes.Data);
+    dataIndex = nodes.FindIndex(IsoBmffTypes.Data);
     Assert.AreEqual(-1, dataIndex);
 
-    Assert.AreEqual(8, boxes[ilstIndex].Box.Size);
-    Assert.AreEqual(20, boxes[metaIndex].Box.Size);
-    Assert.AreEqual(28, boxes[udtaIndex].Box.Size);
-    Assert.AreEqual(originalMoovSize + 28, boxes[moovIndex].Box.Size);
+    Assert.AreEqual(8, nodes[ilstIndex].Box.Size);
+    Assert.AreEqual(20, nodes[metaIndex].Box.Size);
+    Assert.AreEqual(28, nodes[udtaIndex].Box.Size);
+    Assert.AreEqual(originalMoovSize + 28, nodes[moovIndex].Box.Size);
 
     Assert.IsNull(itemList.GetKeywords());
-    CollectionAssert.AreEqual(originalBoxSizes, originalBoxes.Select(x => x.Box.Size).ToArray());
+    CollectionAssert.AreEqual(originalBoxSizes, originalNodes.Select(x => x.Box.Size).ToArray());
   }
 
   [TestMethod]
@@ -316,7 +316,7 @@ public class IsoBmffFileTests {
     Assert.AreEqual("second", file._metadata.GetItemListKeywords());
   }
 
-  private static void _assertKeywordData(IsoBmffBoxNode dataNode, string value) {
+  private static void _assertKeywordData(IsoBmffNode dataNode, string value) {
     var valueBytes = Encoding.UTF8.GetBytes(value);
     var expected = new byte[8 + valueBytes.Length];
 
@@ -329,7 +329,7 @@ public class IsoBmffFileTests {
 
   private sealed record BoxSnapshot(uint Type, long Offset, long Size, int Parent);
 
-  private static List<BoxSnapshot> _snapshot(List<IsoBmffBoxNode> boxes) =>
+  private static List<BoxSnapshot> _snapshot(List<IsoBmffNode> boxes) =>
     [.. boxes.Select(x => new BoxSnapshot(x.Box.Type, x.Box.Offset, x.Box.Size, x.Parent))];
 
   internal static MemoryStream _createTestFile(int beforeFreeSize = 32, int afterFreeSize = 32, bool withItemList = true) {
@@ -466,7 +466,7 @@ public class IsoBmffFileTests {
     stream.WriteByte((byte)value);
   }
 
-  internal static void _resize(IsoBmffBoxNode node, long size) {
+  internal static void _resize(IsoBmffNode node, long size) {
     node.Box = new IsoBmffBox(node.Box.Offset, node.Box.HeaderSize, size, node.Box.Type);
   }
 }

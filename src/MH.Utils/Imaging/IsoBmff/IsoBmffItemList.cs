@@ -12,6 +12,16 @@ internal sealed class IsoBmffItemList(IsoBmffReader reader, IsoBmffBox ilst, boo
     return new IsoBmffItemList(reader, ilst);
   }
 
+  public static IsoBmffItemList Create(IsoBmffReader reader, List<IsoBmffNode> editedNodes) {
+    var moovIndex = editedNodes.FindIndex(IsoBmffTypes.Moov, throwIfNotFound: true);
+    var udtaIndex = editedNodes.FindOrInsert(IsoBmffTypes.Udta, 8, moovIndex);
+    var metaIndex = editedNodes.FindOrInsert(IsoBmffTypes.Meta, 12, udtaIndex, new byte[4]);
+    var ilstIndex = editedNodes.FindOrInsert(IsoBmffTypes.Ilst, 8, metaIndex);
+    var ilst = editedNodes[ilstIndex].Box;
+
+    return new IsoBmffItemList(reader, ilst, isNew: true);
+  }
+
   public string? GetKeywords() =>
     _getValue(IsoBmffTypes.Keyw);
 

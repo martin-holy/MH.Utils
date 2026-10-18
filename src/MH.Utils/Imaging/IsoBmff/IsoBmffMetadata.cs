@@ -223,18 +223,10 @@ internal class IsoBmffMetadata {
     return (double)sampleCount * timescale / duration;
   }
 
-  // TODO move this to IsoBmffItemList?
   internal IsoBmffItemList _getOrCreateItemList() {
     if (_getItemList() is { } itemList) return itemList;
 
-    var editedNodes = _editor.GetEditedNodes();
-    var moovIndex = editedNodes.FindIndex(IsoBmffTypes.Moov, throwIfNotFound: true);
-    var udtaIndex = editedNodes.FindOrInsert(IsoBmffTypes.Udta, 8, moovIndex);
-    var metaIndex = editedNodes.FindOrInsert(IsoBmffTypes.Meta, 12, udtaIndex, new byte[4]);
-    var ilstIndex = editedNodes.FindOrInsert(IsoBmffTypes.Ilst, 8, metaIndex);
-    var ilst = editedNodes[ilstIndex].Box;
-
-    return _itemList = new IsoBmffItemList(_reader, ilst, isNew: true);
+    return _itemList = IsoBmffItemList.Create(_reader, _editor.GetEditedNodes());
   }
 
   // TODO move this to IsoBmffKeys?

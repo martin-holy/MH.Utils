@@ -139,4 +139,16 @@ internal static class IsoBmffBoxNodeExtensions {
 
     boxes.UpdateParentSizes(parentIndex, -size);
   }
+
+  public static void ReplaceData(this IList<IsoBmffBoxNode> boxes, IsoBmffBoxNode node, byte[] data) {
+    var box = node.Box;
+    var newSize = checked(box.HeaderSize + data.LongLength);
+    var delta = newSize - box.Size;
+
+    node.Data = data;
+    node.Box = new IsoBmffBox(box.Offset, box.HeaderSize, newSize, box.Type);
+
+    if (delta != 0)
+      boxes.UpdateParentSizes(node.Parent, delta);
+  }
 }

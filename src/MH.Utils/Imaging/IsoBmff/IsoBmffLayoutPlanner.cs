@@ -112,10 +112,7 @@ internal sealed class IsoBmffLayoutPlanner {
     if (original.TryGetValue(root, out var originalBox))
       return originalBox!.Offset;
 
-    var index = _boxes.FindIndex(x => ReferenceEquals(x.Identity, root.Identity));
-
-    if (index < 0)
-      throw new InvalidOperationException("Box does not belong to this planner.");
+    var index = _boxes.FindIndexByIdentity(root, throwIfNotFound: true);
 
     for (var i = index + 1; i < _boxes.Count; i++) {
       if (_boxes[i].Parent < 0 && original.TryGetValue(_boxes[i], out var nextBox))
@@ -126,18 +123,14 @@ internal sealed class IsoBmffLayoutPlanner {
   }
 
   private bool _insertNewRoot(List<_workBox> work, IsoBmffLayout original, IsoBmffBoxNode root) {
-    var editedIndex = _boxes.FindIndex(x => ReferenceEquals(x.Identity, root.Identity));
-
-    if (editedIndex < 0)
-      throw new InvalidOperationException("Box does not belong to this planner.");
-
+    var editedIndex = _boxes.FindIndexByIdentity(root, throwIfNotFound: true);
     var workIndex = work.Count;
 
     for (var i = editedIndex + 1; i < _boxes.Count; i++) {
       if (_boxes[i].Parent >= 0 || !original.TryGetValue(_boxes[i], out _))
         continue;
 
-      workIndex = work.FindIndex(x => ReferenceEquals(x.Node.Identity, _boxes[i].Identity));
+      workIndex = work.FindIndex(x => x.Node.HasSameIdentityAs(_boxes[i]));
 
       if (workIndex < 0)
         throw new InvalidOperationException("The next original top-level box is missing.");
@@ -159,7 +152,7 @@ internal sealed class IsoBmffLayoutPlanner {
     if (!_normalizeFreeBoxes(work, ref workIndex))
       return false;
 
-    workIndex = work.FindIndex(x => ReferenceEquals(x.Node.Identity, root.Identity));
+    workIndex = work.FindIndex(x => x.Node.HasSameIdentityAs(root));
 
     return workIndex >= 0 && work[workIndex].Size == root.Box.Size;
   }
@@ -168,7 +161,7 @@ internal sealed class IsoBmffLayoutPlanner {
     if (!original.TryGetValue(root, out var originalRoot))
       throw new InvalidOperationException("Edited box does not belong to the original layout.");
 
-    var index = work.FindIndex(x => ReferenceEquals(x.Node.Identity, root.Identity));
+    var index = work.FindIndex(x => x.Node.HasSameIdentityAs(root));
     if (index < 0)
       throw new InvalidOperationException("Edited box is not present in the working layout.");
 
@@ -412,15 +405,14 @@ internal sealed class IsoBmffLayoutPlanner {
   }
 
   private bool _isDescendantOf(IsoBmffBoxNode node, IsoBmffBoxNode ancestor) {
-    var index = _originalBoxes.FindIndex(x => ReferenceEquals(x.Identity, node.Identity));
+    var index = _originalBoxes.FindIndexByIdentity(node);
 
-    if (index < 0)
-      return false;
+    if (index < 0) return false;
 
     while (_originalBoxes[index].Parent >= 0) {
       index = _originalBoxes[index].Parent;
 
-      if (ReferenceEquals(_originalBoxes[index].Identity, ancestor.Identity))
+      if (_originalBoxes[index].HasSameIdentityAs(ancestor))
         return true;
     }
 
@@ -453,10 +445,7 @@ internal sealed class IsoBmffLayoutPlanner {
   }
 
   private IsoBmffBoxNode _getTopLevelNode(IsoBmffBoxNode node) {
-    var index = _boxes.FindIndex(x => ReferenceEquals(x.Identity, node.Identity));
-
-    if (index < 0)
-      throw new InvalidOperationException("Box does not belong to this planner.");
+    var index = _boxes.FindIndexByIdentity(node, throwIfNotFound: true);
 
     while (_boxes[index].Parent >= 0)
       index = _boxes[index].Parent;

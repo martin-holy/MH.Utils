@@ -12,17 +12,27 @@ internal sealed class IsoBmffBoxNode(IsoBmffBox box, int parent, IsoBmffBoxNode?
   public byte[]? Data { get; set; } = data;
 
   public IsoBmffBoxNode Identity => OriginalNode?.Identity ?? this;
+
+  public bool HasSameIdentityAs(IsoBmffBoxNode other) =>
+    ReferenceEquals(Identity, other.Identity);
 }
 
 internal static class IsoBmffBoxNodeExtensions {
-  public static IsoBmffBoxNode? FindByIdentity(this IList<IsoBmffBoxNode> boxes, IsoBmffBoxNode node) {
-    for (var i = 0; i < boxes.Count; i++) {
-      var n = boxes[i];
-      if (ReferenceEquals(n.Identity, node.Identity))
-        return n;
-    }
+  public static int FindIndexByIdentity(this IList<IsoBmffBoxNode> boxes, IsoBmffBoxNode node, bool throwIfNotFound = false) {
+    for (var i = 0; i < boxes.Count; i++)
+      if (boxes[i].HasSameIdentityAs(node))
+        return i;
 
-    return null;
+    if (throwIfNotFound)
+      throw new InvalidOperationException("A box with the same identity was not found.");
+
+    return -1;
+  }
+
+  public static IsoBmffBoxNode? FindByIdentity(this IList<IsoBmffBoxNode> boxes, IsoBmffBoxNode node) {
+    var index = boxes.FindIndexByIdentity(node);
+
+    return index < 0 ? null : boxes[index];
   }
 
   public static int FindIndex(this IList<IsoBmffBoxNode> boxes, uint type, int parent = -1, bool throwIfNotFound = false) {

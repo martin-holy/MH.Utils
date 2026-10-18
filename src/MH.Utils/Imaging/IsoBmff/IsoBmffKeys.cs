@@ -140,12 +140,7 @@ internal sealed class IsoBmffKeys(IsoBmffReader reader, IsoBmffBox keys, IsoBmff
     var nameBytes = Encoding.UTF8.GetBytes(key[(separatorIndex + 1)..]);
     var entrySize = checked(8 + nameBytes.Length);
     var index = keyNames.Length;
-
-    var keysIndex = editedBoxes.FindIndex(keys);
-
-    if (keysIndex < 0)
-      throw new InvalidOperationException("The keys box was not found.");
-
+    var keysIndex = editedBoxes.FindIndex(keys, throwIfNotFound: true);
     var keysNode = editedBoxes[keysIndex];
     var originalData = _getKeysData(keysNode);
     var updatedData = new byte[checked(originalData.Length + entrySize)];

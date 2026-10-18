@@ -156,14 +156,7 @@ internal sealed class IsoBmffKeys(IsoBmffReader reader, IsoBmffBox keys, IsoBmff
     BinaryPrimitives.WriteUInt32BigEndian(updatedData.AsSpan(originalData.Length + 4), 0x6D647461);
     nameBytes.CopyTo(updatedData, originalData.Length + 8);
 
-    var updatedSize = checked(keysNode.Box.HeaderSize + updatedData.LongLength);
-    var delta = updatedSize - keysNode.Box.Size;
-
-    keysNode.Data = updatedData;
-    keysNode.Box = new IsoBmffBox(keysNode.Box.Offset, keysNode.Box.HeaderSize, updatedSize, keysNode.Box.Type);
-
-    if (delta != 0)
-      editedBoxes.UpdateParentSizes(keysNode.Parent, delta);
+    editedBoxes.ReplaceData(keysNode, updatedData);
 
     Array.Resize(ref keyNames, keyNames.Length + 1);
     keyNames[index] = key;

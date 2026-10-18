@@ -21,7 +21,7 @@ internal static class IsoBmffLayoutDiffer {
 
       var offsetDelta = box.Offset - old.Offset;
       var coveredByMovedAncestor = movedBoxes.Any(candidate =>
-        !ReferenceEquals(candidate.Edited.Node.Identity, box.Node.Identity) &&
+        !candidate.Edited.Node.HasSameIdentityAs(box.Node) &&
         candidate.Edited.Offset - candidate.Original.Offset == offsetDelta &&
         candidate.Original.Offset <= old.Offset &&
         candidate.Original.End >= old.End &&

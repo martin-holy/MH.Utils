@@ -66,7 +66,7 @@ internal sealed class IsoBmffItemList(IsoBmffReader reader, IsoBmffBox ilst, boo
         entries.RemoveAt(entryIndex);
       }
       else {
-        editor._updateEntry(entry, value, key);
+        editor.UpdateEntry(entry, value, key);
       }
 
       return;

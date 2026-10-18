@@ -226,7 +226,7 @@ internal class IsoBmffMetadata {
   internal IsoBmffItemList _getOrCreateItemList() {
     if (_getItemList() is { } itemList) return itemList;
 
-    var editedBoxes = _editor._getEditedBoxes();
+    var editedBoxes = _editor.GetEditedBoxes();
     var moovIndex = editedBoxes.FindIndex(IsoBmffTypes.Moov, throwIfNotFound: true);
     var udtaIndex = editedBoxes.FindOrInsert(IsoBmffTypes.Udta, 8, moovIndex);
     var metaIndex = editedBoxes.FindOrInsert(IsoBmffTypes.Meta, 12, udtaIndex, new byte[4]);
@@ -239,7 +239,7 @@ internal class IsoBmffMetadata {
   internal IsoBmffKeys _getOrCreateKeys() {
     if (_getKeys() is { } keys) return keys;
 
-    var editedBoxes = _editor._getEditedBoxes();
+    var editedBoxes = _editor.GetEditedBoxes();
     var moovIndex = editedBoxes.FindIndex(IsoBmffTypes.Moov, throwIfNotFound: true);
     var metaIndex = editedBoxes.FindOrInsert(IsoBmffTypes.Meta, 12, moovIndex, new byte[4]);
     var keysIndex = editedBoxes.FindOrInsert(IsoBmffTypes.Keys, 16, metaIndex, new byte[8]);

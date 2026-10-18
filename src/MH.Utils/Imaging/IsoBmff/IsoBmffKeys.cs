@@ -108,7 +108,7 @@ internal sealed class IsoBmffKeys(IsoBmffReader reader, IsoBmffBox keys, IsoBmff
         entries.RemoveAt(entryIndex);
       }
       else {
-        editor._updateEntry(entry, value, key);
+        editor.UpdateEntry(entry, value, key);
       }
 
       return;
@@ -118,7 +118,7 @@ internal sealed class IsoBmffKeys(IsoBmffReader reader, IsoBmffBox keys, IsoBmff
 
     var keyNames = _readKeys();
     var keyIndex = Array.IndexOf(keyNames, key);
-    var editedBoxes = editor._getEditedBoxes();
+    var editedBoxes = editor.GetEditedBoxes();
 
     if (keyIndex < 0)
       keyIndex = _addKey(key, editedBoxes);

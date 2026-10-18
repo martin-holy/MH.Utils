@@ -9,7 +9,7 @@ internal sealed class IsoBmffEditor(IsoBmffReader reader) {
   private List<IsoBmffBoxNode>? _originalBoxes;
   private List<IsoBmffBoxNode>? _editedBoxes;
 
-  internal List<IsoBmffBoxNode> _getEditedBoxes() {
+  public List<IsoBmffBoxNode> GetEditedBoxes() {
     if (_editedBoxes != null) return _editedBoxes;
 
     _originalBoxes = reader._readBoxes();
@@ -19,13 +19,13 @@ internal sealed class IsoBmffEditor(IsoBmffReader reader) {
   }
 
   internal List<IsoBmffBoxNode> _getOriginalBoxes() {
-    _getEditedBoxes();
+    GetEditedBoxes();
 
     return _originalBoxes!;
   }
 
-  internal void _updateEntry(IsoBmffMetadataEntry entry, string value, string key) {
-    var editedBoxes = _getEditedBoxes();
+  public void UpdateEntry(IsoBmffMetadataEntry entry, string value, string key) {
+    var editedBoxes = GetEditedBoxes();
     var itemIndex = _findEntryIndex(entry, key);
 
     var dataIndex = editedBoxes.FindIndex(
@@ -45,7 +45,7 @@ internal sealed class IsoBmffEditor(IsoBmffReader reader) {
   }
 
   private int _findEntryIndex(IsoBmffMetadataEntry entry, string key) {
-    var editedBoxes = _getEditedBoxes();
+    var editedBoxes = GetEditedBoxes();
     var itemIndex = entry.Node is { } node
       ? editedBoxes.IndexOf(node)
       : editedBoxes.FindIndex(entry.Item);
@@ -56,7 +56,7 @@ internal sealed class IsoBmffEditor(IsoBmffReader reader) {
     return itemIndex;
   }
 
-  internal static byte[] _createData(string value, byte[]? prefix = null) {
+  private static byte[] _createData(string value, byte[]? prefix = null) {
     var valueBytes = System.Text.Encoding.UTF8.GetBytes(value);
     var result = new byte[checked(8 + valueBytes.Length)];
 
@@ -82,8 +82,8 @@ internal sealed class IsoBmffEditor(IsoBmffReader reader) {
     return prefix;
   }
 
-  internal IsoBmffMetadataEntry AddEntry(string key, string value, uint itemType, IsoBmffBox ilst) {
-    var editedBoxes = _getEditedBoxes();
+  public IsoBmffMetadataEntry AddEntry(string key, string value, uint itemType, IsoBmffBox ilst) {
+    var editedBoxes = GetEditedBoxes();
     var payload = _createData(value);
     var ilstIndex = editedBoxes.FindIndex(ilst, throwIfNotFound: true);
     var itemIndex = editedBoxes.InsertBox(itemType, 8, ilstIndex);
@@ -96,6 +96,6 @@ internal sealed class IsoBmffEditor(IsoBmffReader reader) {
 
   public void RemoveEntry(IsoBmffMetadataEntry entry, string key) {
     var itemIndex = _findEntryIndex(entry, key);
-    _getEditedBoxes().RemoveBox(itemIndex);
+    GetEditedBoxes().RemoveBox(itemIndex);
   }
 }

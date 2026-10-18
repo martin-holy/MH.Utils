@@ -60,7 +60,7 @@ public sealed class IsoBmffFile : IDisposable {
   }
 
   internal List<IsoBmffBoxNode> _getEditedBoxes() {
-    var boxes = _metadata._editor._getEditedBoxes();
+    var boxes = _metadata._editor.GetEditedBoxes();
 
     if (_xmp?.Doc is not { IsModified: true })
       return boxes;

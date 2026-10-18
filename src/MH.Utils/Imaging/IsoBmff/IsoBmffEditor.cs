@@ -42,15 +42,8 @@ internal sealed class IsoBmffEditor(IsoBmffReader reader) {
     var dataNode = editedBoxes[dataIndex];
     var prefix = _getDataPrefix(dataNode);
     var payload = _createData(value, prefix);
-    var data = dataNode.Box;
-    var newDataSize = data.HeaderSize + payload.LongLength;
-    var delta = newDataSize - data.Size;
 
-    dataNode.Data = payload;
-    dataNode.Box = new IsoBmffBox(data.Offset, data.HeaderSize, newDataSize, data.Type);
-
-    if (delta != 0)
-      editedBoxes.UpdateParentSizes(dataNode.Parent, delta);
+    editedBoxes.ReplaceData(dataNode, payload);
 
     entry.Node = editedBoxes[itemIndex];
     entry.Value = value;

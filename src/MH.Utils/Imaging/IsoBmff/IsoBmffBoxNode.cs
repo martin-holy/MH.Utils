@@ -49,8 +49,13 @@ internal static class IsoBmffBoxNodeExtensions {
     return -1;
   }
 
-  public static int FindIndex(this IList<IsoBmffBoxNode> boxes, IsoBmffBox? box) {
-    if (box is not { } boxValue) return -1;
+  public static int FindIndex(this IList<IsoBmffBoxNode> boxes, IsoBmffBox? box, bool throwIfNotFound = false) {
+    if (box is not { } boxValue) {
+      if (throwIfNotFound)
+        throw new InvalidOperationException("The box was not found because it is null.");
+
+      return -1;
+    }
 
     for (var i = 0; i < boxes.Count; i++) {
       var node = boxes[i];
@@ -58,6 +63,9 @@ internal static class IsoBmffBoxNodeExtensions {
       if (node.Box.Offset == boxValue.Offset && node.Box.Type == boxValue.Type)
         return i;
     }
+
+    if (throwIfNotFound)
+      throw new InvalidOperationException($"The {IsoBmffTypes.GetTypeName(boxValue.Type)} box was not found.");
 
     return -1;
   }

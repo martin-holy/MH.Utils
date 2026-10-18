@@ -102,14 +102,7 @@ internal class IsoBmffXmp {
       }
     }
 
-    var newSize = checked(xmpNode.Box.HeaderSize + data.LongLength);
-    var delta = newSize - xmpNode.Box.Size;
-
-    xmpNode.Data = data;
-    xmpNode.Box = new IsoBmffBox(xmpNode.Box.Offset, xmpNode.Box.HeaderSize, newSize, xmpNode.Box.Type);
-
-    if (delta != 0)
-      boxes.UpdateParentSizes(xmpNode.Parent, delta);
+    boxes.ReplaceData(xmpNode, data);
 
     return xmpNode;
   }

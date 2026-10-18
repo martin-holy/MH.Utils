@@ -82,10 +82,7 @@ internal class IsoBmffXmp {
 
     if (xmpEntry?.Item is { } originalBox) {
       if (xmpNode is null) {
-        var index = boxes.FindIndex(originalBox);
-
-        if (index < 0)
-          throw new InvalidOperationException("The original XMP uuid box is missing from the edited boxes.");
+        var index = boxes.FindIndex(originalBox, throwIfNotFound: true);
 
         xmpNode = boxes[index];
       }

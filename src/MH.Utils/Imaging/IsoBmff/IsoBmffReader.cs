@@ -199,24 +199,24 @@ internal sealed class IsoBmffReader(Stream stream) {
     }
   }
 
-  internal List<IsoBmffBoxNode> _readBoxes() {
-    var boxes = new List<IsoBmffBoxNode>();
-    _readBoxes(boxes, -1, 0, _stream.Length);
-    return boxes;
+  internal List<IsoBmffNode> _readNodes() {
+    var nodes = new List<IsoBmffNode>();
+    _readNodes(nodes, -1, 0, _stream.Length);
+    return nodes;
   }
 
-  private void _readBoxes(List<IsoBmffBoxNode> boxes, int parent, long offset, long end) {
+  private void _readNodes(List<IsoBmffNode> nodes, int parent, long offset, long end) {
     _stream.Position = offset;
 
     while (_stream.Position < end) {
       if (ReadBox(end) is not { } box)
         break;
 
-      var index = boxes.Count;
-      boxes.Add(new IsoBmffBoxNode(box, parent));
+      var index = nodes.Count;
+      nodes.Add(new IsoBmffNode(box, parent));
 
       uint? parentType = parent >= 0
-        ? boxes[parent].Box.Type
+        ? nodes[parent].Box.Type
         : null;
 
       if (_hasChildren(box.Type, parentType)) {
@@ -224,7 +224,7 @@ internal sealed class IsoBmffReader(Stream stream) {
         var childrenStart = box.DataOffset + childrenOffset;
 
         if (childrenStart < box.End)
-          _readBoxes(boxes, index, childrenStart, box.End);
+          _readNodes(nodes, index, childrenStart, box.End);
       }
 
       _stream.Position = box.End;

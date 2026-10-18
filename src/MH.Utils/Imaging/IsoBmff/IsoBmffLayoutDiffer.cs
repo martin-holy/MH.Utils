@@ -6,7 +6,7 @@ using System.Linq;
 namespace MH.Utils.Imaging.IsoBmff;
 
 internal static class IsoBmffLayoutDiffer {
-  public static IsoBmffLayoutDiff Diff(IsoBmffLayout original, IsoBmffLayout edited, IEnumerable<IsoBmffBoxNode>? boxesToWrite = null) {
+  public static IsoBmffLayoutDiff Diff(IsoBmffLayout original, IsoBmffLayout edited, IEnumerable<IsoBmffNode>? nodesToWrite = null) {
     var result = new IsoBmffLayoutDiff();
 
     var movedBoxes = new List<(IsoBmffLayoutBox Edited, IsoBmffLayoutBox Original)>();
@@ -45,8 +45,8 @@ internal static class IsoBmffLayoutDiffer {
         result.Writes.Add(new IsoBmffWrite(box.Offset + box.HeaderSize, data));
     }
 
-    if (boxesToWrite is not null) {
-      foreach (var node in boxesToWrite.DistinctBy(x => x.Identity)) {
+    if (nodesToWrite is not null) {
+      foreach (var node in nodesToWrite.DistinctBy(x => x.Identity)) {
         if (node.Data is not { Length: > 0 } data)
           continue;
 

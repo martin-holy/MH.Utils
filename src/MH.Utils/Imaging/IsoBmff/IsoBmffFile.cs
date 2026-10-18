@@ -14,7 +14,7 @@ public sealed class IsoBmffFile : IDisposable {
 
   private bool _xmpRead;
   private IsoBmffMetadataEntry? _xmpEntry;
-  private IsoBmffBoxNode? _xmpNode;
+  private IsoBmffNode? _xmpNode;
   private XmpMetadata? _xmp;
   internal IsoBmffMetadata _metadata;
 
@@ -59,15 +59,15 @@ public sealed class IsoBmffFile : IDisposable {
     return _xmp ??= new XmpMetadata(null);
   }
 
-  internal List<IsoBmffBoxNode> _getEditedBoxes() {
-    var boxes = _metadata._editor.GetEditedBoxes();
+  internal List<IsoBmffNode> _getEditedNodes() {
+    var nodes = _metadata._editor.GetEditedNodes();
 
     if (_xmp?.Doc is not { IsModified: true })
-      return boxes;
+      return nodes;
 
-    _xmpNode = IsoBmffXmp.UpdateNode(_xmpEntry, _xmpNode, _xmp.ToPacket(), boxes, _stream);
+    _xmpNode = IsoBmffXmp.UpdateNode(_xmpEntry, _xmpNode, _xmp.ToPacket(), nodes, _stream);
 
-    return boxes;
+    return nodes;
   }
 
   public void Save() {
@@ -88,22 +88,22 @@ public sealed class IsoBmffFile : IDisposable {
     if (!_stream.CanRead || !_stream.CanSeek)
       throw new InvalidOperationException("Saving requires a readable, seekable source stream.");
 
-    var originalBoxes = _metadata._editor._getOriginalBoxes();
-    var editedBoxes = _getEditedBoxes();
+    var originalNodes = _metadata._editor._getOriginalNodes();
+    var editedNodes = _getEditedNodes();
     var planner = new IsoBmffLayoutPlanner(
-      originalBoxes,
-      editedBoxes,
+      originalNodes,
+      editedNodes,
       _reader.GetBoxChildrenOffset);
     var original = planner.CreateOriginalLayout();
-    var plan = planner.CreateEditedLayout(original, editedBoxes);
+    var plan = planner.CreateEditedLayout(original, editedNodes);
     var diff = plan.RequiresFullRewrite
       ? null
       : IsoBmffLayoutDiffer.Diff(
         original,
         plan.Layout,
-        editedBoxes.Where(x => x.Data is not null));
+        editedNodes.Where(x => x.Data is not null));
 
-    return new _savePlan(originalBoxes, editedBoxes, original, plan, diff);
+    return new _savePlan(originalNodes, editedNodes, original, plan, diff);
   }
 
   private void _saveToPath(_savePlan savePlan, string filePath) {
@@ -190,8 +190,8 @@ public sealed class IsoBmffFile : IDisposable {
       IsoBmffLayoutExecutor.ExecuteFullRewrite(
         _stream,
         destination,
-        savePlan.OriginalBoxes,
-        savePlan.EditedBoxes,
+        savePlan.OriginalNodes,
+        savePlan.EditedNodes,
         savePlan.Plan.Layout,
         _reader.GetBoxChildrenOffset);
     }
@@ -229,8 +229,8 @@ public sealed class IsoBmffFile : IDisposable {
   }
 
   private sealed record _savePlan(
-    List<IsoBmffBoxNode> OriginalBoxes,
-    List<IsoBmffBoxNode> EditedBoxes,
+    List<IsoBmffNode> OriginalNodes,
+    List<IsoBmffNode> EditedNodes,
     IsoBmffLayout Original,
     IsoBmffLayoutPlan Plan,
     IsoBmffLayoutDiff? Diff);

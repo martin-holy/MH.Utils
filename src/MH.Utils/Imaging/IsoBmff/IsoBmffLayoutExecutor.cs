@@ -82,8 +82,8 @@ internal static class IsoBmffLayoutExecutor {
   public static void ExecuteFullRewrite(
     Stream source,
     Stream destination,
-    IEnumerable<IsoBmffBoxNode> originalBoxes,
-    IEnumerable<IsoBmffBoxNode> editedBoxes,
+    IEnumerable<IsoBmffNode> originalNodes,
+    IEnumerable<IsoBmffNode> editedNodes,
     IsoBmffLayout layout,
     Func<IsoBmffBox, long> getBoxChildrenOffset) {
 
@@ -96,8 +96,8 @@ internal static class IsoBmffLayoutExecutor {
     if (!destination.CanWrite || !destination.CanSeek)
       throw new ArgumentException("Destination stream must be writable and seekable.", nameof(destination));
 
-    var original = originalBoxes.ToList();
-    var edited = editedBoxes.ToList();
+    var original = originalNodes.ToList();
+    var edited = editedNodes.ToList();
 
     destination.SetLength(0);
     destination.Position = 0;
@@ -112,9 +112,9 @@ internal static class IsoBmffLayoutExecutor {
   private static void _writeBox(
     Stream source,
     Stream destination,
-    IsoBmffBoxNode node,
-    List<IsoBmffBoxNode> originalBoxes,
-    List<IsoBmffBoxNode> editedBoxes,
+    IsoBmffNode node,
+    List<IsoBmffNode> originalNodes,
+    List<IsoBmffNode> editedNodes,
     IsoBmffLayout layout,
     Func<IsoBmffBox, long> getBoxChildrenOffset) {
 
@@ -125,10 +125,10 @@ internal static class IsoBmffLayoutExecutor {
 
     destination.Write(IsoBmffLayoutDiffer._createHeader(box));
 
-    var editedIndex = editedBoxes.IndexOf(node);
+    var editedIndex = editedNodes.IndexOf(node);
     var children = editedIndex < 0
       ? []
-      : editedBoxes.Where(x => x.Parent == editedIndex).ToList();
+      : editedNodes.Where(x => x.Parent == editedIndex).ToList();
 
     if (children.Count > 0 || IsoBmffReader._isContainer(node.Box.Type)) {
       _writeContainer(
@@ -136,13 +136,13 @@ internal static class IsoBmffLayoutExecutor {
         destination,
         node,
         children,
-        originalBoxes,
-        editedBoxes,
+        originalNodes,
+        editedNodes,
         layout,
         getBoxChildrenOffset);
     }
     else {
-      _writeLeaf(source, destination, node, box, originalBoxes, layout);
+      _writeLeaf(source, destination, node, box, originalNodes, layout);
     }
 
     if (destination.Position != box.End)
@@ -152,14 +152,14 @@ internal static class IsoBmffLayoutExecutor {
   private static void _writeContainer(
     Stream source,
     Stream destination,
-    IsoBmffBoxNode node,
-    List<IsoBmffBoxNode> children,
-    List<IsoBmffBoxNode> originalBoxes,
-    List<IsoBmffBoxNode> editedBoxes,
+    IsoBmffNode node,
+    List<IsoBmffNode> children,
+    List<IsoBmffNode> originalNodes,
+    List<IsoBmffNode> editedNodes,
     IsoBmffLayout layout,
     Func<IsoBmffBox, long> getBoxChildrenOffset) {
 
-    var originalNode = originalBoxes.FindByIdentity(node);
+    var originalNode = originalNodes.FindByIdentity(node);
     long originalPrefixSize = 0;
 
     if (node.Data is { } data) {
@@ -174,11 +174,11 @@ internal static class IsoBmffLayoutExecutor {
     }
 
     foreach (var child in children)
-      _writeBox(source, destination, child, originalBoxes, editedBoxes, layout, getBoxChildrenOffset);
+      _writeBox(source, destination, child, originalNodes, editedNodes, layout, getBoxChildrenOffset);
 
     if (originalNode is not null) {
-      var originalIndex = originalBoxes.IndexOf(originalNode);
-      var originalChildrenSize = originalBoxes
+      var originalIndex = originalNodes.IndexOf(originalNode);
+      var originalChildrenSize = originalNodes
         .Where(x => x.Parent == originalIndex)
         .Sum(x => x.Box.Size);
       var tailSize = originalNode.Box.DataSize - originalPrefixSize - originalChildrenSize;
@@ -197,15 +197,15 @@ internal static class IsoBmffLayoutExecutor {
   private static void _writeLeaf(
     Stream source,
     Stream destination,
-    IsoBmffBoxNode node,
+    IsoBmffNode node,
     IsoBmffLayoutBox box,
-    List<IsoBmffBoxNode> originalBoxes,
+    List<IsoBmffNode> originalNodes,
     IsoBmffLayout layout) {
 
-    var originalNode = originalBoxes.FindByIdentity(node);
+    var originalNode = originalNodes.FindByIdentity(node);
 
     if (node.Box.Type is IsoBmffTypes.Stco or IsoBmffTypes.Co64) {
-      _writeChunkOffsetTable(source, destination, node, box, originalNode, originalBoxes, layout);
+      _writeChunkOffsetTable(source, destination, node, box, originalNode, originalNodes, layout);
       return;
     }
 
@@ -236,10 +236,10 @@ internal static class IsoBmffLayoutExecutor {
   private static void _writeChunkOffsetTable(
     Stream source,
     Stream destination,
-    IsoBmffBoxNode node,
+    IsoBmffNode node,
     IsoBmffLayoutBox box,
-    IsoBmffBoxNode? originalNode,
-    List<IsoBmffBoxNode> originalBoxes,
+    IsoBmffNode? originalNode,
+    List<IsoBmffNode> originalNodes,
     IsoBmffLayout layout) {
 
     var data = node.Data;
@@ -283,7 +283,7 @@ internal static class IsoBmffLayoutExecutor {
 
         if (entrySize == 4) {
           var oldOffset = BinaryPrimitives.ReadUInt32BigEndian(entry);
-          var newOffset = _relocateChunkOffset(oldOffset, originalBoxes, layout);
+          var newOffset = _relocateChunkOffset(oldOffset, originalNodes, layout);
 
           if (newOffset > uint.MaxValue)
             throw new InvalidDataException("Relocated stco offset exceeds its 32-bit range.");
@@ -292,7 +292,7 @@ internal static class IsoBmffLayoutExecutor {
         }
         else {
           var oldOffset = BinaryPrimitives.ReadUInt64BigEndian(entry);
-          var newOffset = _relocateChunkOffset(oldOffset, originalBoxes, layout);
+          var newOffset = _relocateChunkOffset(oldOffset, originalNodes, layout);
 
           BinaryPrimitives.WriteUInt64BigEndian(entry, newOffset);
         }
@@ -317,18 +317,18 @@ internal static class IsoBmffLayoutExecutor {
     }
   }
 
-  private static ulong _relocateChunkOffset(ulong sourceOffset, List<IsoBmffBoxNode> originalBoxes, IsoBmffLayout layout) {
-    foreach (var originalBox in originalBoxes) {
-      if (originalBox.Parent >= 0 || originalBox.Box.Offset < 0)
+  private static ulong _relocateChunkOffset(ulong sourceOffset, List<IsoBmffNode> originalNodes, IsoBmffLayout layout) {
+    foreach (var originalNode in originalNodes) {
+      if (originalNode.Parent >= 0 || originalNode.Box.Offset < 0)
         continue;
 
-      var boxStart = (ulong)originalBox.Box.Offset;
-      var boxEnd = (ulong)originalBox.Box.End;
+      var boxStart = (ulong)originalNode.Box.Offset;
+      var boxEnd = (ulong)originalNode.Box.End;
 
       if (sourceOffset < boxStart || sourceOffset >= boxEnd)
         continue;
 
-      if (!layout.TryGetValue(originalBox, out var editedBox))
+      if (!layout.TryGetValue(originalNode, out var editedBox))
         throw new InvalidDataException("A chunk offset points into a removed top-level box.");
 
       var relativeOffset = sourceOffset - boxStart;

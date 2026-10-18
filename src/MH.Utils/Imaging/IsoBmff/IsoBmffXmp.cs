@@ -77,14 +77,14 @@ internal class IsoBmffXmp {
     return data;
   }
 
-  public static IsoBmffBoxNode UpdateNode(IsoBmffMetadataEntry? xmpEntry, IsoBmffBoxNode? xmpNode, byte[] packet, List<IsoBmffBoxNode> boxes, Stream stream) {
+  public static IsoBmffNode UpdateNode(IsoBmffMetadataEntry? xmpEntry, IsoBmffNode? xmpNode, byte[] packet, List<IsoBmffNode> nodes, Stream stream) {
     byte[] data;
 
     if (xmpEntry?.Item is { } originalBox) {
       if (xmpNode is null) {
-        var index = boxes.FindIndex(originalBox, throwIfNotFound: true);
+        var index = nodes.FindIndex(originalBox, throwIfNotFound: true);
 
-        xmpNode = boxes[index];
+        xmpNode = nodes[index];
       }
 
       data = CreateData(stream, originalBox, packet);
@@ -95,11 +95,11 @@ internal class IsoBmffXmp {
       if (xmpNode is null) {
         var box = new IsoBmffBox(-1, 8, checked(8 + data.LongLength), IsoBmffTypes.Uuid);
 
-        xmpNode = boxes.InsertTopLevelBox(new IsoBmffBoxNode(box, -1, data: data));
+        xmpNode = nodes.InsertTopLevelNode(new IsoBmffNode(box, -1, data: data));
       }
     }
 
-    boxes.ReplaceData(xmpNode, data);
+    nodes.ReplaceData(xmpNode, data);
 
     return xmpNode;
   }

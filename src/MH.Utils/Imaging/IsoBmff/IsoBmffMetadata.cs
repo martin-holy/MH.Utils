@@ -153,7 +153,7 @@ internal class IsoBmffMetadata {
     return ((int)(width >> 16), (int)(height >> 16));
   }
 
-  public int _readOrientation(IsoBmffBox tkhd) {
+  private int _readOrientation(IsoBmffBox tkhd) {
     var version = _reader.ReadVersion(tkhd);
     if (version > 1) throw new InvalidDataException($"Unsupported tkhd version: {version}");
 
@@ -223,33 +223,35 @@ internal class IsoBmffMetadata {
     return (double)sampleCount * timescale / duration;
   }
 
+  // TODO move this to IsoBmffItemList?
   internal IsoBmffItemList _getOrCreateItemList() {
     if (_getItemList() is { } itemList) return itemList;
 
-    var editedBoxes = _editor.GetEditedBoxes();
-    var moovIndex = editedBoxes.FindIndex(IsoBmffTypes.Moov, throwIfNotFound: true);
-    var udtaIndex = editedBoxes.FindOrInsert(IsoBmffTypes.Udta, 8, moovIndex);
-    var metaIndex = editedBoxes.FindOrInsert(IsoBmffTypes.Meta, 12, udtaIndex, new byte[4]);
-    var ilstIndex = editedBoxes.FindOrInsert(IsoBmffTypes.Ilst, 8, metaIndex);
-    var ilst = editedBoxes[ilstIndex].Box;
+    var editedNodes = _editor.GetEditedNodes();
+    var moovIndex = editedNodes.FindIndex(IsoBmffTypes.Moov, throwIfNotFound: true);
+    var udtaIndex = editedNodes.FindOrInsert(IsoBmffTypes.Udta, 8, moovIndex);
+    var metaIndex = editedNodes.FindOrInsert(IsoBmffTypes.Meta, 12, udtaIndex, new byte[4]);
+    var ilstIndex = editedNodes.FindOrInsert(IsoBmffTypes.Ilst, 8, metaIndex);
+    var ilst = editedNodes[ilstIndex].Box;
 
     return _itemList = new IsoBmffItemList(_reader, ilst, isNew: true);
   }
 
+  // TODO move this to IsoBmffKeys?
   internal IsoBmffKeys _getOrCreateKeys() {
     if (_getKeys() is { } keys) return keys;
 
-    var editedBoxes = _editor.GetEditedBoxes();
-    var moovIndex = editedBoxes.FindIndex(IsoBmffTypes.Moov, throwIfNotFound: true);
-    var metaIndex = editedBoxes.FindOrInsert(IsoBmffTypes.Meta, 12, moovIndex, new byte[4]);
-    var keysIndex = editedBoxes.FindOrInsert(IsoBmffTypes.Keys, 16, metaIndex, new byte[8]);
-    var ilstIndex = editedBoxes.FindOrInsert(IsoBmffTypes.Ilst, 8, metaIndex);
+    var editedNodes = _editor.GetEditedNodes();
+    var moovIndex = editedNodes.FindIndex(IsoBmffTypes.Moov, throwIfNotFound: true);
+    var metaIndex = editedNodes.FindOrInsert(IsoBmffTypes.Meta, 12, moovIndex, new byte[4]);
+    var keysIndex = editedNodes.FindOrInsert(IsoBmffTypes.Keys, 16, metaIndex, new byte[8]);
+    var ilstIndex = editedNodes.FindOrInsert(IsoBmffTypes.Ilst, 8, metaIndex);
 
     _keys = new IsoBmffKeys(
       _reader,
-      editedBoxes[keysIndex].Box,
-      editedBoxes[ilstIndex].Box,
-      isNew: editedBoxes[keysIndex].OriginalNode is null);
+      editedNodes[keysIndex].Box,
+      editedNodes[ilstIndex].Box,
+      isNew: editedNodes[keysIndex].OriginalNode is null);
     _keysRead = true;
 
     return _keys;

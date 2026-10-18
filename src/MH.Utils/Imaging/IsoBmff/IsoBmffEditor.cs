@@ -6,52 +6,52 @@ using System.Linq;
 namespace MH.Utils.Imaging.IsoBmff;
 
 internal sealed class IsoBmffEditor(IsoBmffReader reader) {
-  private List<IsoBmffBoxNode>? _originalBoxes;
-  private List<IsoBmffBoxNode>? _editedBoxes;
+  private List<IsoBmffNode>? _originalNodes;
+  private List<IsoBmffNode>? _editedNodes;
 
-  public List<IsoBmffBoxNode> GetEditedBoxes() {
-    if (_editedBoxes != null) return _editedBoxes;
+  public List<IsoBmffNode> GetEditedNodes() {
+    if (_editedNodes != null) return _editedNodes;
 
-    _originalBoxes = reader._readBoxes();
-    _editedBoxes = [.. _originalBoxes.Select(x => new IsoBmffBoxNode(x.Box, x.Parent, x))];
+    _originalNodes = reader._readNodes();
+    _editedNodes = [.. _originalNodes.Select(x => new IsoBmffNode(x.Box, x.Parent, x))];
 
-    return _editedBoxes;
+    return _editedNodes;
   }
 
-  internal List<IsoBmffBoxNode> _getOriginalBoxes() {
-    GetEditedBoxes();
+  internal List<IsoBmffNode> _getOriginalNodes() {
+    GetEditedNodes();
 
-    return _originalBoxes!;
+    return _originalNodes!;
   }
 
   public void UpdateEntry(IsoBmffMetadataEntry entry, string value, string key) {
-    var editedBoxes = GetEditedBoxes();
+    var editedNodes = GetEditedNodes();
     var itemIndex = _findEntryIndex(entry, key);
 
-    var dataIndex = editedBoxes.FindIndex(
+    var dataIndex = editedNodes.FindIndex(
       x => x.Parent == itemIndex && x.Box.Type == IsoBmffTypes.Data);
 
     if (dataIndex < 0)
-      throw new InvalidOperationException($"The {key} data box was not found.");
+      throw new InvalidOperationException($"The {key} data node was not found.");
 
-    var dataNode = editedBoxes[dataIndex];
+    var dataNode = editedNodes[dataIndex];
     var prefix = _getDataPrefix(dataNode);
     var payload = _createData(value, prefix);
 
-    editedBoxes.ReplaceData(dataNode, payload);
+    editedNodes.ReplaceData(dataNode, payload);
 
-    entry.Node = editedBoxes[itemIndex];
+    entry.Node = editedNodes[itemIndex];
     entry.Value = value;
   }
 
   private int _findEntryIndex(IsoBmffMetadataEntry entry, string key) {
-    var editedBoxes = GetEditedBoxes();
+    var editedNodes = GetEditedNodes();
     var itemIndex = entry.Node is { } node
-      ? editedBoxes.IndexOf(node)
-      : editedBoxes.FindIndex(entry.Item);
+      ? editedNodes.IndexOf(node)
+      : editedNodes.FindIndex(entry.Item);
 
     if (itemIndex < 0)
-      throw new InvalidOperationException($"The {key} box was not found.");
+      throw new InvalidOperationException($"The {key} node was not found.");
 
     return itemIndex;
   }
@@ -70,7 +70,7 @@ internal sealed class IsoBmffEditor(IsoBmffReader reader) {
     return result;
   }
 
-  private byte[] _getDataPrefix(IsoBmffBoxNode dataNode) {
+  private byte[] _getDataPrefix(IsoBmffNode dataNode) {
     if (dataNode.Data is { Length: >= 8 } data)
       return data[..8];
 
@@ -83,19 +83,19 @@ internal sealed class IsoBmffEditor(IsoBmffReader reader) {
   }
 
   public IsoBmffMetadataEntry AddEntry(string key, string value, uint itemType, IsoBmffBox ilst) {
-    var editedBoxes = GetEditedBoxes();
+    var editedNodes = GetEditedNodes();
     var payload = _createData(value);
-    var ilstIndex = editedBoxes.FindIndex(ilst, throwIfNotFound: true);
-    var itemIndex = editedBoxes.InsertBox(itemType, 8, ilstIndex);
-    var itemNode = editedBoxes[itemIndex];
+    var ilstIndex = editedNodes.FindIndex(ilst, throwIfNotFound: true);
+    var itemIndex = editedNodes.InsertNode(itemType, 8, ilstIndex);
+    var itemNode = editedNodes[itemIndex];
 
-    editedBoxes.InsertBox(IsoBmffTypes.Data, 8 + payload.LongLength, itemIndex, payload);
+    editedNodes.InsertNode(IsoBmffTypes.Data, 8 + payload.LongLength, itemIndex, payload);
 
     return new IsoBmffMetadataEntry(key, value, itemNode.Box, itemNode);
   }
 
   public void RemoveEntry(IsoBmffMetadataEntry entry, string key) {
     var itemIndex = _findEntryIndex(entry, key);
-    GetEditedBoxes().RemoveBox(itemIndex);
+    GetEditedNodes().RemoveNode(itemIndex);
   }
 }

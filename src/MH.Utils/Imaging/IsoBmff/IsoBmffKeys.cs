@@ -118,15 +118,15 @@ internal sealed class IsoBmffKeys(IsoBmffReader reader, IsoBmffBox keys, IsoBmff
 
     var keyNames = _readKeys();
     var keyIndex = Array.IndexOf(keyNames, key);
-    var editedBoxes = editor.GetEditedBoxes();
+    var editedNodes = editor.GetEditedNodes();
 
     if (keyIndex < 0)
-      keyIndex = _addKey(key, editedBoxes);
+      keyIndex = _addKey(key, editedNodes);
 
     entries.Add(editor.AddEntry(key, value, (uint)keyIndex, ilst));
   }
 
-  private int _addKey(string key, List<IsoBmffBoxNode> editedBoxes) {
+  private int _addKey(string key, List<IsoBmffNode> editedNodes) {
     var keyNames = _readKeys();
 
     if (keyNames.Length > ushort.MaxValue)
@@ -140,8 +140,8 @@ internal sealed class IsoBmffKeys(IsoBmffReader reader, IsoBmffBox keys, IsoBmff
     var nameBytes = Encoding.UTF8.GetBytes(key[(separatorIndex + 1)..]);
     var entrySize = checked(8 + nameBytes.Length);
     var index = keyNames.Length;
-    var keysIndex = editedBoxes.FindIndex(keys, throwIfNotFound: true);
-    var keysNode = editedBoxes[keysIndex];
+    var keysIndex = editedNodes.FindIndex(keys, throwIfNotFound: true);
+    var keysNode = editedNodes[keysIndex];
     var originalData = _getKeysData(keysNode);
     var updatedData = new byte[checked(originalData.Length + entrySize)];
 
@@ -151,7 +151,7 @@ internal sealed class IsoBmffKeys(IsoBmffReader reader, IsoBmffBox keys, IsoBmff
     BinaryPrimitives.WriteUInt32BigEndian(updatedData.AsSpan(originalData.Length + 4), 0x6D647461);
     nameBytes.CopyTo(updatedData, originalData.Length + 8);
 
-    editedBoxes.ReplaceData(keysNode, updatedData);
+    editedNodes.ReplaceData(keysNode, updatedData);
 
     Array.Resize(ref keyNames, keyNames.Length + 1);
     keyNames[index] = key;
@@ -160,7 +160,7 @@ internal sealed class IsoBmffKeys(IsoBmffReader reader, IsoBmffBox keys, IsoBmff
     return index;
   }
 
-  private byte[] _getKeysData(IsoBmffBoxNode keysNode) {
+  private byte[] _getKeysData(IsoBmffNode keysNode) {
     if (keysNode.Data is { } data)
       return data;
 

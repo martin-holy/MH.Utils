@@ -254,7 +254,7 @@ public class IsoBmffLayoutDifferTests {
 
     file._metadata.SetKeywords("hello");
 
-    var editedBoxes = file._metadata._editor._getEditedBoxes();
+    var editedBoxes = file._metadata._editor.GetEditedBoxes();
     var planner = new IsoBmffLayoutPlanner(originalBoxes, editedBoxes, file._reader.GetBoxChildrenOffset);
     var plan = planner.CreateEditedLayout(original, editedBoxes);
     var diff = IsoBmffLayoutDiffer.Diff(

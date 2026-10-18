@@ -21,7 +21,7 @@ public class IsoBmffFileIntegrationTests {
     var xmpBox = file._reader.Find(IsoBmffTypes.Uuid)
       ?? throw new InvalidDataException("XMP uuid box was not found.");
 
-    var editedBoxes = file._metadata._editor._getEditedBoxes();
+    var editedBoxes = file._metadata._editor.GetEditedBoxes();
     var editedXmpBox = editedBoxes.Single(x => x.Box.Type == IsoBmffTypes.Uuid && x.Box.Offset == xmpBox.Offset);
 
     var xmpPacket = file.Xmp.ToPacket();

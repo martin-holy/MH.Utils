@@ -21,6 +21,19 @@ internal sealed class IsoBmffKeys(IsoBmffReader reader, IsoBmffBox keys, IsoBmff
     return new IsoBmffKeys(reader, keys, ilst);
   }
 
+  public static IsoBmffKeys Create(IsoBmffReader reader, List<IsoBmffNode> editedNodes) {
+    var moovIndex = editedNodes.FindIndex(IsoBmffTypes.Moov, throwIfNotFound: true);
+    var metaIndex = editedNodes.FindOrInsert(IsoBmffTypes.Meta, 12, moovIndex, new byte[4]);
+    var keysIndex = editedNodes.FindOrInsert(IsoBmffTypes.Keys, 16, metaIndex, new byte[8]);
+    var ilstIndex = editedNodes.FindOrInsert(IsoBmffTypes.Ilst, 8, metaIndex);
+
+    return new IsoBmffKeys(
+      reader,
+      editedNodes[keysIndex].Box,
+      editedNodes[ilstIndex].Box,
+      isNew: editedNodes[keysIndex].OriginalNode is null);
+  }
+
   public string? GetKeywords() =>
     _getValue("mdta:com.apple.quicktime.keywords");
 

@@ -226,24 +226,16 @@ internal class IsoBmffMetadata {
   internal IsoBmffItemList _getOrCreateItemList() {
     if (_getItemList() is { } itemList) return itemList;
 
-    return _itemList = IsoBmffItemList.Create(_reader, _editor.GetEditedNodes());
+    _itemList = IsoBmffItemList.Create(_reader, _editor.GetEditedNodes());
+    _itemListRead = true;
+
+    return _itemList;
   }
 
-  // TODO move this to IsoBmffKeys?
   internal IsoBmffKeys _getOrCreateKeys() {
     if (_getKeys() is { } keys) return keys;
 
-    var editedNodes = _editor.GetEditedNodes();
-    var moovIndex = editedNodes.FindIndex(IsoBmffTypes.Moov, throwIfNotFound: true);
-    var metaIndex = editedNodes.FindOrInsert(IsoBmffTypes.Meta, 12, moovIndex, new byte[4]);
-    var keysIndex = editedNodes.FindOrInsert(IsoBmffTypes.Keys, 16, metaIndex, new byte[8]);
-    var ilstIndex = editedNodes.FindOrInsert(IsoBmffTypes.Ilst, 8, metaIndex);
-
-    _keys = new IsoBmffKeys(
-      _reader,
-      editedNodes[keysIndex].Box,
-      editedNodes[ilstIndex].Box,
-      isNew: editedNodes[keysIndex].OriginalNode is null);
+    _keys = IsoBmffKeys.Create(_reader, _editor.GetEditedNodes());
     _keysRead = true;
 
     return _keys;

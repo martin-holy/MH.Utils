@@ -9,6 +9,8 @@ internal sealed class IsoBmffEditor(IsoBmffReader reader) {
   private List<IsoBmffNode>? _originalNodes;
   private List<IsoBmffNode>? _editedNodes;
 
+  public bool IsModified { get; private set; }
+
   public List<IsoBmffNode> GetEditedNodes() {
     if (_editedNodes != null) return _editedNodes;
 
@@ -42,6 +44,8 @@ internal sealed class IsoBmffEditor(IsoBmffReader reader) {
 
     entry.Node = editedNodes[itemIndex];
     entry.Value = value;
+
+    IsModified = true;
   }
 
   private int _findEntryIndex(IsoBmffMetadataEntry entry, string key) {
@@ -91,11 +95,14 @@ internal sealed class IsoBmffEditor(IsoBmffReader reader) {
 
     editedNodes.InsertNode(IsoBmffTypes.Data, 8 + payload.LongLength, itemIndex, payload);
 
+    IsModified = true;
+
     return new IsoBmffMetadataEntry(key, value, itemNode.Box, itemNode);
   }
 
   public void RemoveEntry(IsoBmffMetadataEntry entry, string key) {
     var itemIndex = _findEntryIndex(entry, key);
     GetEditedNodes().RemoveNode(itemIndex);
+    IsModified = true;
   }
 }

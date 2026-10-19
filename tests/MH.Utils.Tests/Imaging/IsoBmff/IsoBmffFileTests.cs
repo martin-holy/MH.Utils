@@ -299,21 +299,82 @@ public class IsoBmffFileTests {
 
   [TestMethod]
   public void ItemList_UpdateKeywords_AfterSave() {
-    using var stream = _createTestFile(
-      beforeFreeSize: 0,
-      afterFreeSize: 128,
-      withItemList: false);
+    using var stream = _createTestFile(beforeFreeSize: 128, afterFreeSize: 0, withItemList: false);
+
+    var originalLength = stream.Length;
+    var originalMoov = new IsoBmffReader(stream).Find(IsoBmffTypes.Moov)
+      ?? throw new InvalidDataException("Original moov box was not found.");
+    var originalMdatPayload = _readBoxPayload(stream, IsoBmffTypes.Mdat);
+
     using var file = new IsoBmffFile(stream);
 
     file._metadata.SetKeywords("first");
     file.Save();
 
+    var movedMoov = file._reader.Find(IsoBmffTypes.Moov)
+      ?? throw new InvalidDataException("Saved moov box was not found.");
+
+    Assert.IsTrue(movedMoov.Offset < originalMoov.Offset);
+    Assert.AreEqual(originalLength, stream.Length);
     Assert.AreEqual("first", file._metadata.GetItemListKeywords());
+    CollectionAssert.AreEqual(originalMdatPayload, _readBoxPayload(stream, IsoBmffTypes.Mdat));
 
     file._metadata.SetKeywords("second");
     file.Save();
 
     Assert.AreEqual("second", file._metadata.GetItemListKeywords());
+    Assert.AreEqual(originalLength, stream.Length);
+    CollectionAssert.AreEqual(originalMdatPayload, _readBoxPayload(stream, IsoBmffTypes.Mdat));
+  }
+
+  [TestMethod]
+  public void Save_FullRewrite_AddsXmpAndMultipleEdits_FileBacked() {
+    using var source = _createTestFile(
+      beforeFreeSize: 0,
+      afterFreeSize: 0,
+      withItemList: false,
+      withChunkOffsetTable: false);
+
+    var originalLength = source.Length;
+    var originalBytes = source.ToArray();
+    var originalMdatPayload = _readBoxPayload(source, IsoBmffTypes.Mdat);
+    var path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.mp4");
+
+    try {
+      File.WriteAllBytes(path, originalBytes);
+
+      using (var file = new IsoBmffFile(path)) {
+        file._metadata.SetKeywords("metadata keyword");
+        file._metadata.SetComment("metadata comment");
+        file.Xmp.SetKeywords(["XMP keyword"]);
+        file.Save();
+      }
+
+      using var savedFile = new IsoBmffFile(path);
+
+      Assert.IsTrue(new FileInfo(path).Length > originalLength);
+      Assert.AreEqual("metadata keyword", savedFile._metadata.GetItemListKeywords());
+      Assert.AreEqual("metadata comment", savedFile._metadata.GetItemListComment());
+      Assert.IsNotNull(savedFile._reader.Find(IsoBmffTypes.Uuid));
+      CollectionAssert.AreEqual(new string[] { "XMP keyword" }, savedFile.Xmp.GetKeywords());
+      CollectionAssert.AreEqual(originalMdatPayload, _readBoxPayload(savedFile._reader._stream, IsoBmffTypes.Mdat));
+    }
+    finally {
+      if (File.Exists(path))
+        File.Delete(path);
+    }
+  }
+
+  private static byte[] _readBoxPayload(Stream stream, uint type) {
+    var reader = new IsoBmffReader(stream);
+    var box = reader.Find(type)
+      ?? throw new InvalidDataException($"The {IsoBmffTypes.GetTypeName(type)} box was not found.");
+    var payload = new byte[checked((int)box.DataSize)];
+
+    stream.Position = box.DataOffset;
+    stream.ReadExactly(payload);
+
+    return payload;
   }
 
   private static void _assertKeywordData(IsoBmffNode dataNode, string value) {
@@ -327,12 +388,12 @@ public class IsoBmffFileTests {
     CollectionAssert.AreEqual(expected, dataNode.Data);
   }
 
-  private sealed record BoxSnapshot(uint Type, long Offset, long Size, int Parent);
+  internal static MemoryStream _createTestFile(
+    int beforeFreeSize = 32,
+    int afterFreeSize = 32,
+    bool withItemList = true,
+    bool withChunkOffsetTable = true) {
 
-  private static List<BoxSnapshot> _snapshot(List<IsoBmffNode> boxes) =>
-    [.. boxes.Select(x => new BoxSnapshot(x.Box.Type, x.Box.Offset, x.Box.Size, x.Parent))];
-
-  internal static MemoryStream _createTestFile(int beforeFreeSize = 32, int afterFreeSize = 32, bool withItemList = true) {
     var stream = new MemoryStream();
 
     _writeBox(stream, "ftyp", 24);
@@ -346,7 +407,7 @@ public class IsoBmffFileTests {
       if (withItemList)
         _writeItemList(moov);
 
-      _writeVideoTrack(moov);
+      _writeVideoTrack(moov, withChunkOffsetTable);
     });
 
     if (afterFreeSize > 0)
@@ -374,7 +435,7 @@ public class IsoBmffFileTests {
     });
   }
 
-  private static void _writeVideoTrack(Stream moov) {
+  private static void _writeVideoTrack(Stream moov, bool withChunkOffsetTable) {
     _writeContainer(moov, "trak", trak => {
       _writeBox(trak, "tkhd", 92);
 
@@ -400,7 +461,9 @@ public class IsoBmffFileTests {
             _writeStts(stbl);
             _writeBox(stbl, "stsz", 32);
             _writeBox(stbl, "stsc", 32);
-            _writeBox(stbl, "co64", 32);
+
+            if (withChunkOffsetTable)
+              _writeBox(stbl, "co64", 32);
           });
         });
       });

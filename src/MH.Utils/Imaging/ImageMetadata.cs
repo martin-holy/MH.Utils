@@ -63,7 +63,7 @@ public class ImageMetadata {
   private GpsCoordinate? _getGpsCoordinate() =>
     Jpeg.Exif.GetGpsCoordinate();
 
-  public void _setGpsCoordinate(GpsCoordinate? gps) {
+  private void _setGpsCoordinate(GpsCoordinate? gps) {
     if (gps.AlmostEquals(GpsCoordinate)) return;
 
     Jpeg.Exif.SetGpsCoordinate(gps);

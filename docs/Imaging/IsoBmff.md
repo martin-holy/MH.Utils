@@ -1,27 +1,28 @@
 # ISO BMFF
 
-This namespace reads and edits MP4/ISO BMFF box metadata. Editing is staged: metadata builds an edited box tree; the planner assigns offsets; the differ creates moves and writes; the executor applies them to a seekable stream.
+This namespace reads and edits MP4/ISO BMFF box metadata. Editing is staged: metadata edits an `IsoBmffNode` tree; the planner assigns offsets; the differ creates in-place moves and writes; and the executor applies those operations or performs a full rewrite. `IsoBmffFile.Save` orchestrates the appropriate save path.
 
 ## Classes
 
-- `IsoBmffFile` — Entry point. Exposes file metadata and XMP, and combines their edits into the edited box tree.
-- `IsoBmffReader` — Parses boxes, finds boxes and children, and builds the original box tree.
+- `IsoBmffFile` — Entry point. Exposes file metadata and XMP, and saves edits using in-place execution or a full rewrite.
+- `IsoBmffReader` — Parses boxes, finds boxes and children, and builds the original node tree.
 - `IsoBmffBox` — Box type, original offset, header size, and total size.
-- `IsoBmffBoxNode` — A box in the original or edited tree. Keeps its original-node link and optional replacement `Data` bytes.
-- `IsoBmffMetadata` — Reads video properties and edits item-list keywords.
-- `IsoBmffItemList` — Reads and edits `ilst` keyword metadata.
-- `IsoBmffKeys` — Reads `mdta` metadata.
-- `IsoBmffXmp` — Finds XMP in a `uuid` box and builds its payload.
+- `IsoBmffNode` — A box in the original or edited tree. Keeps its original-node link and optional replacement `Data` bytes.
+- `IsoBmffEditor` — Manages the edited node tree and applies metadata-entry edits.
+- `IsoBmffMetadata` — Reads video properties and coordinates access to item-list and `mdta` metadata stores.
+- `IsoBmffItemList` — Reads and edits item-list metadata stored in `ilst`.
+- `IsoBmffKeys` — Reads and edits `mdta` metadata.
+- `IsoBmffXmp` — Finds XMP in a `uuid` box and builds or updates its payload.
 - `IsoBmffMetadataEntry` — Parsed metadata value associated with its source box.
 - `IsoBmffTypes` — FourCC constants and type-name helpers.
 - `IsoBmffLayoutPlanner` — Assigns offsets, reuses `free` space where possible, and reports when a full rewrite is required.
 - `IsoBmffLayout` / `IsoBmffLayoutBox` — Planned box offsets and sizes.
 - `IsoBmffLayoutDiffer` — Compares layouts and produces move and write operations.
-- `IsoBmffLayoutExecutor` — Applies moves and writes; it does not make planning decisions.
+- `IsoBmffLayoutExecutor` — Executes in-place moves and writes or writes a full rewrite.
 
 ## In-place layout algorithm
 
-The in-place plan must fit the edited boxes into the original file’s existing byte ranges. It preserves the original file length. If the required space cannot be made available, the planner sets `RequiresFullRewrite`.
+An in-place plan must fit the edited boxes into the original file’s existing byte ranges and preserves the original file length. If the required space cannot be made available, the planner sets `RequiresFullRewrite`.
 
 ### 1. Build the edited tree
 
@@ -35,7 +36,7 @@ Size changes propagate to ancestors in the edited tree. Payload-only changes wit
 
 The original layout maps each original box identity to its original offset and size. This is the source coordinate system for moves and comparisons. It is not modified while planning.
 
-The planner works with top-level boxes because moving a container moves its entire contents. Child offsets are calculated later from the edited tree.
+The planner works with top-level boxes because moving a container moves its contents. Child offsets are calculated later from the edited tree.
 
 ### 3. Identify changed roots
 
@@ -73,23 +74,21 @@ Unedited roots retain their original child layout, shifted with their top-level 
 
 The differ compares original and edited layouts:
 
-- A moved, existing top-level non-`free` box produces a move with its original source offset, planned destination offset, and original size.
+- A moved existing box produces a move unless that move is already covered by a moved ancestor.
 - A new box or changed box size produces a header write at the planned offset.
 - A node with `Data` produces a payload write at `planned offset + header size`.
 - A moved or resized `free` box gets an updated header; its contents are not treated as a move.
 
 Header and payload writes are separate `(Offset, Data)` operations. Same-size payload edits must be passed to the differ even when the layout itself did not change.
 
-### 8. Execute in-place operations
+### 8. Save the edited file
 
-For an in-place plan, execute all moves before writes. The executor copies overlapping ranges in the safe direction and then writes the supplied bytes at their planned offsets. It does not choose a layout or perform a full rewrite.
+For an in-place plan, execute all moves before writes. The executor copies overlapping ranges in the safe direction, then writes the supplied bytes at their planned offsets. It does not make planning decisions.
 
-Do not execute an in-place diff when `RequiresFullRewrite` is true. That plan needs a separate writer that reconstructs the output from the edited layout.
+When `RequiresFullRewrite` is true, `IsoBmffFile.Save` uses the full-rewrite path. The executor writes the edited layout to a separate destination stream, regenerating headers and relocating `stco` and `co64` chunk offsets as needed. The file save path then replaces the original file or copies the result back to the caller-provided stream.
 
 ## TODO
 
-1. Implement the full-rewrite writer for plans where `RequiresFullRewrite` is `true`.
-2. Add a single save/orchestration path that plans, chooses in-place execution or full rewrite, then applies the result.
-3. Expand end-to-end tests for real moves, new top-level XMP boxes, multiple edits, and byte preservation outside changed regions.
-4. Cover size-zero and extended-size headers, including boxes whose updated size no longer fits the original header form.
-5. Add layout invariants/tests for child containment, sibling adjacency, and valid `free` box sizes.
+- Define and test the behavior when both item-list and `mdta` keywords or comments exist. Generic getters prefer item-list values, while generic setters currently target only the item list; specify whether that is intentional and what happens when removing the preferred value.
+- Validate `data` box type and locale fields, and define which text encodings are supported. `ReadDataString` currently assumes UTF-8; ensure reads and writes handle or explicitly reject other supported formats.
+- Harden `keys` table parsing: validate the key count and each entry size against the containing `keys` box before allocating or reading, and add tests for truncated and malformed tables.

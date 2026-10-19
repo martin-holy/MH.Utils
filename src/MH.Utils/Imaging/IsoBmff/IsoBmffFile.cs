@@ -38,8 +38,6 @@ public sealed class IsoBmffFile : IDisposable {
   }
 
   public IsoBmffFile(Stream stream) {
-    ArgumentNullException.ThrowIfNull(stream);
-
     _stream = stream;
     _reader = new IsoBmffReader(_stream);
     _metadata = new IsoBmffMetadata(_stream, _reader);

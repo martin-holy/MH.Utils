@@ -88,8 +88,16 @@ public class XmpMetadata {
   }
 
   public void SetKeywords(string[]? values) {
-    EnsureDoc().SetArray(XmpNs.Dc + "subject", values);
-    EnsureDoc().SetArray(XmpNs.MicrosoftPhoto + "LastKeywordXMP", values);
+    var doc = EnsureDoc();
+    doc.SetArray(XmpNs.Dc + "subject", values);
+
+    var mpXmpKeywordsName = XmpNs.MicrosoftPhoto + "LastKeywordXMP";
+    if (doc.GetArray(mpXmpKeywordsName) != null)
+      doc.SetArray(mpXmpKeywordsName, values);
+
+    var mpIptcKeywordsName = XmpNs.MicrosoftPhoto + "LastKeywordIPTC";
+    if (doc.GetArray(mpIptcKeywordsName) != null)
+      doc.SetArray(mpIptcKeywordsName, values);
   }
 
   public MpRegionCollection? GetPeople() {

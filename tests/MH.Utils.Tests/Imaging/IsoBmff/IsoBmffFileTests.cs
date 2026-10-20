@@ -345,7 +345,7 @@ public class IsoBmffFileTests {
 
       using (var file = new IsoBmffFile(path)) {
         file._metadata.SetKeywords("metadata keyword");
-        file._metadata.SetComment("metadata comment");
+        file._metadata.SetItemListComment("metadata comment");
         file.Xmp.SetKeywords(["XMP keyword"]);
         file.Save();
       }

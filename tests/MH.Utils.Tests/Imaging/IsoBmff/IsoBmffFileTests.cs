@@ -23,7 +23,7 @@ public class IsoBmffFileTests {
     Debug.WriteLine("original boxes");
     file._reader._dumpBoxes();
 
-    //file._metadata.SetKeywords("jiný delší text než předtím");
+    //file._metadata.SetItemListKeywords("jiný delší text než předtím");
     //file._metadata.SetComment("test comment");
     file._metadata.SetKeysKeywords("test keys keyword");
     file._metadata.SetKeysComment("test keys comment");
@@ -193,7 +193,7 @@ public class IsoBmffFileTests {
     Assert.AreEqual(originalMoovSize + 28, nodes[moovIndex].Box.Size);
 
     // Set Keywords
-    file._metadata.SetKeywords("hello");
+    file._metadata.SetItemListKeywords("hello");
 
     nodes = file._metadata._editor.GetEditedNodes();
 
@@ -221,7 +221,7 @@ public class IsoBmffFileTests {
     Assert.AreEqual("hello", itemList.GetKeywords());
 
     // Update Keywords
-    file._metadata.SetKeywords("world");
+    file._metadata.SetItemListKeywords("world");
 
     Assert.AreEqual("world", itemList.GetKeywords());
 
@@ -241,7 +241,7 @@ public class IsoBmffFileTests {
 
     // Update Keywords 2
     const string longerValue = "a much longer keyword value";
-    file._metadata.SetKeywords(longerValue);
+    file._metadata.SetItemListKeywords(longerValue);
 
     Assert.AreEqual(longerValue, itemList.GetKeywords());
 
@@ -263,7 +263,7 @@ public class IsoBmffFileTests {
     var smallerValueSize = Encoding.UTF8.GetByteCount(smallerValue);
     var expectedSmallerItemSize = 24 + smallerValueSize;
 
-    file._metadata.SetKeywords(smallerValue);
+    file._metadata.SetItemListKeywords(smallerValue);
 
     nodes = file._metadata._editor.GetEditedNodes();
 
@@ -278,7 +278,7 @@ public class IsoBmffFileTests {
     Assert.AreEqual("x", itemList.GetKeywords());
 
     // Remove
-    file._metadata.SetKeywords(null);
+    file._metadata.SetItemListKeywords(null);
 
     nodes = file._metadata._editor.GetEditedNodes();
 
@@ -308,7 +308,7 @@ public class IsoBmffFileTests {
 
     using var file = new IsoBmffFile(stream);
 
-    file._metadata.SetKeywords("first");
+    file._metadata.SetItemListKeywords("first");
     file.Save();
 
     var movedMoov = file._reader.Find(IsoBmffTypes.Moov)
@@ -319,7 +319,7 @@ public class IsoBmffFileTests {
     Assert.AreEqual("first", file._metadata.GetItemListKeywords());
     CollectionAssert.AreEqual(originalMdatPayload, _readBoxPayload(stream, IsoBmffTypes.Mdat));
 
-    file._metadata.SetKeywords("second");
+    file._metadata.SetItemListKeywords("second");
     file.Save();
 
     Assert.AreEqual("second", file._metadata.GetItemListKeywords());
@@ -344,7 +344,7 @@ public class IsoBmffFileTests {
       File.WriteAllBytes(path, originalBytes);
 
       using (var file = new IsoBmffFile(path)) {
-        file._metadata.SetKeywords("metadata keyword");
+        file._metadata.SetItemListKeywords("metadata keyword");
         file._metadata.SetItemListComment("metadata comment");
         file.Xmp.SetKeywords(["XMP keyword"]);
         file.Save();

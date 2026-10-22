@@ -487,7 +487,7 @@ public class IsoBmffLayoutPlannerTests {
       return planner.CreateEditedLayout(original, editedNodes);
     }
 
-    file._metadata.SetKeywords("hello");
+    file._metadata.SetItemListKeywords("hello");
 
     var editedNodes = file._metadata._editor.GetEditedNodes();
     var keyw = editedNodes.Single(x => x.Box.Type == IsoBmffTypes.Keyw);
@@ -505,14 +505,14 @@ public class IsoBmffLayoutPlannerTests {
       plan.Layout[ilst].Offset);
     _assertValidTopLevelLayout(plan.Layout, stream.Length);
 
-    file._metadata.SetKeywords("a longer value");
+    file._metadata.SetItemListKeywords("a longer value");
     plan = CreatePlan();
 
     Assert.IsFalse(plan.RequiresFullRewrite);
     Assert.AreEqual(keyw.Box.Size, plan.Layout[keyw].Size);
     Assert.AreEqual(data.Box.Size, plan.Layout[data].Size);
 
-    file._metadata.SetKeywords(null);
+    file._metadata.SetItemListKeywords(null);
     plan = CreatePlan();
 
     Assert.IsFalse(plan.RequiresFullRewrite);
@@ -634,7 +634,7 @@ public class IsoBmffLayoutPlannerTests {
       withItemList: false);
 
     var file = new IsoBmffFile(stream);
-    file._metadata.SetKeywords("layout-invariants");
+    file._metadata.SetItemListKeywords("layout-invariants");
 
     var originalNodes = file._metadata._editor._getOriginalNodes();
     var editedNodes = file._metadata._editor.GetEditedNodes();

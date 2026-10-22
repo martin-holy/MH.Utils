@@ -15,7 +15,7 @@ public class IsoBmffFileIntegrationTests {
     var originalPlanner = new IsoBmffLayoutPlanner(originalNodes, originalNodes, file._reader.GetBoxChildrenOffset);
     var original = originalPlanner.CreateOriginalLayout();
 
-    file._metadata.SetKeywords("box-keyword");
+    file._metadata.SetItemListKeywords("box-keyword");
     file.Xmp.SetKeywords(["xmp-keyword"]);
 
     var xmpBox = file._reader.Find(IsoBmffTypes.Uuid)
@@ -78,7 +78,7 @@ public class IsoBmffFileIntegrationTests {
       file._reader.GetBoxChildrenOffset);
     var original = originalPlanner.CreateOriginalLayout();
 
-    file._metadata.SetKeywords("box-keyword");
+    file._metadata.SetItemListKeywords("box-keyword");
     file.Xmp.SetKeywords(["xmp-keyword"]);
 
     var editedNodes = file._getEditedNodes();
@@ -144,7 +144,7 @@ public class IsoBmffFileIntegrationTests {
       file._reader.GetBoxChildrenOffset);
     var original = originalPlanner.CreateOriginalLayout();
 
-    file._metadata.SetKeywords("box-keyword");
+    file._metadata.SetItemListKeywords("box-keyword");
     file.Xmp.SetKeywords(["xmp-keyword"]);
 
     var editedNodes = file._getEditedNodes();
@@ -192,7 +192,7 @@ public class IsoBmffFileIntegrationTests {
     var originalLength = stream.Length;
     var file = new IsoBmffFile(stream);
 
-    file._metadata.SetKeywords("box-keyword");
+    file._metadata.SetItemListKeywords("box-keyword");
     file.Xmp.SetKeywords(["xmp-keyword"]);
 
     file.Save();
@@ -256,7 +256,7 @@ public class IsoBmffFileIntegrationTests {
         Assert.IsNull(file._metadata._getItemList());
         Assert.IsNull(file._reader.Find(IsoBmffTypes.Uuid));
 
-        file._metadata.SetKeywords("box-keyword");
+        file._metadata.SetItemListKeywords("box-keyword");
         file.Xmp.SetKeywords(["xmp-keyword"]);
         file.Save();
       }
@@ -293,7 +293,7 @@ public class IsoBmffFileIntegrationTests {
         source.CopyTo(destination);
 
       using (var file = new IsoBmffFile(path)) {
-        file._metadata.SetKeywords("box-keyword");
+        file._metadata.SetItemListKeywords("box-keyword");
         file.Xmp.SetKeywords(["xmp-keyword"]);
         file.Save();
       }
@@ -336,8 +336,8 @@ public class IsoBmffFileIntegrationTests {
         var original = originalPlanner.CreateOriginalLayout();
         var originalXmp = originalNodes.Single(x => x.Box.Type == IsoBmffTypes.Uuid);
 
-        file._metadata.SetKeywords("intermediate-box-keyword");
-        file._metadata.SetKeywords("box-keyword");
+        file._metadata.SetItemListKeywords("intermediate-box-keyword");
+        file._metadata.SetItemListKeywords("box-keyword");
         file.Xmp.SetKeywords(["intermediate-xmp-keyword"]);
         file.Xmp.SetKeywords(["xmp-keyword"]);
 

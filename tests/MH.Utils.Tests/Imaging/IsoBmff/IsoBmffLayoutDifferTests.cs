@@ -252,7 +252,7 @@ public class IsoBmffLayoutDifferTests {
     var originalPlanner = new IsoBmffLayoutPlanner(originalNodes, originalNodes, file._reader.GetBoxChildrenOffset);
     var original = originalPlanner.CreateOriginalLayout();
 
-    file._metadata.SetKeywords("hello");
+    file._metadata.SetItemListKeywords("hello");
 
     var editedNodes = file._metadata._editor.GetEditedNodes();
     var planner = new IsoBmffLayoutPlanner(originalNodes, editedNodes, file._reader.GetBoxChildrenOffset);

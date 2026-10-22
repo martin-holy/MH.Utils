@@ -90,11 +90,6 @@ internal class IsoBmffMetadata {
     keys.SetKeywords(value, _editor);
   }
 
-  // TODO SetKeysKeywords too or not? 
-  public void SetKeywords(string? value) {
-    SetItemListKeywords(value);
-  }
-
   public string? GetItemListComment() =>
     _getItemList()?.GetComment();
 
@@ -112,11 +107,6 @@ internal class IsoBmffMetadata {
   public void SetKeysComment(string? value) {
     var keys = _getOrCreateKeys();
     keys.SetComment(value, _editor);
-  }
-
-  // TODO SetKeysComment too or not? 
-  public void SetComment(string? value) {
-    SetItemListComment(value);
   }
 
   private IsoBmffBox? _findVideoTrack(IsoBmffBox moov) {

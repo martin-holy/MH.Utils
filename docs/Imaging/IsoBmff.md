@@ -89,6 +89,5 @@ When `RequiresFullRewrite` is true, `IsoBmffFile.Save` uses the full-rewrite pat
 
 ## TODO
 
-- Define and test the behavior when both item-list and `mdta` keywords or comments exist. Generic getters prefer item-list values, while generic setters currently target only the item list; specify whether that is intentional and what happens when removing the preferred value.
 - Validate `data` box type and locale fields, and define which text encodings are supported. `ReadDataString` currently assumes UTF-8; ensure reads and writes handle or explicitly reject other supported formats.
 - Harden `keys` table parsing: validate the key count and each entry size against the containing `keys` box before allocating or reading, and add tests for truncated and malformed tables.

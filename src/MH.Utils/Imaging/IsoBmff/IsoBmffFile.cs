@@ -68,30 +68,28 @@ public sealed class IsoBmffFile : IDisposable {
     return nodes;
   }
 
-  public void Save() {
-    var savePlan = _createSavePlan();
+  public void Write(IWritePlan plan) {
+    if (plan is not WritePlan writePlan)
+      throw new ArgumentException("Incompatible write plan.", nameof(plan));
 
-    if (!savePlan.Plan.RequiresFullRewrite &&
-        savePlan.Diff!.Moves.Count == 0 &&
-        savePlan.Diff.Writes.Count == 0)
+    if (!writePlan.Plan.RequiresFullRewrite &&
+        writePlan.Diff!.Moves.Count == 0 &&
+        writePlan.Diff.Writes.Count == 0)
       return;
 
     if (_filePath is not null)
-      _saveToPath(savePlan, _filePath);
+      _writeToPath(writePlan, _filePath);
     else
-      _saveToStreamBacked(savePlan);
+      _writeToStreamBacked(writePlan);
   }
 
-  private _savePlan _createSavePlan() {
+  public IWritePlan CreateWritePlan() {
     if (!_stream.CanRead || !_stream.CanSeek)
-      throw new InvalidOperationException("Saving requires a readable, seekable source stream.");
+      throw new InvalidOperationException("Writing requires a readable, seekable source stream.");
 
     var originalNodes = _metadata._editor._getOriginalNodes();
     var editedNodes = _getEditedNodes();
-    var planner = new IsoBmffLayoutPlanner(
-      originalNodes,
-      editedNodes,
-      _reader.GetBoxChildrenOffset);
+    var planner = new IsoBmffLayoutPlanner(originalNodes, editedNodes, _reader.GetBoxChildrenOffset);
     var original = planner.CreateOriginalLayout();
     var plan = planner.CreateEditedLayout(original, editedNodes);
     var diff = plan.RequiresFullRewrite
@@ -101,14 +99,14 @@ public sealed class IsoBmffFile : IDisposable {
         plan.Layout,
         editedNodes.Where(x => x.Data is not null));
 
-    return new _savePlan(originalNodes, editedNodes, original, plan, diff);
+    return new WritePlan(originalNodes, editedNodes, original, plan, diff);
   }
 
-  private void _saveToPath(_savePlan savePlan, string filePath) {
-    if (!savePlan.Plan.RequiresFullRewrite) {
-      _saveToStream(_stream, savePlan);
+  private void _writeToPath(WritePlan writePlan, string filePath) {
+    if (!writePlan.Plan.RequiresFullRewrite) {
+      _writeToStream(_stream, writePlan);
       _stream.Flush();
-      _reloadAfterSave();
+      _reloadAfterWrite();
       return;
     }
 
@@ -116,13 +114,8 @@ public sealed class IsoBmffFile : IDisposable {
     var temporaryPath = _createTemporaryPath(directory, Path.GetFileName(filePath));
 
     try {
-      using (var temporary = new FileStream(
-        temporaryPath,
-        FileMode.CreateNew,
-        FileAccess.ReadWrite,
-        FileShare.None)) {
-
-        _saveToStream(temporary, savePlan);
+      using (var temporary = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None)) {
+        _writeToStream(temporary, writePlan);
         temporary.Flush(flushToDisk: true);
       }
 
@@ -137,65 +130,61 @@ public sealed class IsoBmffFile : IDisposable {
       }
 
       _stream = new FileStream(filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.Read);
-      _reloadAfterSave();
+      _reloadAfterWrite();
     }
     finally {
       _deleteTemporaryFile(temporaryPath);
     }
   }
 
-  private void _saveToStreamBacked(_savePlan savePlan) {
+  private void _writeToStreamBacked(WritePlan writePlan) {
     if (!_stream.CanWrite)
-      throw new InvalidOperationException("Saving to a stream requires a writable stream.");
+      throw new InvalidOperationException("Writing to a stream requires a writable stream.");
 
-    if (!savePlan.Plan.RequiresFullRewrite) {
-      _saveToStream(_stream, savePlan);
+    if (!writePlan.Plan.RequiresFullRewrite) {
+      _writeToStream(_stream, writePlan);
       _stream.Flush();
-      _reloadAfterSave();
+      _reloadAfterWrite();
       return;
     }
 
-    var temporaryPath = _createTemporaryPath(Path.GetTempPath(), "isobmff");
+    var tmpPath = _createTemporaryPath(Path.GetTempPath(), "isobmff");
 
     try {
-      using (var temporary = new FileStream(
-        temporaryPath,
-        FileMode.CreateNew,
-        FileAccess.ReadWrite,
-        FileShare.None)) {
-        _saveToStream(temporary, savePlan);
-        temporary.Flush(flushToDisk: true);
-        temporary.Position = 0;
+      using (var tmp = new FileStream(tmpPath, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None)) {
+        _writeToStream(tmp, writePlan);
+        tmp.Flush(flushToDisk: true);
+        tmp.Position = 0;
 
         _stream.Position = 0;
-        temporary.CopyTo(_stream);
-        _stream.SetLength(temporary.Length);
+        tmp.CopyTo(_stream);
+        _stream.SetLength(tmp.Length);
         _stream.Flush();
       }
 
-      _reloadAfterSave();
+      _reloadAfterWrite();
     }
     finally {
-      _deleteTemporaryFile(temporaryPath);
+      _deleteTemporaryFile(tmpPath);
     }
   }
 
-  private void _saveToStream(Stream destination, _savePlan savePlan) {
+  private void _writeToStream(Stream destination, WritePlan writePlan) {
     if (!destination.CanWrite || !destination.CanSeek)
       throw new InvalidOperationException("The destination stream must be writable and seekable.");
 
-    if (savePlan.Plan.RequiresFullRewrite) {
+    if (writePlan.Plan.RequiresFullRewrite) {
       IsoBmffLayoutExecutor.ExecuteFullRewrite(
         _stream,
         destination,
-        savePlan.OriginalNodes,
-        savePlan.EditedNodes,
-        savePlan.Plan.Layout,
+        writePlan.OriginalNodes,
+        writePlan.EditedNodes,
+        writePlan.Plan.Layout,
         _reader.GetBoxChildrenOffset);
     }
     else {
-      IsoBmffLayoutExecutor.ExecuteMoves(destination, savePlan.Diff!.Moves);
-      IsoBmffLayoutExecutor.ExecuteWrites(destination, savePlan.Diff.Writes);
+      IsoBmffLayoutExecutor.ExecuteMoves(destination, writePlan.Diff!.Moves);
+      IsoBmffLayoutExecutor.ExecuteWrites(destination, writePlan.Diff.Writes);
     }
   }
 
@@ -204,7 +193,7 @@ public sealed class IsoBmffFile : IDisposable {
       _stream.Dispose();
   }
 
-  private void _reloadAfterSave() {
+  private void _reloadAfterWrite() {
     _reader = new IsoBmffReader(_stream);
     _metadata = new IsoBmffMetadata(_stream, _reader);
 
@@ -226,10 +215,13 @@ public sealed class IsoBmffFile : IDisposable {
     }
   }
 
-  private sealed record _savePlan(
+  private sealed record WritePlan(
     List<IsoBmffNode> OriginalNodes,
     List<IsoBmffNode> EditedNodes,
     IsoBmffLayout Original,
     IsoBmffLayoutPlan Plan,
-    IsoBmffLayoutDiff? Diff);
+    IsoBmffLayoutDiff? Diff) : IWritePlan {
+
+    public bool IsFullRewriteRequired => Plan.RequiresFullRewrite;
+  }
 }

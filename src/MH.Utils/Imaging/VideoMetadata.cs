@@ -81,8 +81,11 @@ public sealed class VideoMetadata : IDisposable {
   private MpRegionCollection? _getPeople() =>
     IsoBmff.Xmp.GetPeople();
 
-  public void Save() =>
-    IsoBmff.Save();
+  public IWritePlan CreateWritePlan() =>
+    IsoBmff.CreateWritePlan();
+
+  public void Write(IWritePlan plan) =>
+    IsoBmff.Write(plan);
 
   public void Dispose() => 
     IsoBmff.Dispose();

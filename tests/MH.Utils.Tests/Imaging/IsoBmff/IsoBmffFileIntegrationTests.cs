@@ -1,4 +1,5 @@
 ﻿using System.Buffers.Binary;
+using System.Net;
 using MH.Utils.Imaging.IsoBmff;
 using MH.Utils.Imaging.Xmp;
 
@@ -195,7 +196,7 @@ public class IsoBmffFileIntegrationTests {
     file._metadata.SetItemListKeywords("box-keyword");
     file.Xmp.SetKeywords(["xmp-keyword"]);
 
-    file.Save();
+    file.Write(file.CreateWritePlan());
 
     Assert.AreEqual(originalLength, stream.Length);
 
@@ -216,7 +217,7 @@ public class IsoBmffFileIntegrationTests {
 
     file._metadata.SetKeysKeywords("keys-keyword");
     file._metadata.SetKeysComment("keys-comment");
-    file.Save();
+    file.Write(file.CreateWritePlan());
 
     Assert.AreEqual("keys-keyword", file._metadata.GetKeysKeywords());
     Assert.AreEqual("keys-comment", file._metadata.GetKeysComment());
@@ -258,7 +259,7 @@ public class IsoBmffFileIntegrationTests {
 
         file._metadata.SetItemListKeywords("box-keyword");
         file.Xmp.SetKeywords(["xmp-keyword"]);
-        file.Save();
+        file.Write(file.CreateWritePlan());
       }
 
       Assert.IsTrue(new FileInfo(path).Length > originalLength);
@@ -295,7 +296,7 @@ public class IsoBmffFileIntegrationTests {
       using (var file = new IsoBmffFile(path)) {
         file._metadata.SetItemListKeywords("box-keyword");
         file.Xmp.SetKeywords(["xmp-keyword"]);
-        file.Save();
+        file.Write(file.CreateWritePlan());
       }
 
       using var savedFile = new IsoBmffFile(path);
@@ -362,7 +363,7 @@ public class IsoBmffFileIntegrationTests {
           x.SourceOffset == originalXmp.Box.Offset &&
           x.DestinationOffset == plannedXmp.Offset));
 
-        file.Save();
+        file.Write(file.CreateWritePlan());
       }
 
       var rewrittenBytes = File.ReadAllBytes(path);

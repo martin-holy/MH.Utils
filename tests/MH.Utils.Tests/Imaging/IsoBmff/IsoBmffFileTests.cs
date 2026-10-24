@@ -27,7 +27,7 @@ public class IsoBmffFileTests {
     //file._metadata.SetComment("test comment");
     file._metadata.SetKeysKeywords("test keys keyword");
     file._metadata.SetKeysComment("test keys comment");
-    file.Save();
+    file.Write(file.CreateWritePlan());
 
     Debug.WriteLine("edited boxes");
     file._reader._dumpBoxes();
@@ -309,7 +309,7 @@ public class IsoBmffFileTests {
     using var file = new IsoBmffFile(stream);
 
     file._metadata.SetItemListKeywords("first");
-    file.Save();
+    file.Write(file.CreateWritePlan());
 
     var movedMoov = file._reader.Find(IsoBmffTypes.Moov)
       ?? throw new InvalidDataException("Saved moov box was not found.");
@@ -320,7 +320,7 @@ public class IsoBmffFileTests {
     CollectionAssert.AreEqual(originalMdatPayload, _readBoxPayload(stream, IsoBmffTypes.Mdat));
 
     file._metadata.SetItemListKeywords("second");
-    file.Save();
+    file.Write(file.CreateWritePlan());
 
     Assert.AreEqual("second", file._metadata.GetItemListKeywords());
     Assert.AreEqual(originalLength, stream.Length);
@@ -347,7 +347,7 @@ public class IsoBmffFileTests {
         file._metadata.SetItemListKeywords("metadata keyword");
         file._metadata.SetItemListComment("metadata comment");
         file.Xmp.SetKeywords(["XMP keyword"]);
-        file.Save();
+        file.Write(file.CreateWritePlan());
       }
 
       using var savedFile = new IsoBmffFile(path);

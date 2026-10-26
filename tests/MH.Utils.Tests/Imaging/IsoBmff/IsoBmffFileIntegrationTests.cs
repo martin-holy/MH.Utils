@@ -2,6 +2,7 @@
 using System.Net;
 using MH.Utils.Imaging.IsoBmff;
 using MH.Utils.Imaging.Xmp;
+using MH.Utils.IO;
 
 namespace MH.Utils.Tests.Imaging.IsoBmff;
 
@@ -48,8 +49,8 @@ public class IsoBmffFileIntegrationTests {
     using var output = new MemoryStream();
     output.Write(originalBytes);
 
-    IsoBmffLayoutExecutor.ExecuteMoves(output, diff.Moves);
-    IsoBmffLayoutExecutor.ExecuteWrites(output, diff.Writes);
+    BinaryInPlaceWriter.ExecuteMoves(output, diff.Moves);
+    BinaryInPlaceWriter.ExecuteWrites(output, diff.Writes);
 
     Assert.AreEqual(originalBytes.Length, output.Length);
 
@@ -107,8 +108,8 @@ public class IsoBmffFileIntegrationTests {
     using var output = new MemoryStream();
     output.Write(originalBytes);
 
-    IsoBmffLayoutExecutor.ExecuteMoves(output, diff.Moves);
-    IsoBmffLayoutExecutor.ExecuteWrites(output, diff.Writes);
+    BinaryInPlaceWriter.ExecuteMoves(output, diff.Moves);
+    BinaryInPlaceWriter.ExecuteWrites(output, diff.Writes);
 
     Assert.AreEqual(originalBytes.Length, output.Length);
 

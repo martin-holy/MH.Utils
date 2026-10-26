@@ -37,7 +37,7 @@ public class IsoBmffLayoutExecutorTests {
 
     using var stream = new MemoryStream(data);
 
-    IsoBmffLayoutExecutor.ExecuteMoves(stream, [new BinaryMove(20, 60, 0)]);
+    BinaryInPlaceWriter.ExecuteMoves(stream, [new BinaryMove(20, 60, 0)]);
 
     CollectionAssert.AreEqual(original, data);
   }
@@ -49,7 +49,7 @@ public class IsoBmffLayoutExecutorTests {
 
     using var stream = new MemoryStream(data);
 
-    IsoBmffLayoutExecutor.ExecuteMoves(stream, [new BinaryMove(20, 20, 40)]);
+    BinaryInPlaceWriter.ExecuteMoves(stream, [new BinaryMove(20, 20, 40)]);
 
     CollectionAssert.AreEqual(original, data);
   }
@@ -70,7 +70,7 @@ public class IsoBmffLayoutExecutorTests {
     foreach (var move in moves)
       _applyMove(expected, move);
 
-    IsoBmffLayoutExecutor.ExecuteMoves(stream, moves);
+    BinaryInPlaceWriter.ExecuteMoves(stream, moves);
 
     CollectionAssert.AreEqual(expected, data);
   }
@@ -90,7 +90,7 @@ public class IsoBmffLayoutExecutorTests {
 
     using var stream = new MemoryStream(data);
 
-    IsoBmffLayoutExecutor.ExecuteWrites(stream, writes);
+    BinaryInPlaceWriter.ExecuteWrites(stream, writes);
 
     CollectionAssert.AreEqual(expected, data);
     Assert.AreEqual(100, stream.Length);
@@ -189,7 +189,7 @@ public class IsoBmffLayoutExecutorTests {
 
     using var stream = new MemoryStream(data);
 
-    IsoBmffLayoutExecutor.ExecuteMoves(stream, [new BinaryMove(source, destination, length)]);
+    BinaryInPlaceWriter.ExecuteMoves(stream, [new BinaryMove(source, destination, length)]);
 
     CollectionAssert.AreEqual(expected, data);
   }

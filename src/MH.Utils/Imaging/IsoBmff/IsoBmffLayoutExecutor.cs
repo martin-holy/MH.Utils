@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MH.Utils.IO;
+using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.IO;
@@ -7,12 +8,12 @@ using System.Linq;
 namespace MH.Utils.Imaging.IsoBmff;
 
 internal static class IsoBmffLayoutExecutor {
-  public static void ExecuteMoves(Stream stream, IEnumerable<IsoBmffMove> moves) {
+  public static void ExecuteMoves(Stream stream, IEnumerable<BinaryMove> moves) {
     foreach (var move in moves)
       _move(stream, move);
   }
 
-  private static void _move(Stream stream, IsoBmffMove move) {
+  private static void _move(Stream stream, BinaryMove move) {
     if (move.Length == 0 || move.SourceOffset == move.DestinationOffset)
       return;
 
@@ -72,7 +73,7 @@ internal static class IsoBmffLayoutExecutor {
     stream.Write(buffer, 0, count);
   }
 
-  public static void ExecuteWrites(Stream stream, IEnumerable<IsoBmffWrite> writes) {
+  public static void ExecuteWrites(Stream stream, IEnumerable<BinaryWrite> writes) {
     foreach (var write in writes) {
       stream.Position = write.Offset;
       stream.Write(write.Data);

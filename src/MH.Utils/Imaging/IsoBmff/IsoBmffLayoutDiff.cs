@@ -1,8 +1,9 @@
-﻿using System.Collections.Generic;
+﻿using MH.Utils.IO;
+using System.Collections.Generic;
 
 namespace MH.Utils.Imaging.IsoBmff;
 
 internal sealed class IsoBmffLayoutDiff {
-  public List<IsoBmffMove> Moves { get; } = [];
-  public List<IsoBmffWrite> Writes { get; } = [];
+  public List<BinaryMove> Moves { get; } = [];
+  public List<BinaryWrite> Writes { get; } = [];
 }

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MH.Utils.IO;
+using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Linq;
@@ -29,7 +30,7 @@ internal static class IsoBmffLayoutDiffer {
         candidate.Edited.End >= box.End);
 
       if (!coveredByMovedAncestor)
-        result.Moves.Add(new IsoBmffMove(old.Offset, box.Offset, old.Size));
+        result.Moves.Add(new BinaryMove(old.Offset, box.Offset, old.Size));
     }
 
     foreach (var box in edited.Boxes) {
@@ -37,12 +38,12 @@ internal static class IsoBmffLayoutDiffer {
       var headerChanged = isNew || old!.Size != box.Size || (box.Node.Box.IsFree && old.Offset != box.Offset);
 
       if (headerChanged)
-        result.Writes.Add(new IsoBmffWrite(box.Offset, _createHeader(box)));
+        result.Writes.Add(new BinaryWrite(box.Offset, _createHeader(box)));
 
       // New nodes are present in the planned layout. Explicit nodes also cover
       // same-size edits when the planner can reuse the original layout.
       if (box.Node.Data is { Length: > 0 } data)
-        result.Writes.Add(new IsoBmffWrite(box.Offset + box.HeaderSize, data));
+        result.Writes.Add(new BinaryWrite(box.Offset + box.HeaderSize, data));
     }
 
     if (nodesToWrite is not null) {
@@ -56,7 +57,7 @@ internal static class IsoBmffLayoutDiffer {
         if (edited.Boxes.Any(x => ReferenceEquals(x.Node, node)))
           continue;
 
-        result.Writes.Add(new IsoBmffWrite(
+        result.Writes.Add(new BinaryWrite(
           box!.Offset + node.Box.HeaderSize,
           data));
       }
@@ -96,7 +97,7 @@ internal static class IsoBmffLayoutDiffer {
     return header;
   }
 
-  private static void _orderMoves(List<IsoBmffMove> moves) {
+  private static void _orderMoves(List<BinaryMove> moves) {
     // Temporary ordering for monotonic shifts:
     // rightward moves from right to left, then leftward moves from left to right.
     var ordered = moves

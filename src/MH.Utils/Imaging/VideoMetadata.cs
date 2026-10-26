@@ -1,5 +1,6 @@
 ﻿using MH.Utils.Imaging.IsoBmff;
 using MH.Utils.Imaging.Xmp;
+using MH.Utils.IO;
 using System;
 using System.IO;
 using System.Linq;
@@ -81,10 +82,10 @@ public sealed class VideoMetadata : IDisposable {
   private MpRegionCollection? _getPeople() =>
     IsoBmff.Xmp.GetPeople();
 
-  public IWritePlan CreateWritePlan() =>
+  public IBinaryWritePlan CreateWritePlan() =>
     IsoBmff.CreateWritePlan();
 
-  public void Write(IWritePlan plan) =>
+  public void Write(IBinaryWritePlan plan) =>
     IsoBmff.Write(plan);
 
   public void Dispose() => 

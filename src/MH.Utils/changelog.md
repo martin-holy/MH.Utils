@@ -1,6 +1,7 @@
 5.3.0(not released):
-	- [U] VideoMetadata: Read Keywords
+	- [U] VideoMetadata: Read Keywords, People, Comment, Rating and GeoNameId from MP4 files
 	- [U] XmpMetadata: SetKeywords, set LastKeywordXMP and LastKeywordIPTC only if exists
+	- [N] BinaryInPlaceWriter
 
 5.2.0:
 	- [N] RemoveMetadataOptions enum

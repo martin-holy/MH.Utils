@@ -1,4 +1,5 @@
 ﻿using MH.Utils.Imaging.IsoBmff;
+using MH.Utils.IO;
 using System.Buffers.Binary;
 
 namespace MH.Utils.Tests.Imaging.IsoBmff;
@@ -36,7 +37,7 @@ public class IsoBmffLayoutExecutorTests {
 
     using var stream = new MemoryStream(data);
 
-    IsoBmffLayoutExecutor.ExecuteMoves(stream, [new IsoBmffMove(20, 60, 0)]);
+    IsoBmffLayoutExecutor.ExecuteMoves(stream, [new BinaryMove(20, 60, 0)]);
 
     CollectionAssert.AreEqual(original, data);
   }
@@ -48,7 +49,7 @@ public class IsoBmffLayoutExecutorTests {
 
     using var stream = new MemoryStream(data);
 
-    IsoBmffLayoutExecutor.ExecuteMoves(stream, [new IsoBmffMove(20, 20, 40)]);
+    IsoBmffLayoutExecutor.ExecuteMoves(stream, [new BinaryMove(20, 20, 40)]);
 
     CollectionAssert.AreEqual(original, data);
   }
@@ -61,9 +62,9 @@ public class IsoBmffLayoutExecutorTests {
     using var stream = new MemoryStream(data);
 
     var moves = new[] {
-      new IsoBmffMove(0, 20, 20),
-      new IsoBmffMove(60, 40, 20),
-      new IsoBmffMove(80, 10, 10)
+      new BinaryMove(0, 20, 20),
+      new BinaryMove(60, 40, 20),
+      new BinaryMove(80, 10, 10)
     };
 
     foreach (var move in moves)
@@ -80,8 +81,8 @@ public class IsoBmffLayoutExecutorTests {
     var expected = data.ToArray();
 
     var writes = new[] {
-      new IsoBmffWrite(10, [0xAA, 0xBB, 0xCC]),
-      new IsoBmffWrite(70, [0x11, 0x22])
+      new BinaryWrite(10, [0xAA, 0xBB, 0xCC]),
+      new BinaryWrite(70, [0x11, 0x22])
     };
 
     foreach (var write in writes)
@@ -184,16 +185,16 @@ public class IsoBmffLayoutExecutorTests {
     var original = data.ToArray();
     var expected = original.ToArray();
 
-    _applyMove(expected, new IsoBmffMove(source, destination, length));
+    _applyMove(expected, new BinaryMove(source, destination, length));
 
     using var stream = new MemoryStream(data);
 
-    IsoBmffLayoutExecutor.ExecuteMoves(stream, [new IsoBmffMove(source, destination, length)]);
+    IsoBmffLayoutExecutor.ExecuteMoves(stream, [new BinaryMove(source, destination, length)]);
 
     CollectionAssert.AreEqual(expected, data);
   }
 
-  private static void _applyMove(byte[] data, IsoBmffMove move) =>
+  private static void _applyMove(byte[] data, BinaryMove move) =>
     Array.Copy(data, (int)move.SourceOffset, data, (int)move.DestinationOffset, (int)move.Length);
 
   private static byte[] _createData(int length) {

@@ -165,8 +165,7 @@ public class IsoBmffFileIntegrationTests {
       output,
       originalNodes,
       editedNodes,
-      plan.Layout,
-      file._reader.GetBoxChildrenOffset);
+      plan.Layout);
 
     Assert.IsTrue(output.Length > input.Length);
 

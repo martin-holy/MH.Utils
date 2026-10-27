@@ -143,8 +143,7 @@ public class IsoBmffLayoutExecutorTests {
       destination,
       originalNodes,
       editedNodes,
-      layout,
-      reader.GetBoxChildrenOffset);
+      layout);
 
     var rewrittenReader = new IsoBmffReader(destination);
     var rewrittenNodes = rewrittenReader._readNodes();

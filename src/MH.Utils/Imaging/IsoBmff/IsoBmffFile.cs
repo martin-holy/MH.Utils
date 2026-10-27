@@ -31,7 +31,7 @@ public sealed class IsoBmffFile : IDisposable {
     ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
 
     _filePath = Path.GetFullPath(filePath);
-    _stream = new FileStream(_filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.Read);
+    _stream = new FileStream(_filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
     _ownsStream = true;
 
     _reader = new IsoBmffReader(_stream);
@@ -70,17 +70,24 @@ public sealed class IsoBmffFile : IDisposable {
   }
 
   public void Write(IBinaryWritePlan plan) {
-    if (!plan.RequiresFullRewrite &&
-        plan.Moves.Count == 0 &&
-        plan.Writes.Count == 0)
+    if (!plan.RequiresFullRewrite && plan.Moves.Count == 0 && plan.Writes.Count == 0)
       return;
 
-    if (_filePath is not null)
-      _stream = BinaryInPlaceWriter.Write(_stream, _filePath, plan);
-    else
+    if (_filePath is null) {
       BinaryInPlaceWriter.Write(_stream, plan);
+      _reloadAfterWrite();
+      return;
+    }
 
-    _reloadAfterWrite();
+    _stream.Dispose();
+
+    try {
+      BinaryInPlaceWriter.Write(_filePath, plan);
+    }
+    finally {
+      _stream = new FileStream(_filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+      _reloadAfterWrite();
+    }
   }
 
   public IBinaryWritePlan CreateWritePlan() {
@@ -93,7 +100,7 @@ public sealed class IsoBmffFile : IDisposable {
     var original = planner.CreateOriginalLayout();
     var plan = planner.CreateEditedLayout(original, editedNodes);
     var diff = plan.RequiresFullRewrite
-      ? null
+      ? new IsoBmffLayoutDiff()
       : IsoBmffLayoutDiffer.Diff(
         original,
         plan.Layout,
@@ -122,12 +129,11 @@ public sealed class IsoBmffFile : IDisposable {
     List<IsoBmffNode> EditedNodes,
     IsoBmffLayout Original,
     IsoBmffLayoutPlan Plan,
-    IsoBmffLayoutDiff? Diff) : IBinaryWritePlan {
+    IsoBmffLayoutDiff Diff) : IBinaryWritePlan {
 
     public bool RequiresFullRewrite => Plan.RequiresFullRewrite;
-    // TODO decide where to validate BinaryMove and BinaryWrite instances. They are validated on cration, here and than in BinaryInPlaceWriter
-    public IReadOnlyList<BinaryMove> Moves => [.. (Diff?.Moves ?? []).Where(x => !x.IsEmpty)];
-    public IReadOnlyList<BinaryWrite> Writes => [.. (Diff?.Writes ?? []).Where(x => !x.IsEmpty)];
+    public IReadOnlyList<BinaryMove> Moves => Diff.Moves;
+    public IReadOnlyList<BinaryWrite> Writes => Diff.Writes;
 
     public void WriteFullRewrite(Stream source, Stream destination) =>
       IsoBmffLayoutExecutor.ExecuteFullRewrite(source, destination, OriginalNodes, EditedNodes, Plan.Layout);

@@ -63,9 +63,6 @@ internal static class IsoBmffLayoutDiffer {
       }
     }
 
-    _orderMoves(result.Moves);
-    result.Writes.Sort((x, y) => x.Offset.CompareTo(y.Offset));
-
     return result;
   }
 
@@ -95,20 +92,5 @@ internal static class IsoBmffLayoutDiffer {
     BinaryPrimitives.WriteUInt32BigEndian(header.AsSpan(4), box.Node.Box.Type);
 
     return header;
-  }
-
-  private static void _orderMoves(List<BinaryMove> moves) {
-    // Temporary ordering for monotonic shifts:
-    // rightward moves from right to left, then leftward moves from left to right.
-    var ordered = moves
-      .Where(x => x.DestinationOffset > x.SourceOffset)
-      .OrderByDescending(x => x.SourceOffset)
-      .Concat(moves
-        .Where(x => x.DestinationOffset < x.SourceOffset)
-        .OrderBy(x => x.SourceOffset))
-      .ToList();
-
-    moves.Clear();
-    moves.AddRange(ordered);
   }
 }

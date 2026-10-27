@@ -99,7 +99,7 @@ public sealed class IsoBmffFile : IDisposable {
         plan.Layout,
         editedNodes.Where(x => x.Data is not null));
 
-    return new WritePlan(originalNodes, editedNodes, original, plan, diff, _reader.GetBoxChildrenOffset);
+    return new WritePlan(originalNodes, editedNodes, original, plan, diff);
   }
 
   public void Dispose() {
@@ -122,8 +122,7 @@ public sealed class IsoBmffFile : IDisposable {
     List<IsoBmffNode> EditedNodes,
     IsoBmffLayout Original,
     IsoBmffLayoutPlan Plan,
-    IsoBmffLayoutDiff? Diff,
-    Func<IsoBmffBox, long> GetBoxChildrenOffset) : IBinaryWritePlan {
+    IsoBmffLayoutDiff? Diff) : IBinaryWritePlan {
 
     public bool RequiresFullRewrite => Plan.RequiresFullRewrite;
     // TODO decide where to validate BinaryMove and BinaryWrite instances. They are validated on cration, here and than in BinaryInPlaceWriter
@@ -131,6 +130,6 @@ public sealed class IsoBmffFile : IDisposable {
     public IReadOnlyList<BinaryWrite> Writes => [.. (Diff?.Writes ?? []).Where(x => !x.IsEmpty)];
 
     public void WriteFullRewrite(Stream source, Stream destination) =>
-      IsoBmffLayoutExecutor.ExecuteFullRewrite(source, destination, OriginalNodes, EditedNodes, Plan.Layout, GetBoxChildrenOffset);
+      IsoBmffLayoutExecutor.ExecuteFullRewrite(source, destination, OriginalNodes, EditedNodes, Plan.Layout);
   }
 }

@@ -12,8 +12,7 @@ internal static class IsoBmffLayoutExecutor {
     Stream destination,
     IEnumerable<IsoBmffNode> originalNodes,
     IEnumerable<IsoBmffNode> editedNodes,
-    IsoBmffLayout layout,
-    Func<IsoBmffBox, long> getBoxChildrenOffset) {
+    IsoBmffLayout layout) {
 
     if (ReferenceEquals(source, destination))
       throw new ArgumentException("Full rewrite requires separate source and destination streams.", nameof(destination));
@@ -26,12 +25,13 @@ internal static class IsoBmffLayoutExecutor {
 
     var original = originalNodes.ToList();
     var edited = editedNodes.ToList();
+    var reader = new IsoBmffReader(source);
 
     destination.SetLength(0);
     destination.Position = 0;
 
     foreach (var box in layout.TopLevelBoxes)
-      _writeBox(source, destination, box.Node, original, edited, layout, getBoxChildrenOffset);
+      _writeBox(source, destination, box.Node, original, edited, layout, reader.GetBoxChildrenOffset);
 
     var finalLength = layout.TopLevelBoxes.LastOrDefault()?.End ?? 0;
     destination.SetLength(finalLength);

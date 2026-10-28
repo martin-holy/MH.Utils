@@ -5,9 +5,9 @@ using System.Text;
 namespace MH.Utils.Imaging.Jpeg;
 
 public sealed class JpegMetadataWriter {
-  public static ReadOnlySpan<byte> ExifHeader => "Exif\0\0"u8;
-  public static ReadOnlySpan<byte> XmpHeader => "http://ns.adobe.com/xap/1.0/\0"u8;
-  public static ReadOnlySpan<byte> XmpExtHeader => "http://ns.adobe.com/xmp/extension/\0"u8;
+  public static ReadOnlySpan<byte> ExifHeader => JpegFile.ExifHeader;
+  public static ReadOnlySpan<byte> XmpHeader => JpegFile.XmpHeader;
+  public static ReadOnlySpan<byte> XmpExtHeader => JpegFile.XmpExtHeader;
   public const int App1MaxPayload = 65533;
   public const int ExtChunkDataMax = 65000;
   public const string ExtendedXmpXml =

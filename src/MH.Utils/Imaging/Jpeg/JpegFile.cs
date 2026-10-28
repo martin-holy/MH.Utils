@@ -1,6 +1,7 @@
 ﻿using MH.Utils.Imaging.Exif;
 using MH.Utils.Imaging.Tiff;
 using MH.Utils.Imaging.Xmp;
+using MH.Utils.IO;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -23,9 +24,9 @@ public class JpegFile {
   private const byte _sos = 0xDA;
   private const byte _app1 = 0xE1;
 
-  private static ReadOnlySpan<byte> _exifHeader => "Exif\0\0"u8;
-  private static ReadOnlySpan<byte> _xmpHeader => "http://ns.adobe.com/xap/1.0/\0"u8;
-  private static ReadOnlySpan<byte> _xmpExtHeader => "http://ns.adobe.com/xmp/extension/\0"u8;
+  public static ReadOnlySpan<byte> ExifHeader => "Exif\0\0"u8;
+  public static ReadOnlySpan<byte> XmpHeader => "http://ns.adobe.com/xap/1.0/\0"u8;
+  public static ReadOnlySpan<byte> XmpExtHeader => "http://ns.adobe.com/xmp/extension/\0"u8;
   private const string _extXmpAttr = "HasExtendedXMP=\"";
 
   private readonly string? _filePath;
@@ -65,23 +66,23 @@ public class JpegFile {
 
     using var reader = new BinaryReader(stream, Encoding.ASCII, leaveOpen: true);
 
-    _validateJpeg(stream, reader);
+    ValidateJpeg(stream, reader);
 
     var needSize = (load & JpegMetadataLoad.Size) != 0;
     var needExif = (load & JpegMetadataLoad.Exif) != 0;
     var needXmp = (load & JpegMetadataLoad.Xmp) != 0;
 
     while (stream.Position < stream.Length) {
-      if (_readSegment(stream, reader) is not { } segment) break;
+      if (ReadSegment(stream, reader) is not { } segment) break;
 
       if (needSize && !_width.HasValue && _isStartOfFrame(segment.Marker))
         _readSize(stream, reader, segment);
 
       if (segment.Marker == _app1) {
-        if (needExif && _exif == null && segment.StartsWith(_exifHeader, stream))
+        if (needExif && _exif == null && segment.StartsWith(ExifHeader, stream))
           _exif = _readExif(stream, segment);
 
-        if (needXmp && _xmp == null && segment.StartsWith(_xmpHeader, stream))
+        if (needXmp && _xmp == null && segment.StartsWith(XmpHeader, stream))
           _xmp = _readXmp(stream, reader, segment);
       }
 
@@ -97,14 +98,14 @@ public class JpegFile {
     if (needXmp) _xmpRead = true;
   }
 
-  private static void _validateJpeg(Stream stream, BinaryReader reader) {
+  internal static void ValidateJpeg(Stream stream, BinaryReader reader) {
     if (stream.Length - stream.Position < 2
       || reader.ReadByte() != 0xFF
       || reader.ReadByte() != _soi)
       throw new InvalidDataException("Not a JPEG file.");
   }
 
-  private static JpegSegment? _readSegment(Stream stream, BinaryReader reader) {
+  internal static JpegSegment? ReadSegment(Stream stream, BinaryReader reader) {
     if (stream.Position >= stream.Length)
       return null;
 
@@ -161,14 +162,14 @@ public class JpegFile {
   }
 
   private static ExifMetadata _readExif(Stream stream, JpegSegment segment) {
-    var data = segment.ReadPayloadData(stream, _exifHeader.Length);
+    var data = segment.ReadPayloadData(stream, ExifHeader.Length);
 
     return new ExifMetadata(new TiffReader(data));
   }
 
   private static XmpMetadata? _readXmp(Stream stream, BinaryReader reader, JpegSegment mainSegment) {
     var mainPayload = mainSegment.ReadPayload(stream);
-    var xmpOffset = _xmpHeader.Length;
+    var xmpOffset = XmpHeader.Length;
 
     if (xmpOffset < mainPayload.Length && mainPayload[xmpOffset] == 0)
       xmpOffset++;
@@ -183,15 +184,15 @@ public class JpegFile {
     var fullLength = 0;
 
     while (true) {
-      if (_readSegment(stream, reader) is not { } segment) break;
+      if (ReadSegment(stream, reader) is not { } segment) break;
 
       if (segment.Marker != _app1) continue;
 
       var payload = segment.ReadPayload(stream);
 
-      if (!payload.AsSpan().StartsWith(_xmpExtHeader)) continue;
+      if (!payload.AsSpan().StartsWith(XmpExtHeader)) continue;
 
-      var p = _xmpExtHeader.Length;
+      var p = XmpExtHeader.Length;
 
       if (payload.Length < p + 32 + 8) continue;
 
@@ -398,8 +399,18 @@ public class JpegFile {
     return new JpegMetadataWriter { Exif = exif, Xmp = xmp };
   }
 
-  public static bool Write(string srcPath, JpegMetadataWriter writer) =>
-    _write(File.OpenRead(srcPath), srcPath, writer, true);
+  public static bool Write(string srcPath, JpegMetadataWriter writer) {
+    try {
+      var plan = JpegInPlaceWriter.CreateWritePlan(srcPath, writer);
+      BinaryInPlaceWriter.Write(srcPath, plan);
+
+      return true;
+    }
+    catch (Exception ex) {
+      Log.Error(ex, srcPath);
+      return false;
+    }
+  }
 
   public static bool Write(Stream input, string destPath, JpegMetadataWriter writer) =>
     _write(input, destPath, writer, false);

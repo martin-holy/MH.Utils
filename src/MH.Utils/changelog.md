@@ -1,7 +1,8 @@
 5.3.0(not released):
-	- [U] VideoMetadata: Read Keywords, People, Comment, Rating and GeoNameId from MP4 files
+	- [N] VideoMetadata: Read and write Keywords, People, Comment, Rating and GeoNameId from/to MP4 and MOV
 	- [U] XmpMetadata: SetKeywords, set LastKeywordXMP and LastKeywordIPTC only if exists
 	- [N] BinaryInPlaceWriter
+	- [N] In-place writing of XMP and Exif metadata to JPEG if there is enough padding space, otherwise fallback to lossless write
 
 5.2.0:
 	- [N] RemoveMetadataOptions enum

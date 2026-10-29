@@ -3,6 +3,7 @@
 	- [U] XmpMetadata: SetKeywords, set LastKeywordXMP and LastKeywordIPTC only if exists
 	- [N] BinaryInPlaceWriter
 	- [N] In-place writing of XMP and Exif metadata to JPEG if there is enough padding space, otherwise fallback to lossless write
+	- [N] ExifMetadata: Add padding when doing full rewrite
 
 5.2.0:
 	- [N] RemoveMetadataOptions enum

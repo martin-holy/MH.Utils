@@ -32,7 +32,9 @@ public static class TiffParser {
 
     var data = reader.GetValueSpan(entry).ToArray();
     var offset = result.IsInline ? 0 : entry.ValueOrOffset;
-    result.Value = new DataValue(offset, data);
+    result.Value = entry.Tag == (ushort)ExifTag.Padding
+      ? new PaddingValue(offset, data)
+      : new DataValue(offset, data);
 
     return result;
   }

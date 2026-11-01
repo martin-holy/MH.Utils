@@ -4,6 +4,8 @@
 	- [N] BinaryInPlaceWriter
 	- [N] In-place writing of XMP and Exif metadata to JPEG if there is enough padding space, otherwise fallback to lossless write
 	- [N] ExifMetadata: Add padding when doing full rewrite
+	- [U] TiffLayoutBuilder: _collectIfd sort order
+	- [U] TiffLayoutPlanner: bytes alignment
 
 5.2.0:
 	- [N] RemoveMetadataOptions enum

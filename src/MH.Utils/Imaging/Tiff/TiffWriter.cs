@@ -46,6 +46,7 @@ public sealed class TiffWriter(Stream stream, bool littleEndian = false) : Binar
 
   public void WriteInlineValue(ReadOnlySpan<byte> data) {
     Span<byte> value = stackalloc byte[4];
+    value.Clear();
     data.CopyTo(value);
     WriteBytes(value);
   }

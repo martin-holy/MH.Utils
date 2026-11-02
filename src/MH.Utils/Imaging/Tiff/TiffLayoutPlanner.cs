@@ -1,58 +1,52 @@
-﻿using System;
-
-namespace MH.Utils.Imaging.Tiff;
+﻿namespace MH.Utils.Imaging.Tiff;
 
 public static class TiffLayoutPlanner {
-  private const int _minimumPaddingSize = 5;
-
-  public static void Plan(TiffLayout layout) {
-    long position = 8;
-    TiffObject? previous = null;
+  public static void Plan(TiffLayout layout, int paddingChunk = 0) {
+    PaddingValue? padding = null;
+    int pendingGrowth = 0;
+    int pendingShrink = 0;
+    int totalSize = 8;
 
     foreach (var item in layout.Items) {
-      long originalOffset = item.OriginalOffset ?? position;
-
-      // Preserve the original offset whenever possible.
-      long offset = Math.Max(position, originalOffset);
-
-      // Every IFD and out-of-line value must be word-aligned.
-      if ((offset & 1) != 0) offset++;
-
-      // The gap belongs to the preceding object.
-      if (previous != null)
-        _setHole(previous, checked((int)(offset - position)));
-
-      // Reserved padding can absorb displacement caused by growth.
-      if (item is PaddingValue padding && item.OriginalOffset is uint original) {
-        long displacement = offset - original;
-
-        if (displacement > 0) {
-          int available = Math.Max(0, padding.Data.Length - _minimumPaddingSize);
-          int consumed = (int)Math.Min(displacement, available);
-
-          padding.Consume(consumed);
-        }
+      if (item is PaddingValue value) {
+        padding = value;
+        continue;
       }
 
-      position = offset + item.CurrentSize;
-      previous = item;
+      int delta = item.CurrentSize - item.OriginalSize;
 
-      if (position > uint.MaxValue)
-        throw new InvalidOperationException("TIFF file exceeds the supported size.");
-    }
-  }
+      if (delta > 0)
+        pendingGrowth += delta;
+      else if (delta < 0)
+        pendingShrink -= delta;
 
-  private static void _setHole(TiffObject item, int size) {
-    if (size == 0) {
-      item.HoleAfter = null;
-      return;
-    }
+      if (pendingGrowth > 0 && item.HoleAfter != null)
+        pendingGrowth -= item.HoleAfter.Consume(pendingGrowth);
 
-    if (item.HoleAfter == null) {
-      item.HoleAfter = new TiffLayoutHole(new byte[size]);
-      return;
+      totalSize = checked(totalSize + item.CurrentSize);
+
+      if (item.HoleAfter != null)
+        totalSize = checked(totalSize + item.HoleAfter.Size);
     }
 
-    item.HoleAfter.Resize(size);
+    if (padding == null) return;
+
+    int paddingSize = padding.CurrentSize + pendingShrink - pendingGrowth;
+
+    if (paddingChunk > 0) {
+      totalSize = checked(totalSize + paddingSize);
+
+      paddingSize = paddingChunk - totalSize % paddingChunk;
+
+      if (paddingSize <= 4)
+        paddingSize += paddingChunk;
+    }
+
+    int difference = paddingSize - padding.CurrentSize;
+
+    if (difference > 0)
+      padding.Extend(difference);
+    else if (difference < 0)
+      padding.Consume(-difference);
   }
 }

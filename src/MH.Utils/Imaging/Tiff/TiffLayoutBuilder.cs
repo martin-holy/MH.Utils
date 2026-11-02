@@ -18,13 +18,10 @@ public static class TiffLayoutBuilder {
     layout.Items.Add(ifd);
 
     foreach (var entry in ifd.Entries) {
-      if (entry.Value is { } value && !entry.IsInline)
-        layout.Items.Add(value);
-    }
-
-    foreach (var entry in ifd.Entries) {
       if (entry.SubIfd != null)
         _collectIfd(layout, entry.SubIfd);
+      else if (entry.Value is { } value && !entry.IsInline)
+        layout.Items.Add(value);
     }
 
     if (ifd.NextIfd != null)

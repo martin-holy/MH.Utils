@@ -1,10 +1,11 @@
-﻿namespace MH.Utils.Imaging.Tiff;
+﻿using System;
+
+namespace MH.Utils.Imaging.Tiff;
 
 public static class TiffLayoutPlanner {
-  public static void Plan(TiffLayout layout, int paddingChunk = 0) {
+  public static void Plan(TiffLayout layout, int paddingChunk = 1024) {
     PaddingValue? padding = null;
-    int pendingGrowth = 0;
-    int pendingShrink = 0;
+    int pendingDelta = 0;
     int totalSize = 8;
 
     foreach (var item in layout.Items) {
@@ -14,35 +15,37 @@ public static class TiffLayoutPlanner {
       }
 
       int delta = item.CurrentSize - item.OriginalSize;
-
-      if (delta > 0)
-        pendingGrowth += delta;
-      else if (delta < 0)
-        pendingShrink -= delta;
-
-      if (pendingGrowth > 0 && item.HoleAfter != null)
-        pendingGrowth -= item.HoleAfter.Consume(pendingGrowth);
-
+      pendingDelta = checked(pendingDelta + delta);
       totalSize = checked(totalSize + item.CurrentSize);
 
+      int originalHoleSize = item.HoleAfter?.Size ?? 0;
+      int holeSize = originalHoleSize;
+
+      if (pendingDelta > 0)
+        holeSize -= Math.Min(pendingDelta, holeSize);
+
+      if (((totalSize + holeSize) & 1) != 0)
+        holeSize++;
+
       if (item.HoleAfter != null)
-        totalSize = checked(totalSize + item.HoleAfter.Size);
+        item.HoleAfter.Resize(holeSize);
+      else if (holeSize > 0)
+        item.HoleAfter = new TiffLayoutHole(new byte[holeSize]);
+
+      pendingDelta = checked(pendingDelta + holeSize - originalHoleSize);
+      totalSize = checked(totalSize + holeSize);
     }
 
     if (padding == null) return;
 
-    int paddingSize = padding.CurrentSize + pendingShrink - pendingGrowth;
+    if (paddingChunk < 6)
+      throw new ArgumentOutOfRangeException(nameof(paddingChunk), "The padding chunk must be at least 6 bytes.");
 
-    if (paddingChunk > 0) {
-      totalSize = checked(totalSize + paddingSize);
-
-      paddingSize = paddingChunk - totalSize % paddingChunk;
-
-      if (paddingSize <= 4)
-        paddingSize += paddingChunk;
-    }
-
+    int paddingSize = Math.Clamp(checked(padding.CurrentSize - pendingDelta), 6, paddingChunk);
     int difference = paddingSize - padding.CurrentSize;
+
+    if ((paddingSize & 1) != 0)
+      difference += paddingSize == paddingChunk ? -1 : 1;
 
     if (difference > 0)
       padding.Extend(difference);

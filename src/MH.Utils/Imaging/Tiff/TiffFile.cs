@@ -20,4 +20,14 @@ public sealed class TiffFile(TiffIfd ifd0, bool isLittleEndian) {
     GpsIfd ??= Ifd0.CreateSubIfd(ExifTag.GpsIfd);
     return GpsIfd;
   }
+
+  public void EnsurePadding(int paddingChunk) {
+    if (ExifIfd?.FindEntry(ExifTag.Padding) is { Value: PaddingValue }) return;
+
+    PaddingValue.ValidatePaddingChunk(paddingChunk);
+
+    GetOrCreateExifIfd().AddEntry(new TiffEntry(ExifTag.Padding, TiffType.Undefined, paddingChunk) {
+      Value = new PaddingValue(null, new byte[paddingChunk])
+    });
+  }
 }

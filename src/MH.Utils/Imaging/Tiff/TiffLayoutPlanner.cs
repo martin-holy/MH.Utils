@@ -38,10 +38,13 @@ public static class TiffLayoutPlanner {
 
     if (padding == null) return;
 
-    if (paddingChunk < 6)
-      throw new ArgumentOutOfRangeException(nameof(paddingChunk), "The padding chunk must be at least 6 bytes.");
+    PaddingValue.ValidatePaddingChunk(paddingChunk);
 
-    int paddingSize = Math.Clamp(checked(padding.CurrentSize - pendingDelta), 6, paddingChunk);
+    int paddingSize = Math.Clamp(
+      checked(padding.CurrentSize - pendingDelta),
+      PaddingValue.HeaderLength,
+      paddingChunk);
+
     int difference = paddingSize - padding.CurrentSize;
 
     if ((paddingSize & 1) != 0)

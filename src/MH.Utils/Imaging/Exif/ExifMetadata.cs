@@ -10,7 +10,6 @@ namespace MH.Utils.Imaging.Exif;
 
 public class ExifMetadata(TiffReader? reader) {
   private enum UserCommentEncoding { None, Ascii, Unicode, Jis, Undefined }
-  private const int _paddingChunk = 1024;
   
   private static ReadOnlySpan<byte> _asciiHeader => "ASCII\0\0\0"u8;
   private static ReadOnlySpan<byte> _unicodeHeader => "UNICODE\0"u8;
@@ -266,31 +265,12 @@ public class ExifMetadata(TiffReader? reader) {
     return true;
   }
 
-  public byte[] ToTiff(bool addPadding = false) {
+  public byte[] ToTiff(bool addPadding = false, int paddingChunk = 1024) {
     var file = TiffFile;
+    if (addPadding) file.EnsurePadding(paddingChunk);
     var layout = TiffLayoutBuilder.Build(file, Reader);
-    bool hasPadding = file.Ifd0.FindEntry(ExifTag.Padding)?.Value is PaddingValue { Data.Length: > 4 };
-
-    TiffLayoutPlanner.Plan(layout);
-    var tiff = TiffSerializer.Serialize(file, Reader?.IsLittleEndian ?? true);
-
-    if (!addPadding || Reader == null || hasPadding || tiff.Length == Reader.Buffer.Length)
-      return tiff;
-
-    int sizeWithEntry = checked(tiff.Length + 12);
-    int paddingSize = _paddingChunk - sizeWithEntry % _paddingChunk;
-    if (paddingSize <= 4) paddingSize += _paddingChunk;
-
-    if (file.Ifd0.FindEntry(ExifTag.Padding) is { } oldPadding)
-      file.Ifd0.Entries.Remove(oldPadding);
-
-    file.Ifd0.AddEntry(new TiffEntry(ExifTag.Padding, TiffType.Byte, paddingSize) {
-      Value = new PaddingValue(null, new byte[paddingSize])
-    });
-
-    tiff = TiffSerializer.Serialize(file, Reader.IsLittleEndian);
-
-    return tiff;
+    TiffLayoutPlanner.Plan(layout, paddingChunk);
+    return TiffSerializer.Serialize(file, Reader?.IsLittleEndian ?? true);
   }
 
   private void _setUShort(TiffIfd ifd, ExifTag tag, ushort? value) {

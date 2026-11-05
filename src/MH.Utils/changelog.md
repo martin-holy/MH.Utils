@@ -3,9 +3,9 @@
 	- [U] XmpMetadata: SetKeywords, set LastKeywordXMP and LastKeywordIPTC only if exists
 	- [N] BinaryInPlaceWriter
 	- [N] In-place writing of XMP and Exif metadata to JPEG if there is enough padding space, otherwise fallback to lossless write
-	- [N] ExifMetadata: Add padding when doing full rewrite
-	- [U] TiffLayoutBuilder: _collectIfd sort order
-	- [U] TiffLayoutPlanner: bytes alignment
+	- [N] ExifMetadata: Ensure padding for in-place writing
+	- [U] TiffLayoutPlanner: bytes alignment and padding
+	- [U] ExifMetadata: Tiff layout order
 
 5.2.0:
 	- [N] RemoveMetadataOptions enum

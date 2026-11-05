@@ -11,7 +11,9 @@ public sealed class TiffSerializer {
     var writer = new TiffWriter(ms, littleEndian);
     writer.WriteHeader();
 
-    _writeIfd(writer, file.Ifd0);
+    _writeIfdTables(writer, file.Ifd0);
+    _writeOutOfLineValues(writer, file.Ifd0);
+    _writePaddingValues(writer, file.Ifd0);
 
     writer.FlushDeferred();
 
@@ -33,22 +35,54 @@ public sealed class TiffSerializer {
       _resetWriteOffsets(ifd.NextIfd);
   }
 
-  private static void _writeIfd(TiffWriter writer, TiffIfd ifd) {
-    ifd.Write(writer);
-
-    foreach (var entry in ifd.Entries)
-      if (entry.Value is { } value && !entry.IsInline)
-        _writeObject(writer, value);
+  private static void _writeIfdTables(TiffWriter writer, TiffIfd ifd) {
+    // Write the IFD and its hole before proceeding to another IFD table.
+    _writeObject(writer, ifd);
 
     foreach (var entry in ifd.Entries) {
-      if (entry.SubIfd == null)
-        continue;
-
-      _writeIfd(writer, entry.SubIfd);
+      if (entry.SubIfd != null)
+        _writeIfdTables(writer, entry.SubIfd);
     }
 
     if (ifd.NextIfd != null)
-      _writeIfd(writer, ifd.NextIfd);
+      _writeIfdTables(writer, ifd.NextIfd);
+  }
+
+  private static void _writeOutOfLineValues(TiffWriter writer, TiffIfd ifd) {
+    // Write descendant values before this IFD's values. This places IFD0
+    // out-of-line values such as XPComment after its child IFD values.
+    foreach (var entry in ifd.Entries) {
+      if (entry.SubIfd != null)
+        _writeOutOfLineValues(writer, entry.SubIfd);
+    }
+
+    if (ifd.NextIfd != null)
+      _writeOutOfLineValues(writer, ifd.NextIfd);
+
+    foreach (var entry in ifd.Entries) {
+      if (entry.SubIfd == null
+        && entry.Value is { } value
+        && value is not PaddingValue
+        && !entry.IsInline)
+        _writeObject(writer, value);
+    }
+  }
+
+  private static void _writePaddingValues(TiffWriter writer, TiffIfd ifd) {
+    foreach (var entry in ifd.Entries) {
+      if (entry.SubIfd != null)
+        _writePaddingValues(writer, entry.SubIfd);
+    }
+
+    if (ifd.NextIfd != null)
+      _writePaddingValues(writer, ifd.NextIfd);
+
+    foreach (var entry in ifd.Entries) {
+      if (entry.SubIfd == null
+        && entry.Value is PaddingValue value
+        && !entry.IsInline)
+        _writeObject(writer, value);
+    }
   }
 
   private static void _writeObject(TiffWriter writer, TiffObject obj) {

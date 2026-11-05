@@ -5,8 +5,14 @@ namespace MH.Utils.Imaging.Tiff;
 public static class TiffLayoutBuilder {
   public static TiffLayout Build(TiffFile file, TiffReader? reader) {
     var layout = new TiffLayout();
+    var padding = new List<TiffObject>();
 
-    _collectIfd(layout, file.Ifd0);
+    // Match TiffSerializer's output order: all IFD tables, then values.
+    _collectIfdTables(layout, file.Ifd0);
+    _collectOutOfLineValues(layout, file.Ifd0, padding);
+
+    // TiffLayoutPlanner adjusts padding after planning the other objects.
+    layout.Items.AddRange(padding);
 
     if (reader != null)
       _findHoles(layout, reader);
@@ -14,18 +20,39 @@ public static class TiffLayoutBuilder {
     return layout;
   }
 
-  private static void _collectIfd(TiffLayout layout, TiffIfd ifd) {
+  private static void _collectIfdTables(TiffLayout layout, TiffIfd ifd) {
     layout.Items.Add(ifd);
 
     foreach (var entry in ifd.Entries) {
       if (entry.SubIfd != null)
-        _collectIfd(layout, entry.SubIfd);
-      else if (entry.Value is { } value && !entry.IsInline)
-        layout.Items.Add(value);
+        _collectIfdTables(layout, entry.SubIfd);
     }
 
     if (ifd.NextIfd != null)
-      _collectIfd(layout, ifd.NextIfd);
+      _collectIfdTables(layout, ifd.NextIfd);
+  }
+
+  private static void _collectOutOfLineValues(TiffLayout layout, TiffIfd ifd, List<TiffObject> padding) {
+    // Match the serializer's descendant-before-parent value order.
+    foreach (var entry in ifd.Entries) {
+      if (entry.SubIfd != null)
+        _collectOutOfLineValues(layout, entry.SubIfd, padding);
+    }
+
+    if (ifd.NextIfd != null)
+      _collectOutOfLineValues(layout, ifd.NextIfd, padding);
+
+    foreach (var entry in ifd.Entries) {
+      if (entry.SubIfd != null
+        || entry.Value is not { } value
+        || entry.IsInline)
+        continue;
+
+      if (value is PaddingValue)
+        padding.Add(value);
+      else
+        layout.Items.Add(value);
+    }
   }
 
   private static void _findHoles(TiffLayout layout, TiffReader reader) {

@@ -13,12 +13,12 @@ public sealed class MpRegionCollection(XmpDocument doc) : IReadOnlyList<MpRegion
     _getBag()?.Elements(XmpNs.Rdf + "li").Count() ?? 0;
 
   public MpRegion this[int index] =>
-    new(_getBag()?.Elements(XmpNs.Rdf + "li").ElementAt(index)
-      ?? throw new ArgumentOutOfRangeException(nameof(index)));
+    new(_getDescription(_getBag()?.Elements(XmpNs.Rdf + "li").ElementAt(index)
+      ?? throw new ArgumentOutOfRangeException(nameof(index))));
 
   public IEnumerator<MpRegion> GetEnumerator() =>
     (_getBag()?.Elements(XmpNs.Rdf + "li") ?? [])
-    .Select(e => new MpRegion(e))
+    .Select(e => new MpRegion(_getDescription(e)))
     .GetEnumerator();
 
   IEnumerator IEnumerable.GetEnumerator() =>
@@ -26,10 +26,11 @@ public sealed class MpRegionCollection(XmpDocument doc) : IReadOnlyList<MpRegion
 
   public MpRegion Add(string? name, string? rectangle = null) {
     var bag = _getOrCreateBag();
-    var element = new XElement(XmpNs.Rdf + "li");
-    bag.Add(element);
+    var description = new XElement(XmpNs.Rdf + "Description");
+    var item = new XElement(XmpNs.Rdf + "li", description);
+    bag.Add(item);
 
-    var region = new MpRegion(element) {
+    var region = new MpRegion(description) {
       PersonDisplayName = name,
       Rectangle = rectangle
     };
@@ -38,11 +39,13 @@ public sealed class MpRegionCollection(XmpDocument doc) : IReadOnlyList<MpRegion
   }
 
   public void Remove(MpRegion region) {
-    if (region.Element.Parent == null)
-      return;
+    var item = region.Element.Name == XmpNs.Rdf + "Description"
+      ? region.Element.Parent
+      : region.Element;
 
-    region.Element.Remove();
+    if (item?.Parent == null) return;
 
+    item.Remove();
     _removeIfEmpty();
   }
 
@@ -51,6 +54,34 @@ public sealed class MpRegionCollection(XmpDocument doc) : IReadOnlyList<MpRegion
 
     bag.RemoveNodes();
     _removeIfEmpty();
+  }
+
+  private static XElement _getDescription(XElement item) {
+    if (item.Element(XmpNs.Rdf + "Description") is { } description)
+      return description;
+
+    description = new XElement(XmpNs.Rdf + "Description");
+
+    foreach (var node in item.Nodes().ToList()) {
+      node.Remove();
+      description.Add(node);
+    }
+
+    foreach (var attribute in item.Attributes().ToList()) {
+      attribute.Remove();
+
+      if (attribute.Name.Namespace == XmpNs.MpReg) {
+        if (description.Element(attribute.Name) == null)
+          description.Add(new XElement(attribute.Name, attribute.Value));
+      }
+      else {
+        description.Add(attribute);
+      }
+    }
+
+    item.Add(description);
+
+    return description;
   }
 
   private XElement? _getBag() {
@@ -64,26 +95,48 @@ public sealed class MpRegionCollection(XmpDocument doc) : IReadOnlyList<MpRegion
   private XElement _getOrCreateBag() {
     var desc = _doc.Rdf.GetOrCreateXmpDescription(XmpNs.Mp);
     var regionInfo = desc.GetOrCreateXmpElement(XmpNs.Mp + "RegionInfo");
-    var regions = regionInfo.GetOrCreateXmpElement(XmpNs.MpRi + "Regions");
+    var regionsDescription = regionInfo.Element(XmpNs.Rdf + "Description");
+
+    if (regionsDescription == null) {
+      regionsDescription = new XElement(XmpNs.Rdf + "Description");
+
+      if (regionInfo.Element(XmpNs.MpRi + "Regions") is { } existingRegions) {
+        existingRegions.Remove();
+        regionsDescription.Add(existingRegions);
+      }
+
+      regionInfo.Add(regionsDescription);
+    }
+
+    var regions = regionsDescription.GetOrCreateXmpElement(XmpNs.MpRi + "Regions");
     var bag = regions.GetOrCreateXmpElement(XmpNs.Rdf + "Bag");
+
+    foreach (var item in bag.Elements(XmpNs.Rdf + "li").ToList())
+      _getDescription(item);
 
     return bag;
   }
 
   private void _removeIfEmpty() {
     if (_getBag() is not { } bag || bag.HasElements) return;
+    if (bag.Parent is not { } regions) return;
 
-    var regions = bag.Parent;
     bag.Remove();
 
-    if (regions?.HasElements != false) return;
+    if (regions.HasElements) return;
+    if (regions.Parent is not { } regionsParent) return;
 
-    var regionInfo = regions.Parent;
-    regions.Remove();
+    if (regionsParent.Name == XmpNs.Rdf + "Description") {
+      var regionInfo = regionsParent.Parent;
+      regionsParent.Remove();
 
-    if (regionInfo?.HasElements != false) return;
+      if (regionInfo?.HasElements != false) return;
 
-    regionInfo.Remove();
+      regionInfo.Remove();
+    }
+    else {
+      regionsParent.Remove();
+    }
 
     _doc.RemoveEmptyDescriptions();
   }

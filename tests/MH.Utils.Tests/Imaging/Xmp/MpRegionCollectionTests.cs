@@ -27,16 +27,21 @@ public class MpRegionCollectionTests {
   }
 
   [TestMethod]
-  public void MpRegionCollection_Add_StoresValuesAsAttributes() {
+  public void MpRegionCollection_Add_StoresValuesAsElements() {
     var document = new XmpDocument(null);
     var regions = new MpRegionCollection(document);
 
     regions.Add("Martin", "0,0,1,1");
 
-    var li = document.Document.Descendants(XmpNs.Rdf + "li").Single();
+    var liDesc = document.Document.Descendants(XmpNs.Rdf + "li").Single()
+      .Element(XmpNs.Rdf + "Description");
 
-    Assert.AreEqual("Martin", (string?)li.Attribute(XmpNs.MpReg + "PersonDisplayName"));
-    Assert.AreEqual("0,0,1,1", (string?)li.Attribute(XmpNs.MpReg + "Rectangle"));
+    Assert.AreEqual("Martin", (string?)liDesc?.Element(XmpNs.MpReg + "PersonDisplayName"));
+    Assert.AreEqual("0,0,1,1", (string?)liDesc?.Element(XmpNs.MpReg + "Rectangle"));
+
+    var regionInfo = document.Document.Descendants(XmpNs.Mp + "RegionInfo").Single();
+    var regionInfoDescription = regionInfo.Element(XmpNs.Rdf + "Description");
+    Assert.IsNotNull(regionInfoDescription?.Element(XmpNs.MpRi + "Regions"));
   }
 
   [TestMethod]
@@ -152,8 +157,9 @@ public class MpRegionCollectionTests {
 
     Assert.AreEqual("Martin2", region.PersonDisplayName);
 
-    var li = document.Document.Descendants(XmpNs.Rdf + "li").Single();
-    Assert.AreEqual("Martin2", (string?)li.Attribute(XmpNs.MpReg + "PersonDisplayName"));
+    var liDesc = document.Document.Descendants(XmpNs.Rdf + "li").Single()
+      .Element(XmpNs.Rdf + "Description");
+    Assert.AreEqual("Martin2", (string?)liDesc?.Element(XmpNs.MpReg + "PersonDisplayName"));
   }
 
   [TestMethod]
@@ -166,20 +172,22 @@ public class MpRegionCollectionTests {
 
     Assert.AreEqual("0.1,0.2,0.3,0.4", region.Rectangle);
 
-    var li = document.Document.Descendants(XmpNs.Rdf + "li").Single();
-    Assert.AreEqual("0.1,0.2,0.3,0.4", (string?)li.Attribute(XmpNs.MpReg + "Rectangle"));
+    var liDesc = document.Document.Descendants(XmpNs.Rdf + "li").Single()
+      .Element(XmpNs.Rdf + "Description");
+    Assert.AreEqual("0.1,0.2,0.3,0.4", (string?)liDesc?.Element(XmpNs.MpReg + "Rectangle"));
   }
 
   [TestMethod]
   public void MpRegion_PersonDisplayName_NullRemovesProperty() {
     var document = new XmpDocument(null);
     var regions = new MpRegionCollection(document);
-    var region = regions.Add("Martin");
+    var region = regions.Add("Martin", "0,0,1,1");
 
     region.PersonDisplayName = null;
 
     Assert.IsNull(region.PersonDisplayName);
-    Assert.IsNull(document.Document.Descendants(XmpNs.Rdf + "li").SingleOrDefault()?.Attribute(XmpNs.MpReg + "PersonDisplayName"));
+    Assert.IsNull(document.Document.Descendants(XmpNs.Rdf + "li").Single()
+      .Element(XmpNs.Rdf + "Description")!.Element(XmpNs.MpReg + "PersonDisplayName"));
   }
 
   [TestMethod]
@@ -191,17 +199,21 @@ public class MpRegionCollectionTests {
     region.Rectangle = null;
 
     Assert.IsNull(region.Rectangle);
-    Assert.IsNull(document.Document.Descendants(XmpNs.Rdf + "li").Single().Attribute(XmpNs.MpReg + "Rectangle"));
+    Assert.IsNull(document.Document.Descendants(XmpNs.Rdf + "li").Single()
+      .Element(XmpNs.Rdf + "Description")!.Element(XmpNs.MpReg + "Rectangle"));
   }
 
   [TestMethod]
-  public void MpRegion_PreservesExistingAttributesWhenDescriptionIsCreated() {
+  public void MpRegionCollection_Add_NormalizesExistingRegionWithoutDescription() {
     var document = new XmpDocument(null);
 
-    var rdf = document.Document.Descendants(XmpNs.Rdf + "RDF").Single();
     var li = new XElement(XmpNs.Rdf + "li",
       new XAttribute(XmpNs.MpReg + "PersonDisplayName", "Martin"),
-      new XAttribute(XmpNs.MpReg + "Rectangle", "0,0,1,1"));
+      new XElement(XmpNs.MpReg + "Rectangle", "0,0,1,1"),
+      new XElement(_rectangleKeywords,
+        new XElement(XmpNs.Rdf + "Bag",
+          new XElement(XmpNs.Rdf + "li", "keyword1"),
+          new XElement(XmpNs.Rdf + "li", "keyword2"))));
 
     var bag = new XElement(XmpNs.Rdf + "Bag", li);
     var regionsElement = new XElement(XmpNs.MpRi + "Regions", bag);
@@ -210,20 +222,22 @@ public class MpRegionCollectionTests {
     document.Rdf.GetOrCreateXmpDescription(XmpNs.Mp).Add(regionInfo);
 
     var regions = new MpRegionCollection(document);
-    var region = regions[0];
-
-    var keywords = new[] { "keyword1", "keyword2" };
-    li.SetXmpArray(_rectangleKeywords, keywords);
-
-    Assert.AreEqual("Martin", region.PersonDisplayName);
-    Assert.AreEqual("0,0,1,1", region.Rectangle);
+    regions.Add("New person");
 
     var description = li.Element(XmpNs.Rdf + "Description");
     Assert.IsNotNull(description);
-    Assert.AreEqual("Martin", (string?)description!.Attribute(XmpNs.MpReg + "PersonDisplayName"));
-    Assert.AreEqual("0,0,1,1", (string?)description.Attribute(XmpNs.MpReg + "Rectangle"));
+    Assert.AreEqual("Martin", (string?)description!.Element(XmpNs.MpReg + "PersonDisplayName"));
+    Assert.AreEqual("0,0,1,1", (string?)description.Element(XmpNs.MpReg + "Rectangle"));
+    CollectionAssert.AreEqual(new[] { "keyword1", "keyword2" },
+      description.GetXmpStringArray(_rectangleKeywords)!.ToArray());
+
+    Assert.AreEqual("Martin", regions[0].PersonDisplayName);
+    Assert.AreEqual("0,0,1,1", regions[0].Rectangle);
 
     Assert.IsNull(li.Attribute(XmpNs.MpReg + "PersonDisplayName"));
     Assert.IsNull(li.Attribute(XmpNs.MpReg + "Rectangle"));
+
+    var regionInfoDescription = regionInfo.Element(XmpNs.Rdf + "Description");
+    Assert.IsNotNull(regionInfoDescription?.Element(XmpNs.MpRi + "Regions"));
   }
 }

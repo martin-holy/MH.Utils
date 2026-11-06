@@ -412,31 +412,15 @@ public class JpegFile {
     }
   }
 
-  public static bool Write(Stream input, string destPath, JpegMetadataWriter writer) =>
-    _write(input, destPath, writer, false);
-
-  private static bool _write(Stream input, string destPath, JpegMetadataWriter writer, bool canCloseInput) {
-    var tmpPath = destPath + ".tmp";
-
+  public static bool Write(Stream source, string destPath, JpegMetadataWriter writer) {
     try {
-      using (var output = File.Create(tmpPath))
-        writer.Write(input, output);
-
-      if (canCloseInput) input.Close();
-
-      File.Move(tmpPath, destPath, true);
+      var plan = JpegInPlaceWriter.CreateWritePlan(source, writer);
+      BinaryInPlaceWriter.Write(source, destPath, plan);
 
       return true;
     }
     catch (Exception ex) {
       Log.Error(ex, destPath);
-
-      try {
-        if (File.Exists(tmpPath))
-          File.Delete(tmpPath);
-      }
-      catch { }
-
       return false;
     }
   }

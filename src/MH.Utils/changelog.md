@@ -6,6 +6,7 @@
 	- [N] ExifMetadata: Ensure padding for in-place writing
 	- [U] TiffLayoutPlanner: bytes alignment and padding
 	- [U] ExifMetadata: Tiff layout order
+	- [B] MpRegionCollection: XMP Microsoft Photo structure
 
 5.2.0:
 	- [N] RemoveMetadataOptions enum

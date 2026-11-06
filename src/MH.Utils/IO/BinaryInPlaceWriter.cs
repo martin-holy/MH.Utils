@@ -62,6 +62,35 @@ public static class BinaryInPlaceWriter {
     stream.Flush();
   }
 
+  public static void Write(Stream source, string destPath, IBinaryWritePlan plan) {
+    if (!source.CanRead || !source.CanSeek)
+      throw new ArgumentException("The source stream must support reading and seeking.", nameof(source));
+
+    var tmpPath = _createTemporaryPath(destPath);
+
+    try {
+      source.Position = 0;
+
+      using (var destination = new FileStream(tmpPath, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None)) {
+        if (plan.RequiresFullRewrite) {
+          plan.WriteFullRewrite(source, destination);
+        }
+        else {
+          source.CopyTo(destination);
+          ExecuteMoves(destination, plan.Moves);
+          ExecuteWrites(destination, plan.Writes);
+        }
+
+        destination.Flush(true);
+      }
+
+      File.Move(tmpPath, destPath, true);
+    }
+    finally {
+      _deleteTemporaryFile(tmpPath);
+    }
+  }
+
   private static void _writeFullRewrite(string filePath, IBinaryWritePlan plan) {
     var temporaryPath = _createTemporaryPath(filePath);
 

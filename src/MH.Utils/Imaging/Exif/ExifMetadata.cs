@@ -27,18 +27,23 @@ public class ExifMetadata(TiffReader? reader) {
 
     var srcIfd0 = Reader.GetIfd0();
     var destIfd0 = TiffFile.Ifd0;
-    _setIfExists(ExifTag.ImageWidth, width, srcIfd0, destIfd0);
-    _setIfExists(ExifTag.ImageHeight, height, srcIfd0, destIfd0);
+    _setUShortIfExists(ExifTag.ImageWidth, width, srcIfd0, destIfd0);
+    _setUShortIfExists(ExifTag.ImageHeight, height, srcIfd0, destIfd0);
 
     if (TiffFile.ExifIfd is not { } destExifIfd) return;
     var srcExifIfd = Reader.GetExifIfd();
-    _setIfExists(ExifTag.PixelXDimension, width, srcExifIfd, destExifIfd);
-    _setIfExists(ExifTag.PixelYDimension, height, srcExifIfd, destExifIfd);
+    _setUIntIfExists(ExifTag.PixelXDimension, width, srcExifIfd, destExifIfd);
+    _setUIntIfExists(ExifTag.PixelYDimension, height, srcExifIfd, destExifIfd);
   }
 
-  private void _setIfExists(ExifTag tag, ushort value, TiffEntryData[] src, TiffIfd dest) {
+  private void _setUShortIfExists(ExifTag tag, ushort value, TiffEntryData[] src, TiffIfd dest) {
     if (src.GetUShort(tag, Reader!.IsLittleEndian) is { } current && current != value)
       _setUShort(dest, tag, value);
+  }
+
+  private void _setUIntIfExists(ExifTag tag, uint value, TiffEntryData[] src, TiffIfd dest) {
+    if (src.GetUInt(tag, Reader!.IsLittleEndian) is { } current && current != value)
+      _setUInt(dest, tag, value);
   }
 
   public ushort? GetOrientation() =>
@@ -275,12 +280,28 @@ public class ExifMetadata(TiffReader? reader) {
 
   private void _setUShort(TiffIfd ifd, ExifTag tag, ushort? value) {
     if (!value.HasValue) {
-      ifd.RemoveEntry(tag);
+      if (ifd.RemoveEntry(tag))
+        IsModified = true;
+
       return;
     }
 
     var data = BinarySpanWriter.GetBytes(value.Value, TiffFile.IsLittleEndian);
     ifd.SetEntry(tag, TiffType.Short, data);
+    IsModified = true;
+  }
+
+  private void _setUInt(TiffIfd ifd, ExifTag tag, uint? value) {
+    if (!value.HasValue) {
+      if (ifd.RemoveEntry(tag))
+        IsModified = true;
+
+      return;
+    }
+
+    var data = BinarySpanWriter.GetBytes(value.Value, TiffFile.IsLittleEndian);
+    ifd.SetEntry(tag, TiffType.Long, data);
+    IsModified = true;
   }
 
   private TiffFile _getTiffFile() {

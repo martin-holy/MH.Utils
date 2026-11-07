@@ -62,4 +62,13 @@ public ref struct BinarySpanWriter {
 
     return data;
   }
+
+  public static byte[] GetBytes(uint value, bool littleEndian) {
+    byte[] data = new byte[4];
+    var writer = new BinarySpanWriter(data, littleEndian);
+
+    writer.WriteUInt32(value);
+
+    return data;
+  }
 }

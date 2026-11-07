@@ -7,6 +7,9 @@
 	- [U] TiffLayoutPlanner: bytes alignment and padding
 	- [U] ExifMetadata: Tiff layout order
 	- [B] MpRegionCollection: XMP Microsoft Photo structure
+	- [N] BinarySpanWriter: uint GetBytes
+	- [N] TiffEntryDataExtensions: GetUInt
+	- [B] ExifMetadata: UpdateDimensions
 
 5.2.0:
 	- [N] RemoveMetadataOptions enum

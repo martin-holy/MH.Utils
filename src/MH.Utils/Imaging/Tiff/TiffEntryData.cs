@@ -28,4 +28,19 @@ public static class TiffEntryDataExtensions {
       ? (ushort)(entry.ValueOrOffset & 0xFFFF)
       : (ushort)(entry.ValueOrOffset >> 16);
   }
+
+  public static uint? GetUInt(this TiffEntryData[] entries, ExifTag tag, bool littleEndian) =>
+    entries.FindEntry(tag)?.GetUIntValue(littleEndian);
+
+  public static uint GetUIntValue(this TiffEntryData entry, bool littleEndian) {
+    if (entry.Type != (ushort)TiffType.Long)
+      throw new InvalidDataException("Entry is not UINT.");
+
+    if (entry.Count != 1)
+      throw new InvalidDataException("Entry is not a single UINT.");
+
+    return littleEndian
+      ? (uint)(entry.ValueOrOffset & 0xFFFFFFFF)
+      : (uint)(entry.ValueOrOffset >> 32);
+  }
 }

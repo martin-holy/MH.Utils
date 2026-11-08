@@ -11,7 +11,7 @@ public class ExifMetadataTests {
     var metadata = new ExifMetadata(new TiffReader(original));
     metadata.SetComment("test");
 
-    var padded = metadata.ToTiff(addPadding: true);
+    var padded = metadata.ToTiff();
 
     Assert.IsTrue(padded.Length > original.Length);
 
@@ -20,7 +20,7 @@ public class ExifMetadataTests {
     Assert.AreEqual("test", reloaded.GetComment());
 
     reloaded.SetRating(4);
-    var updated = reloaded.ToTiff(addPadding: true);
+    var updated = reloaded.ToTiff();
 
     Assert.AreEqual(padded.Length, updated.Length);
   }

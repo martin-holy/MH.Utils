@@ -21,6 +21,8 @@ public class ExifMetadata(TiffReader? reader) {
   public TiffFile TiffFile => _getTiffFile();
   public TiffReader? Reader { get; } = reader;
   public bool IsModified { get; private set; }
+  public bool EnsurePadding { get; set; } = true;
+  public int PaddingChunkSize { get; set; } = 1024;
 
   public void UpdateDimensions(ushort width, ushort height) {
     if (Reader == null) return;
@@ -270,11 +272,11 @@ public class ExifMetadata(TiffReader? reader) {
     return true;
   }
 
-  public byte[] ToTiff(bool addPadding = false, int paddingChunk = 1024) {
+  public byte[] ToTiff() {
     var file = TiffFile;
-    if (addPadding) file.EnsurePadding(paddingChunk);
+    if (EnsurePadding) file.EnsurePadding(PaddingChunkSize);
     var layout = TiffLayoutBuilder.Build(file, Reader);
-    TiffLayoutPlanner.Plan(layout, paddingChunk);
+    TiffLayoutPlanner.Plan(layout, PaddingChunkSize);
     return TiffSerializer.Serialize(file, Reader?.IsLittleEndian ?? true);
   }
 

@@ -371,8 +371,10 @@ public class JpegFile {
     if (removeThumbnail && !removeExif) {
       var jpeg = new JpegFile(srcPath, JpegMetadataLoad.Exif);
 
-      if (jpeg.Exif.RemoveThumbnail())
+      if (jpeg.Exif.RemoveThumbnail()) {
+        jpeg.Exif.EnsurePadding = false;
         writer.Exif = jpeg.Exif.ToTiff();
+      }
     }
 
     return Write(srcPath, writer);
@@ -391,7 +393,7 @@ public class JpegFile {
   }
 
   private JpegMetadataWriter? _createWriterIfModified() {
-    var exif = _exif?.IsModified == true ? _exif.ToTiff(addPadding: true) : null;
+    var exif = _exif?.IsModified == true ? _exif.ToTiff() : null;
     var xmp = _xmp?.Doc?.IsModified == true ? _xmp.ToPacket() : null;
 
     if (exif == null && xmp == null) return null;

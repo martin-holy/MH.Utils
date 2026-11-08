@@ -372,7 +372,7 @@ public class JpegFile {
       var jpeg = new JpegFile(srcPath, JpegMetadataLoad.Exif);
 
       if (jpeg.Exif.RemoveThumbnail())
-        writer.Exif = jpeg.Exif.ToTiff(addPadding: true);
+        writer.Exif = jpeg.Exif.ToTiff();
     }
 
     return Write(srcPath, writer);

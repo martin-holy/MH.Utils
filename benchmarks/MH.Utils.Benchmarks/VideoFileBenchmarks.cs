@@ -26,29 +26,81 @@ public class VideoFileBenchmarks {
     var vid = new VideoMetadata(_stream);
   }
 
-  [Benchmark]
+  /*[Benchmark]
+  public void ReadMetadata() {
+    var reader = new IsoBmffReader(_stream);
+    var metadata = new IsoBmffMetadata(_stream, reader);
+  }*/
+
+  /*[Benchmark]
   public void CtorOnly() {
     var reader = new IsoBmffReader(_stream);
   }
 
   [Benchmark]
   public void FindMoov() {
-    var reader = new IsoBmffReader(_stream);
-    var moov = reader.FindMoov() ?? throw new InvalidDataException("ISO BMFF moov box not found.");
+    var file = new IsoBmffFile(_stream);
+    var moov = file._findMoov() ?? throw new InvalidDataException("ISO BMFF moov box not found.");
   }
 
   [Benchmark]
   public void FindVideoTrack() {
-    var reader = new IsoBmffReader(_stream);
-    var moov = reader.FindMoov() ?? throw new InvalidDataException("ISO BMFF moov box not found.");
-    var trak = reader.FindVideoTrack(moov) ?? throw new InvalidDataException("Video track not found.");
+    var file = new IsoBmffFile(_stream);
+    var moov = file._findMoov() ?? throw new InvalidDataException("ISO BMFF moov box not found.");
+    var trak = file._findVideoTrack(moov) ?? throw new InvalidDataException("Video track not found.");
   }
 
   [Benchmark]
   public void FindTkhd() {
+    var file = new IsoBmffFile(_stream);
+    var moov = file._findMoov() ?? throw new InvalidDataException("ISO BMFF moov box not found.");
+    var trak = file._findVideoTrack(moov) ?? throw new InvalidDataException("Video track not found.");
+    var tkhd = file._reader.FindChild(trak, IsoBmffTypes.Tkhd) ?? throw new InvalidDataException("Video track has no tkhd box.");
+  }*/
+
+  /*[Benchmark]
+  public void ReaderOnly() {
     var reader = new IsoBmffReader(_stream);
-    var moov = reader.FindMoov() ?? throw new InvalidDataException("ISO BMFF moov box not found.");
-    var trak = reader.FindVideoTrack(moov) ?? throw new InvalidDataException("Video track not found.");
-    var tkhd = reader.FindChild(trak, IsoBmffTypes.Tkhd) ?? throw new InvalidDataException("Video track has no tkhd box.");
+  }*/
+
+
+  /*| Method    | Mean     | Error    | StdDev   | Gen0   | Allocated |
+    |---------- |---------:|---------:|---------:|-------:|----------:|
+    | ReadBoxes | 14.44 us | 3.917 us | 0.215 us | 2.4719 |   5.06 KB |*/
+  /*[Benchmark]
+  public void ReadBoxes() {
+    var reader = new IsoBmffReader(_stream);
+    var boxes = reader.ReadBoxes(IsoBmffFile._isContainer);
+  }*/
+
+  /*[Benchmark]
+  public void FindMoovUsingReadBoxes() {
+    var reader = new IsoBmffReader(_stream);
+    var boxes = reader.ReadBoxes(IsoBmffFile._isContainer);
+    var moov = boxes.FindBox(IsoBmffTypes.Moov);
+  }
+
+  [Benchmark]
+  public void FindMoovUsingReader() {
+    var reader = new IsoBmffReader(_stream);
+    var moov = _findMoov(reader);
+  }*/
+
+  private IsoBmffBox? _findMoov(IsoBmffReader reader) {
+    var end = _stream.Length;
+
+    _stream.Position = 0;
+
+    while (_stream.Position < end) {
+      if (reader.ReadBox(end) is not { } box)
+        break;
+
+      if (box.Type == IsoBmffTypes.Moov)
+        return box;
+
+      _stream.Position = box.End;
+    }
+
+    return null;
   }
 }

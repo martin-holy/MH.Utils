@@ -10,6 +10,7 @@
 	- [N] BinarySpanWriter: uint GetBytes
 	- [N] TiffEntryDataExtensions: GetUInt
 	- [B] ExifMetadata: UpdateDimensions
+	- [N] Localization
 
 5.2.0:
 	- [N] RemoveMetadataOptions enum

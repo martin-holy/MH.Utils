@@ -147,11 +147,34 @@ public static class LocalizationManager {
     };
   }
 
-  public static string ExportTemplate(Assembly assembly, string language, string? description = null) {
+  public static IReadOnlyDictionary<string, string> ExportTranslations(string language, string? description = null) {
+    _ensureInitialized();
+
+    var result = new Dictionary<string, string>(StringComparer.Ordinal);
+
+    foreach (var pair in _assemblies.OrderBy(x => x.Key.GetName().Name, StringComparer.Ordinal))
+      result.Add(
+        pair.Key.GetName().Name!,
+        _exportTranslation(pair.Key, pair.Value, language, description));
+
+    return result;
+  }
+
+  public static string ExportTranslation(Assembly assembly, string language, string? description = null) {
     _ensureInitialized();
 
     if (!_assemblies.TryGetValue(assembly, out var defaults))
-      throw new InvalidOperationException($"Assembly '{assembly.GetName().Name}' is not registered.");
+      throw new InvalidOperationException(
+        $"Assembly '{assembly.GetName().Name}' is not registered.");
+
+    return _exportTranslation(assembly, defaults, language, description);
+  }
+
+  private static string _exportTranslation(
+    Assembly assembly,
+    IReadOnlyDictionary<string, string> defaults,
+    string language,
+    string? description) {
 
     language = CultureInfo.GetCultureInfo(language).Name;
 
@@ -169,7 +192,8 @@ public static class LocalizationManager {
     builder.AppendLine(language);
     builder.AppendLine();
 
-    foreach (var pair in defaults.OrderBy(x => x.Key, StringComparer.Ordinal)) {
+    foreach (var pair in defaults.OrderBy(
+      x => x.Key, StringComparer.Ordinal)) {
       builder.Append(pair.Key);
       builder.Append('=');
       builder.AppendLine(LanguageCatalog.Escape(pair.Value));

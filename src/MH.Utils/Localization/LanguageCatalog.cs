@@ -6,12 +6,10 @@ using System.Text;
 namespace MH.Utils.Localization;
 
 internal sealed class LanguageCatalog {
-  public bool Exists { get; private init; }
-
   public Dictionary<string, string> Values { get; } = new(StringComparer.Ordinal);
 
   public static LanguageCatalog Load(Stream stream) {
-    var result = new LanguageCatalog { Exists = true };
+    var result = new LanguageCatalog();
 
     using var reader = new StreamReader(
       stream,

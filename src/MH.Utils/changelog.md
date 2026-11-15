@@ -10,7 +10,7 @@
 	- [N] BinarySpanWriter: uint GetBytes
 	- [N] TiffEntryDataExtensions: GetUInt
 	- [B] ExifMetadata: UpdateDimensions
-	- [N] Localization
+	- [N] Localization manager with plural support and multiple translation fallback
 
 5.2.0:
 	- [N] RemoveMetadataOptions enum

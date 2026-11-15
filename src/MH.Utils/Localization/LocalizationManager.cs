@@ -78,7 +78,7 @@ public static class LocalizationManager {
     return string.Format(_culture, Get(assembly, key), args);
   }
 
-  public static string FormatPlural(Assembly assembly, string key, int count) {
+  public static string FormatPlural(Assembly assembly, string key, int count, params object?[] args) {
     _ensureInitialized();
 
     if (!_assemblies.TryGetValue(assembly, out var defaults))
@@ -88,11 +88,12 @@ public static class LocalizationManager {
       string category = _getPluralCategory(language, count);
 
       if (_tryGetTranslation(assembly, defaults, language, key, category, out string? value))
-        return string.Format(_culture, value!, count);
+        return string.Format(_culture, value!, [count, .. args]);
     }
 
     _reportMissing(assembly, key);
-    return string.Format(_culture, key, count);
+
+    return string.Format(_culture, key, [count, .. args]);
   }
 
   public static LanguageValidationResult Validate(Assembly assembly, string language, bool userOverride = false) {

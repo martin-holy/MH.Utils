@@ -8,7 +8,7 @@ using System.Text;
 namespace MH.Utils.Localization;
 
 public static class LocalizationManager {
-  private static readonly Dictionary<Assembly, IReadOnlyDictionary<string, string>> _assemblies = [];
+  private static readonly Dictionary<Assembly, Dictionary<string, string>> _assemblies = [];
   private static readonly Dictionary<(Assembly Assembly, string Language, bool User), LanguageCatalog> _catalogs = [];
   private static readonly HashSet<(Assembly Assembly, string Key)> _reportedMissing = [];
   private static readonly string[] _pluralCategories = ["zero", "one", "two", "few", "many", "other"];
@@ -40,8 +40,23 @@ public static class LocalizationManager {
     }
   }
 
-  public static void Register(Assembly assembly, IReadOnlyDictionary<string, string> defaultTranslations) {
-    _assemblies.Add(assembly, defaultTranslations);
+  public static void Register(Assembly assembly, ReadOnlySpan<(string Key, string Value)> translations) {
+    var defaults = _tryGetOrCreateDic(assembly);
+
+    foreach (var (key, value) in translations) {
+      if (!defaults.TryAdd(key, value))
+        throw new InvalidOperationException(
+          $"Duplicate translation key '{key}' in assembly '{assembly.GetName().Name}'.");
+    }
+  }
+
+  private static Dictionary<string, string> _tryGetOrCreateDic(Assembly assembly) {
+    if (!_assemblies.TryGetValue(assembly, out var defaults)) {
+      defaults = new Dictionary<string, string>(StringComparer.Ordinal);
+      _assemblies.Add(assembly, defaults);
+    }
+
+    return defaults;
   }
 
   public static void Initialize(string? languages, ILanguageFileProvider fileProvider, string defaultLanguage = "en") {
@@ -61,8 +76,7 @@ public static class LocalizationManager {
   public static string Get(Assembly assembly, string key) {
     _ensureInitialized();
 
-    if (!_assemblies.TryGetValue(assembly, out var defaults))
-      throw new InvalidOperationException($"Assembly '{assembly.GetName().Name}' is not registered.");
+    var defaults = _tryGetOrCreateDic(assembly);
 
     foreach (string language in _languages) {
       if (_tryGetTranslation(assembly, defaults, language, key, null, out string? value))
